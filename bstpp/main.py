@@ -249,11 +249,6 @@ class Point_Process_Model:
         args,points = self._scale_xyt(data,args,comp_grid)
         self.points = points
 
-        window = args.get('window', None)
-        if window is not None:
-            spatial_window = self.args.get('spatial_window', None)
-            self.set_window(window, spatial_window)
-
         if args['model'] in ['lgcp','cox_hawkes']:
             args["gp_kernel"]=exp_sq_kernel
 
@@ -1794,54 +1789,6 @@ class Hawkes_Model(Point_Process_Model):
         points['T'] = (points['T']*self.T/self.args['T'])
         #filter to spatial window
         return points.sjoin(self.A[['geometry']])[['X','Y','T','geometry']]
-
-
-    def plot_day_effect(self):
-        import numpy as np
-        import matplotlib.pyplot as plt
-        from numpyro.diagnostics import hpdi
-        import calendar
-
-        plt.close('all')
-        """
-        Plot the mean and 90% CI of the posterior daily effect (w_day).
-        The x-axis is days (1–365 or 1–366), with month names as ticks.
-        """
-        if 'samples' not in dir(self):
-            raise Exception("MCMC posterior sampling has not been performed yet.")
-        if 'w_day' not in self.samples:
-            raise Exception("No daily effects found in the model.")
-
-        # Get posterior samples for w_day
-        w_day_post = np.array(self.samples['w_day'])  # shape (num_samples, n_days)
-        w_day_mean = np.mean(w_day_post, axis=0)
-        w_day_hpdi = hpdi(w_day_post, prob=0.9)
-
-        # Day labels
-        n_days = w_day_post.shape[1]
-        days = np.arange(1, n_days + 1)
-
-        # Month tick positions and names
-        month_starts = [1]
-        for m in range(1, 12):
-            month_starts.append(month_starts[-1] + calendar.monthrange(2001, m)[1])  # 2001 is not a leap year
-        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
-        # Create plot
-        fig, ax = plt.subplots(1, 1, figsize=(12, 5))
-        ax.plot(days, w_day_mean, label="mean estimated $w_{day}$")
-        ax.fill_between(days, w_day_hpdi[0], w_day_hpdi[1], alpha=0.4,
-                        color="palegoldenrod", label="90% CI")
-
-        ax.set_xticks(month_starts)
-        ax.set_xticklabels(month_names, rotation=45)
-        ax.set_ylabel('$w_{day}$')
-        ax.set_xlabel('Day of Year')
-        ax.set_title('Posterior Effect for Day of Year')
-        ax.legend()
-        plt.tight_layout()
-        # Optionally: return fig
 
 
 class LGCP_Model(Point_Process_Model):
