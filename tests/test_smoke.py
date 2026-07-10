@@ -57,6 +57,24 @@ def make_hawkes(cox, A=A_RECT, **extra):
     return Hawkes_Model(DATA, A, T_DAYS, cox_background=cox, **PRIORS, **extra)
 
 
+# --- covariate dataset: ~40 events on the unit square + a 2x2 covariate grid ---
+_cov_rng = np.random.RandomState(2)
+_N_COV = 40
+COV_DATA = pd.DataFrame({
+    "X": _cov_rng.uniform(0.05, 0.95, _N_COV),
+    "Y": _cov_rng.uniform(0.05, 0.95, _N_COV),
+    "T": np.sort(_cov_rng.uniform(0, T_DAYS, _N_COV)),
+})
+# 2x2 grid of covariate polygons over the unit square, single covariate column.
+_COV_CELLS = [box(x, y, x + 0.5, y + 0.5) for y in (0.0, 0.5) for x in (0.0, 0.5)]
+COV_GDF = gpd.GeoDataFrame({"cov": [0.5, -1.0, 1.5, -0.5], "geometry": _COV_CELLS})
+
+
+def make_hawkes_cov():
+    return Hawkes_Model(COV_DATA, A_RECT, T_DAYS, cox_background=False,
+                        spatial_cov=COV_GDF, cov_names=["cov"], **PRIORS)
+
+
 def make_lgcp(A=A_RECT):
     return LGCP_Model(DATA, A, T_DAYS, a_0=dist.Normal(0, 5))
 
@@ -143,3 +161,31 @@ def test_simulate_runs():
     Tr = sim["T"].values
     assert (Tr >= 0).all() and (Tr <= T_DAYS + 1e-6).all()
     assert (Tr > 2 * 365.0).any()              # events in the 2.0-2.5 year partial window
+
+
+# ---- per-cell covariate background (fork regression: mu_xyt was indexed at events
+#      before contracting against cell areas -> shape error) ----
+def test_hawkes_covariate_background():
+    m = make_hawkes_cov()
+    args = m.args
+    assert args["spatial_cov"].shape == (4, 1)     # 4 covariate cells, 1 covariate
+    assert len(args["cov_area"]) == 4
+    assert len(args["cov_ind"]) == _N_COV          # events index into the cell vector
+
+    tr = _trace(m)
+
+    # (a) trace succeeds with finite loglik
+    assert np.isfinite(_loglik(tr))
+
+    # (b) mu_xyt is per cell (4,), not per event
+    mu_xyt = np.asarray(tr["mu_xyt"]["value"])
+    assert mu_xyt.shape == (4,)
+    assert mu_xyt.shape != (_N_COV,)
+
+    # (c) Itot_txy_back == exp(a_0 + b_0) @ cov_area * T, recomputed from traced a_0 and w
+    a_0_val = float(np.asarray(tr["a_0"]["value"]))
+    w_val = np.asarray(tr["w"]["value"])
+    b_0_vals = np.asarray(args["spatial_cov"]) @ w_val
+    expected = np.exp(a_0_val + b_0_vals) @ np.asarray(args["cov_area"]) * args["T"]
+    got = float(np.asarray(tr["Itot_txy_back"]["value"]))
+    assert np.isclose(got, expected, rtol=1e-5)

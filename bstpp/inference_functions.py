@@ -33,13 +33,15 @@ def spatiotemporal_hawkes_model(args):
       if 'spatial_cov' in args:
         w = numpyro.sample("w", args['priors']['w'])
         b_0 = numpyro.deterministic("b_0", args['spatial_cov'] @ w)
-        # Use precomputed indices for event locations
-        mu_xyt = numpyro.deterministic("mu_xyt", jnp.exp(a_0 + b_0[args['cov_ind']]))
+        # mu_xyt is defined per covariate cell; events index into it below.
+        mu_xyt = numpyro.deterministic("mu_xyt", jnp.exp(a_0 + b_0))            # (n_cells,)
+        # Background integral contracts cells against their areas.
         Itot_txy_back = numpyro.deterministic(
             "Itot_txy_back",
             mu_xyt @ args['cov_area'] * args['T']
         )
-        mu_xyt_events = mu_xyt
+        # Use precomputed indices to evaluate the per-cell rate at each event.
+        mu_xyt_events = mu_xyt[args['cov_ind']]                                  # (n_events,)
       else:
         b_0 = 0
         mu_xyt = numpyro.deterministic("mu_xyt", jnp.exp(a_0 + b_0))
