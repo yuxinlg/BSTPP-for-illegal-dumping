@@ -1715,10 +1715,10 @@ class Hawkes_Model(Point_Process_Model):
     def _sim_hawkes_bg(self,parameters):
         a_0 = parameters['a_0']
         if 'spatial_cov' in self.args:
-            geo_df = self.spatial_cov
+            geo_df = self.spatial_cov.copy()
             geo_df['log_intensity'] = a_0 + np.log(self.args['T']) + parameters['b_0']
         else:
-            geo_df = self.A
+            geo_df = self.A.copy()
             geo_df['log_intensity'] = a_0 + np.log(self.args['T'])
         A_ = self.args['A_']
         geo_df['area'] = geo_df.area/((A_[0,1]-A_[0,0])*(A_[1,1]-A_[1,0]))

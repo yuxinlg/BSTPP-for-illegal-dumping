@@ -241,3 +241,31 @@ def test_log_expected_likelihood_rebuilds_pairs():
     bad.loc[bad.index[-1], "T"] = T_DAYS * 1.5
     with pytest.raises(ValueError):
         train.log_expected_likelihood(bad)
+
+
+# ---- simulate() must not mutate the user-visible GeoDataFrames (_sim_hawkes_bg
+#      wrote 'log_intensity'/'area' into self.spatial_cov / self.A) ----
+def test_simulate_does_not_mutate_geodataframes():
+    # covariate branch -> guards self.spatial_cov.copy()
+    m = make_hawkes_cov()
+    cov_cols = list(m.spatial_cov.columns)
+    A_cols = list(m.A.columns)
+    np.random.seed(0)
+    params = {"a_0": 1.0, "alpha": 0.1, "beta": 1.0, "sigmax_2": 0.1, "w": np.array([0.5])}
+    m.simulate(params)
+    assert list(m.spatial_cov.columns) == cov_cols   # no 'log_intensity'/'area' leaked in
+    assert list(m.A.columns) == A_cols
+    assert "log_intensity" not in m.spatial_cov.columns and "area" not in m.spatial_cov.columns
+
+    # no-covariate branch -> guards self.A.copy()
+    m2 = make_hawkes(cox=False, A=A_GDF)
+    A2_cols = list(m2.A.columns)
+    np.random.seed(1)
+    p2 = {"a_0": 2.0, "f_t": np.zeros(m2.args["n_t"]), "f_a": np.zeros(m2.args["n_s"]),
+          "f_xy": np.zeros(m2.args["n_xy"] ** 2), "alpha": 0.05, "beta": 1.0, "sigmax_2": 0.25}
+    m2.simulate(p2)
+    assert list(m2.A.columns) == A2_cols
+    assert "log_intensity" not in m2.A.columns and "area" not in m2.A.columns
+
+    # the window-local rename in the model fn broke nothing: cox_hawkes still traces
+    assert np.isfinite(_loglik(_trace(make_hawkes(cox=True))))
