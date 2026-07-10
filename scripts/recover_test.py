@@ -126,19 +126,28 @@ def posterior_dict(fit, use_nuts, num_steps, num_warmup, num_samples, lr=0.01):
     return {k: np.asarray(v) for k, v in fit.samples.items()}
 
 
-def plugin_excitation_share(fit, truth):
-    """Evaluate the model's own Itot_excite / Itot_txy formulas AT the truth params on the
-    simulated events (same window, same truncated integral) -- the plug-in true share."""
+def truth_integrals(fit, truth):
+    """Trace the model's own formulas AT the truth params on the simulated events
+    (same window, same truncated integral); return (Itot_excite, Itot_txy).
+
+    Both plug-in targets derive from these: the excitation share Ie/Itxy, and the
+    identified log-integral background target log(Itxy - Ie) = log(Itot_time*Itot_xy)."""
     fixed = {k: truth[k] for k in LATENT}
     tr = handlers.trace(handlers.substitute(handlers.seed(fit.model, jax.random.PRNGKey(2)),
                                             fixed)).get_trace(fit.args)
     Ie = float(np.asarray(tr["Itot_excite"]["value"]))
     Itxy = float(np.asarray(tr["Itot_txy"]["value"]))
-    return Ie / Itxy
+    return Ie, Itxy
 
 
 def intercept_combination(a_0, f_t, f_a, f_xy, season_idx):
-    """a_0 + mean(f_t) + mean(f_a[season_idx_of_t]) + spatial-mean(f_xy)."""
+    """a_0 + mean(f_t) + mean(f_a[season_idx_of_t]) + spatial-mean(f_xy).
+
+    DIAGNOSTIC ONLY -- approximately identified. This is a MEAN of logs, but the
+    likelihood pins only LOGS of integrals: non-constant tilts between fields that
+    preserve int exp(f) leave this combination free to drift (verified empirically:
+    components drifted by -0.76/+0.25/+0.48/-0.44 while log(Itot_time*Itot_xy)
+    covered). The pass/fail criterion uses the log-integral target instead."""
     return (np.asarray(a_0) + np.asarray(f_t).mean()
             + np.asarray(f_a)[season_idx].mean() + np.asarray(f_xy).mean())
 
@@ -191,6 +200,20 @@ def main():
               f"[{s['lo']:8.3f}, {s['hi']:8.3f}]   {'yes' if cov else 'NO'}")
 
     if in_class:
+        Ie_true, Itxy_true = truth_integrals(fit, truth)
+
+        # Identified background target: log(Itot_txy - Itot_excite) = log(Itot_time*Itot_xy).
+        # (Replaces the mean-log intercept combination as the pass/fail criterion;
+        # that combination is only approximately identified -- see its docstring.)
+        logback_true = float(np.log(Itxy_true - Ie_true))
+        logback_post = np.log(np.asarray(post["Itot_txy"]) - np.asarray(post["Itot_excite"]))
+        s = summarize(logback_post)
+        cov = covered(s, logback_true)
+        results.append(("log_background", cov))
+        print(f"{'log_bg':9s}  {logback_true:7.3f}  {s['mean']:8.3f}  {s['sd']:7.3f}  "
+              f"[{s['lo']:8.3f}, {s['hi']:8.3f}]   {'yes' if cov else 'NO'}   (identified log-integral)")
+
+        # Mean-log combination retained as a printed diagnostic (no pass/fail).
         sidx = fit.args["season_idx_of_t"]
         icc_true = float(intercept_combination(truth["a_0"], truth["f_t"], truth["f_a"],
                                                truth["f_xy"], sidx))
@@ -199,13 +222,11 @@ def main():
                                   post["f_xy"][i], sidx)
             for i in range(len(post["a_0"]))
         ])
-        s = summarize(icc_post)
-        cov = covered(s, icc_true)
-        results.append(("intercept_combo", cov))
-        print(f"{'a0+fbar':9s}  {icc_true:7.3f}  {s['mean']:8.3f}  {s['sd']:7.3f}  "
-              f"[{s['lo']:8.3f}, {s['hi']:8.3f}]   {'yes' if cov else 'NO'}   (identified combination)")
+        si = summarize(icc_post)
+        print(f"{'a0+fbar':9s}  {icc_true:7.3f}  {si['mean']:8.3f}  {si['sd']:7.3f}  "
+              f"[{si['lo']:8.3f}, {si['hi']:8.3f}]   ----   (mean-log diagnostic, no pass/fail)")
 
-        share_true = plugin_excitation_share(fit, truth)
+        share_true = Ie_true / Itxy_true
         share_post = summarize(np.asarray(post["Itot_excite"]) / np.asarray(post["Itot_txy"]))
         share_cov = covered(share_post, share_true)
         results.append(("exc_share", share_cov))
