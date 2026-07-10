@@ -134,11 +134,17 @@ def spatiotemporal_hawkes_model(args):
           spatial_integral = jnp.sum(rate_xy[args['spatial_grid_cells']])/args['n_xy']**2
       Itot_xy=numpyro.deterministic("Itot_xy", spatial_integral)
 
-      #Calculate total background integral on the seasonal diagonal a = sigma(t)
+      # Total background integral on the seasonal diagonal a = sigma(t), computed
+      # EXACTLY via the precomputed (n_t x n_s) overlap matrix season_overlap: for
+      # each temporal cell, seasonal_mass integrates exp(f_a[sigma(t)]) over the cell
+      # (W already carries the internal cell measure, so no extra /n_t*T factor).
+      # This replaces the old midpoint rule exp(a_0 + f_t + f_a[season_idx_of_t]).
+      seasonal_mass = args['season_overlap'] @ jnp.exp(f_a)          # (n_t,)
+      # rate_time is a DIAGNOSTIC ONLY: the exact per-cell average intensity.
       rate_time = numpyro.deterministic("rate_time",
-          jnp.exp(a_0 + f_t + f_a[args['season_idx_of_t']]))
+          jnp.exp(a_0 + f_t) * seasonal_mass / (args["T"]/args["n_t"]))
       Itot_time = numpyro.deterministic("Itot_time",
-          jnp.sum(rate_time)/args["n_t"]*args["T"])
+          jnp.sum(jnp.exp(a_0 + f_t) * seasonal_mass))
       Itot_txy_back = numpyro.deterministic("Itot_txy_back", Itot_time * Itot_xy)
       #Itot_txy_back=numpyro.deterministic("Itot_txy_back",Itot_a*Itot_xy)
 
@@ -281,10 +287,15 @@ def spatiotemporal_LGCP_model(args):
     f_t_i = f_t[args["indices_t"]]
     f_a_i = f_a[args["indices_a"]]
     loglik = jnp.sum(a_0 + f_t_i + f_a_i + f_xy_i)
+    # EXACT time integral on the seasonal diagonal a = sigma(t) via the precomputed
+    # (n_t x n_s) overlap matrix season_overlap (replaces the midpoint rule at
+    # season_idx_of_t; W already carries the internal cell measure).
+    seasonal_mass = args['season_overlap'] @ jnp.exp(f_a)          # (n_t,)
+    # rate_time is a DIAGNOSTIC ONLY: the exact per-cell average intensity.
     rate_time = numpyro.deterministic("rate_time",
-        jnp.exp(a_0 + f_t + f_a[args['season_idx_of_t']]))
+        jnp.exp(a_0 + f_t) * seasonal_mass / (args["T"]/args["n_t"]))
     Itot_time = numpyro.deterministic("Itot_time",
-        jnp.sum(rate_time)/args["n_t"]*args["T"])
+        jnp.sum(jnp.exp(a_0 + f_t) * seasonal_mass))
     Itot_txy = numpyro.deterministic("Itot_txy", Itot_time * Itot_xy)
     loglik-=Itot_txy
     numpyro.deterministic("loglik",loglik)

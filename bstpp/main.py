@@ -242,9 +242,40 @@ class Point_Process_Model:
         # Seasonal index of each temporal grid cell midpoint (diagonal a = sigma(t)):
         # internal cell i covers real days [i, i+1) * (T / n_t); map its midpoint through
         # day-of-year (mod self.S) onto the internal seasonal grid [0, args['S']).
+        # NOTE: the likelihood no longer integrates via this midpoint index (it uses the
+        # exact overlap matrix season_overlap below); season_idx_of_t is retained for
+        # diagnostics (rate_time) and scripts/recover_test.py's intercept combination.
         t_mid_days = (np.arange(n_t) + 0.5) * (T / n_t)
         a_mid = ((t_mid_days + offset_seasonal) % self.S) / self.S * args['S']
         args['season_idx_of_t'] = np.searchsorted(np.asarray(x_a), a_mid, side='right') - 1
+
+        # Exact seasonal overlap matrix W (n_t x n_s), in INTERNAL time units:
+        #   W[i, k] = measure{ t in temporal cell i : sigma(t) in seasonal cell k }.
+        # f_t (n_t cells) and f_a (n_s cells) are piecewise constant but the cell widths
+        # differ (T/n_t days vs self.S/n_s days), so temporal cells straddle seasonal
+        # boundaries and the time integral of exp(a_0 + f_t + f_a[sigma(t)]) has a closed
+        # form: contract exp(f_a) against W. Temporal cell i covers real days
+        # [i, i+1) * (T / n_t); sigma(d) = (d + offset_seasonal) mod self.S; seasonal cell
+        # k = floor(sigma / self.S * n_s). In the shifted coordinate s = d + offset_seasonal
+        # every split point we need -- seasonal-cell edges AND the year wrap -- is an integer
+        # multiple of h_day = self.S / n_s (since self.S = n_s * h_day), and on the interval
+        # [p*h_day, (p+1)*h_day) the seasonal cell is p mod n_s. Day-lengths convert to
+        # internal units via * (args['T'] / T).
+        h_day = self.S / n_s
+        dt_day = T / n_t
+        W = np.zeros((n_t, n_s))
+        for i in range(n_t):
+            s = i * dt_day + offset_seasonal
+            s_end = (i + 1) * dt_day + offset_seasonal
+            while s < s_end - 1e-9:
+                p = int(np.floor(s / h_day + 1e-9))
+                seg_end = min((p + 1) * h_day, s_end)
+                W[i, p % n_s] += seg_end - s
+                s = seg_end
+        W *= args['T'] / T
+        assert np.allclose(W.sum(axis=1), args['T'] / n_t, rtol=1e-6), \
+            "season_overlap rows must sum to the internal temporal cell width args['T']/n_t"
+        args['season_overlap'] = jnp.asarray(W)
 
         args,points = self._scale_xyt(data,args,comp_grid)
         self.points = points
@@ -1271,10 +1302,16 @@ class Point_Process_Model:
     def _sim_cox(self, parameters, rng=None):
         """Exact sampler for the factorized Cox background, in internal units.
 
-        mu(t,s) = g(t) h(s); N ~ Poisson(Ig*Ih); times ~ g/Ig via inverse CDF on the SAME
-        coarse n_t time grid the likelihood integrates on (args['season_idx_of_t']);
-        locations ~ h*area/Ih via cell multinomial + uniform-in-cell.
+        mu(t,s) = g(t) h(s); N ~ Poisson(Ig*Ih); times ~ g/Ig via inverse CDF on the EXACT
+        breakpoint partition of the piecewise-constant field (temporal-cell edges union
+        seasonal crossings); locations ~ h*area/Ih via cell multinomial + uniform-in-cell.
         Returns np.array [N, 3] of (X_real, Y_real, T_internal).
+
+        The sampler and the likelihood now both compute the EXACT integral of the
+        piecewise-constant time field exp(a_0 + f_t + f_a[sigma(t)]) -- the sampler by
+        summing g_j*len_j over breakpoint segments, the likelihood via the season_overlap
+        matrix -- so Ig == Itot_time remains a float-precision identity, no longer a shared
+        quadrature approximation. There is no longer any grid-coupling caveat to honor.
 
         rng: numpy.random.Generator, optional
             Used for the spatial GeoSeries.sample_points draw, which ignores numpy's legacy
@@ -1291,15 +1328,28 @@ class Point_Process_Model:
             the bounding rectangle A_ rather than the polygon.
         """
         n_t, T_int = self.args['n_t'], self.args['T']
-        # --- coarse n_t time grid: IDENTICAL discretization to the likelihood's time
-        # integral (rate_time = exp(a_0 + f_t + f_a[season_idx_of_t])), so Ig == Itot_time
-        # to float precision. Any future refinement of the integration grid must change the
-        # likelihood integral and this sampler in the SAME commit.
-        m, dt = n_t, T_int / n_t
-        t_lo = np.arange(m) * dt
-        g = np.exp(float(parameters['a_0']) + np.asarray(parameters['f_t'])
-                   + np.asarray(parameters['f_a'])[np.asarray(self.args['season_idx_of_t'])])
-        Ig = g.sum() * dt
+        n_s, offset = self.args['n_s'], self.args['offset_seasonal']
+        # --- EXACT breakpoint partition of [0, T_int]: split at every temporal-cell edge
+        # AND every seasonal-cell crossing, so exp(a_0 + f_t + f_a[sigma(t)]) is constant on
+        # each segment and the segment midpoint is a safe evaluation point. Ig computed here
+        # equals the likelihood's Itot_time to float precision (both are the exact integral
+        # of the same piecewise-constant field via the season_overlap matrix).
+        edges = np.arange(n_t + 1) * (T_int / n_t)
+        h_day = self.S / n_s
+        # seasonal crossings: real days d in [0, self.T] with (d + offset) a multiple of h_day
+        m_lo = int(np.ceil((offset) / h_day - 1e-9))
+        m_hi = int(np.floor((self.T + offset) / h_day + 1e-9))
+        cross_int = (np.arange(m_lo, m_hi + 1) * h_day - offset) * (T_int / self.T)
+        bp = np.unique(np.clip(np.concatenate([edges, cross_int]), 0.0, T_int))
+        seg_lo = bp[:-1]
+        seg_len = np.diff(bp)
+        mid = seg_lo + 0.5 * seg_len
+        t_cell = np.clip((mid / (T_int / n_t)).astype(int), 0, n_t - 1)
+        s_cell = np.clip(((mid * (self.T / T_int) + offset) % self.S / self.S * n_s).astype(int),
+                         0, n_s - 1)
+        g = np.exp(float(parameters['a_0']) + np.asarray(parameters['f_t'])[t_cell]
+                   + np.asarray(parameters['f_a'])[s_cell])
+        Ig = float((g * seg_len).sum())
         # --- spatial profile on the model's own grid (copy: no shared-state mutation)
         if 'spatial_cov' in self.args:
             geo_df = self.args['int_df'].copy()
@@ -1316,9 +1366,11 @@ class Point_Process_Model:
         N = np.random.poisson(Ig * Ih)
         if N == 0:
             return np.empty((0, 3))
-        cdf = np.cumsum(g / g.sum())
+        # inverse-CDF on segment MASS (g_j * len_j), then uniform within the chosen segment
+        w = g * seg_len
+        cdf = np.cumsum(w) / w.sum()
         bins = np.searchsorted(cdf, np.random.uniform(size=N), side='right')
-        times = t_lo[bins] + np.random.uniform(size=N) * dt
+        times = seg_lo[bins] + np.random.uniform(size=N) * seg_len[bins]
         cells = np.random.choice(len(h_mass), size=N, p=h_mass / Ih)
         counts = np.bincount(cells, minlength=len(h_mass))
         nz = counts > 0
