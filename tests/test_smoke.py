@@ -189,3 +189,55 @@ def test_hawkes_covariate_background():
     expected = np.exp(a_0_val + b_0_vals) @ np.asarray(args["cov_area"]) * args["T"]
     got = float(np.asarray(tr["Itot_txy_back"]["value"]))
     assert np.isclose(got, expected, rtol=1e-5)
+
+
+# ---- log_expected_likelihood must rebuild excitation pairs on the held-out events
+#      (training pairs were silently reused, segment_sum dropping OOR indices) ----
+_test_rng = np.random.RandomState(3)
+_N_TEST = 25
+TEST_DATA = pd.DataFrame({
+    "X": _test_rng.uniform(0.05, 0.95, _N_TEST),
+    "Y": _test_rng.uniform(0.05, 0.95, _N_TEST),
+    "T": np.sort(_test_rng.uniform(0, T_DAYS, _N_TEST)),
+})
+_LEL_PARAMS = {k: np.float32(v) for k, v in
+               dict(a_0=1.0, alpha=0.3, beta=2.0, sigmax_2=0.1).items()}
+
+
+def _build_test_args(train_model, test_data):
+    """Mirror log_expected_likelihood's test_args construction (incl. pair rebuild)."""
+    from bstpp.utils import aligned_difference_pairs
+    ta, points = train_model._scale_xyt(test_data, train_model.args.copy(),
+                                        train_model.comp_grid)
+    if train_model.args['model'] in ('hawkes', 'cox_hawkes'):
+        coords, t_vals, x_vals, y_vals = aligned_difference_pairs(
+            ta['t_events'], ta['xy_events'][0], ta['xy_events'][1],
+            train_model.args['window'],
+            spatial_window=train_model.args.get('spatial_window'))
+        ta['coords'], ta['t_vals'], ta['x_vals'], ta['y_vals'] = coords, t_vals, x_vals, y_vals
+    for k in ['batch_size', 'num_samples', 'num_warmup', 'num_chains', 'thinning']:
+        ta.pop(k, None)
+    return ta
+
+
+def _loglik_at(model, args, params):
+    seeded = handlers.substitute(handlers.seed(model.model, jax.random.PRNGKey(0)), params)
+    return float(np.asarray(handlers.trace(seeded).get_trace(args)["loglik"]["value"]))
+
+
+def test_log_expected_likelihood_rebuilds_pairs():
+    train = Hawkes_Model(DATA, A_RECT, T_DAYS, cox_background=False, **PRIORS)   # 60-event train
+    fresh = Hawkes_Model(TEST_DATA, A_RECT, T_DAYS, cox_background=False, **PRIORS)  # 25-event test
+
+    # loglik from the train model on rebuilt test_args must match a model built
+    # directly on the test data (both at the same fixed parameters).
+    ll_train = _loglik_at(train, _build_test_args(train, TEST_DATA), _LEL_PARAMS)
+    ll_fresh = _loglik_at(fresh, fresh.args, _LEL_PARAMS)
+    assert np.isfinite(ll_train)
+    assert abs(ll_train - ll_fresh) < 1e-4
+
+    # events beyond the training horizon [0, T] are rejected
+    bad = TEST_DATA.copy()
+    bad.loc[bad.index[-1], "T"] = T_DAYS * 1.5
+    with pytest.raises(ValueError):
+        train.log_expected_likelihood(bad)

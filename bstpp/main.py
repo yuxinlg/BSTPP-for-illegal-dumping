@@ -509,6 +509,34 @@ class Point_Process_Model:
 
         # Only pass the minimal required arguments for likelihood
         test_args, points = self._scale_xyt(data, self.args.copy(), self.comp_grid)
+
+        # Held-out events must lie within the training time horizon [0, T]: the
+        # excitation compensator jnp.minimum(T - t, window) is only defined there
+        # (times > T make it negative and silently corrupt the integral).
+        if np.any(test_args['t_events'] < 0) or np.any(test_args['t_events'] > self.args['T']):
+            raise ValueError(
+                "Held-out events must lie within the training time horizon "
+                f"[0, {self.args['T']}] (in internal rescaled time units); the "
+                "excitation compensator is only defined on that interval.")
+
+        # Rebuild the excitation difference-pairs on the TEST events. test_args
+        # was copied from self.args, whose coords/t_vals/x_vals/y_vals are the
+        # TRAINING pairs; reusing them pairs training-event differences with
+        # test-event indices (segment_sum silently drops out-of-range indices).
+        # LGCP uses no pairs, so it needs no rebuild.
+        if self.args['model'] in ('hawkes', 'cox_hawkes'):
+            coords, t_vals, x_vals, y_vals = aligned_difference_pairs(
+                test_args['t_events'],
+                test_args['xy_events'][0],
+                test_args['xy_events'][1],
+                self.args['window'],
+                spatial_window=self.args.get('spatial_window'),
+            )
+            test_args['coords'] = coords
+            test_args['t_vals'] = t_vals
+            test_args['x_vals'] = x_vals
+            test_args['y_vals'] = y_vals
+
         if 'cov_ind' in self.args:
             test_args['cov_ind'] = points.sjoin(self.spatial_cov).sort_values(by='point_id')['cov_ind'].values
 
@@ -516,7 +544,6 @@ class Point_Process_Model:
         for k in ['batch_size', 'num_samples', 'num_warmup', 'num_chains', 'thinning']:
             test_args.pop(k, None)
 
-        print("Final test_args keys:", list(test_args.keys()))
         post_loglik = log_likelihood(self.model, self.samples, test_args)["loglik_factor"]
         exp_log_density = logsumexp(post_loglik, axis=0) - jnp.log(jnp.shape(post_loglik)[0])
         return exp_log_density.sum().item()
