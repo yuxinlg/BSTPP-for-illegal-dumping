@@ -68,6 +68,9 @@ def spatiotemporal_hawkes_model(args):
       # Approximate Gaussian Process with VAE
       v_t = numpyro.deterministic("v_t", decoder_nn_temporal[1](decoder_params, z_temporal))
       f_t = numpyro.deterministic("f_t", v_t[0:args["n_t"]])
+      # MARGINAL DIAGNOSTICS ONLY (rate_t, Itot_t): since the seasonal-diagonal
+      # fix the likelihood's time integral is Itot_time (computed on the diagonal
+      # a = sigma(t)); Itot_t * Itot_a * Itot_xy != Itot_txy by design.
       rate_t = numpyro.deterministic("rate_t",jnp.exp(f_t + a_0))
       # calculate temporal integral over LGCP
       Itot_t=numpyro.deterministic("Itot_t", jnp.sum(rate_t)/args["n_t"]*args["T"])
@@ -88,6 +91,9 @@ def spatiotemporal_hawkes_model(args):
       # Approximate Gaussian Process with VAE
       v_a = numpyro.deterministic("v_a", decoder_nn_seasonal[1](decoder_params, z_seasonal))
       f_a = numpyro.deterministic("f_a", v_a[0:args["n_s"]])
+      # MARGINAL DIAGNOSTICS ONLY (rate_a, Itot_a): the seasonal integral enters
+      # the likelihood only through Itot_time on the diagonal a = sigma(t), not as
+      # a standalone factor; Itot_t * Itot_a * Itot_xy != Itot_txy by design.
       rate_a = numpyro.deterministic("rate_a",jnp.exp(f_a))
       # calculate integral over LGCP
       Itot_a = numpyro.deterministic("Itot_a", jnp.sum(rate_a)/args["n_s"]*args["S"])
@@ -122,6 +128,8 @@ def spatiotemporal_hawkes_model(args):
           spatial_integral = jnp.exp(b_0[args['int_df']['cov_ind'].values] +
                                      f_xy[args['int_df']['comp_grid_id'].values]) @ args['int_df']['area'].values
       else:
+          # rate_xy = exp(f_xy) EXCLUDES the covariate term b_0; when covariates
+          # are present the branch above folds b_0 into spatial_integral directly.
           rate_xy = numpyro.deterministic("rate_xy",jnp.exp(f_xy))
           spatial_integral = jnp.sum(rate_xy[args['spatial_grid_cells']])/args['n_xy']**2
       Itot_xy=numpyro.deterministic("Itot_xy", spatial_integral)
@@ -219,6 +227,9 @@ def spatiotemporal_LGCP_model(args):
     #month_onehot = jax.nn.one_hot(args['month_indices'] - 1, 12)
     #month_effect = (month_onehot * w_month).sum(-1)
     #f_t_i=f_t[args["indices_t"]] + month_effect
+    # MARGINAL DIAGNOSTICS ONLY (rate_t, Itot_t): since the seasonal-diagonal fix
+    # the likelihood's time integral is Itot_time (computed on the diagonal
+    # a = sigma(t)); Itot_t * Itot_a * Itot_xy != Itot_txy by design.
     rate_t = numpyro.deterministic("rate_t",jnp.exp(f_t+a_0))
     Itot_t=numpyro.deterministic("Itot_t", jnp.sum(rate_t)/args["n_t"]*args["T"])
 
@@ -232,6 +243,9 @@ def spatiotemporal_LGCP_model(args):
     # Approximate Gaussian Process with VAE
     v_a = numpyro.deterministic("v_a", decoder_nn_seasonal[1](decoder_params, z_seasonal))
     f_a = numpyro.deterministic("f_a", v_a[0:args["n_s"]])
+    # MARGINAL DIAGNOSTICS ONLY (rate_a, Itot_a): the seasonal integral enters the
+    # likelihood only through Itot_time on the diagonal a = sigma(t), not as a
+    # standalone factor; Itot_t * Itot_a * Itot_xy != Itot_txy by design.
     rate_a = numpyro.deterministic("rate_a",jnp.exp(f_a))
     # calculate temporal integral over LGCP
     Itot_a = numpyro.deterministic("Itot_a", jnp.sum(rate_a)/args["n_s"]*args["S"])
@@ -242,6 +256,8 @@ def spatiotemporal_LGCP_model(args):
     decoder_nn = vae_decoder_spatial(args["hidden_dim1_spatial"], args["hidden_dim2_spatial"], args["n_xy"])
     decoder_params = args["decoder_params_spatial"]
     f_xy = numpyro.deterministic("f_xy", jnp.exp(args['sp_var_mu']) * decoder_nn[1](decoder_params, z_spatial))
+    # rate_xy = exp(f_xy) EXCLUDES the covariate term b_0; in the covariate branch
+    # below spatial_integral folds b_0 in directly rather than using rate_xy.
     rate_xy = numpyro.deterministic("rate_xy",jnp.exp(f_xy))
     f_xy_i=f_xy[args["indices_xy"]]
 

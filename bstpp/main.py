@@ -404,7 +404,12 @@ class Point_Process_Model:
         rng_key, rng_key_predict = random.split(random.PRNGKey(10))
         rng_key, rng_key_post, rng_key_pred = random.split(rng_key, 3)
         self.args["num_samples"] = num_samples
-        sites = list(self.get_params().keys())+['loglik','Itot_excite','Itot_txy']
+        # Model-aware site list: LGCP has no 'Itot_excite' site. Predictive drops
+        # missing names silently, which would also mask a typo'd site, so only
+        # request 'Itot_excite' for the models that actually define it.
+        sites = list(self.get_params().keys()) + ['loglik', 'Itot_txy']
+        if self.args['model'] in ('hawkes', 'cox_hawkes'):
+            sites += ['Itot_excite']
         if resume:
             kwargs['num_steps'] = num_steps
             kwargs['lr'] = lr

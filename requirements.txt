@@ -1,7 +1,9 @@
 dill>=0.3.5.1
 etils
 flatbuffers
-geopandas>=0.14.0
+# geopandas>=1.0: _sim_cox passes the rng= keyword to GeoSeries.sample_points,
+# which only exists from geopandas 1.0; on <1.0 that call errors or misroutes the kwarg.
+geopandas>=1.0
 importlib-resources
 jax==0.4.23
 jaxlib==0.4.23
