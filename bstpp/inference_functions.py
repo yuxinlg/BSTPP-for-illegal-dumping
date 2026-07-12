@@ -9,8 +9,8 @@ import numpyro.distributions as dist
 from numpyro.infer import MCMC, NUTS, init_to_median
 from numpyro.infer import Trace_ELBO, SVI, Predictive
 from numpyro.infer.autoguide import AutoMultivariateNormal
-from .vae_functions import (vae_decoder_temporal, vae_decoder_seasonal,
-                             vae_decoder_spatial)
+from .decode_fields import (decode_temporal_field, decode_seasonal_field,
+                        decode_spatial_field)
 from .likelihood import (aggregate_pair_trigger_values,
                          constant_background_integral,
                          covariate_background_integral,
@@ -63,13 +63,10 @@ def spatiotemporal_hawkes_model(args):
       z_temporal = numpyro.sample("z_temporal",
         dist.Normal(jnp.zeros(args["z_dim_temporal"]), jnp.ones(args["z_dim_temporal"]))
       )
-      decoder_nn_temporal = vae_decoder_temporal(
-        args["hidden_dim_temporal"],
-        args["n_t"]
-      )
-      decoder_params = args["decoder_params_temporal"]
-      # Approximate Gaussian Process with VAE
-      v_t = numpyro.deterministic("v_t", decoder_nn_temporal[1](decoder_params, z_temporal))
+      # PriorVAE surrogate for the temporal GP (decoders.py, eq. 22)
+      v_t = numpyro.deterministic("v_t", decode_temporal_field(
+          z_temporal, args["decoder_params_temporal"],
+          args["hidden_dim_temporal"], args["n_t"]))
       f_t = numpyro.deterministic("f_t", v_t[0:args["n_t"]])
       # MARGINAL DIAGNOSTICS ONLY (rate_t, Itot_t): since the seasonal-diagonal
       # fix the likelihood's time integral is Itot_time (computed on the diagonal
@@ -84,14 +81,9 @@ def spatiotemporal_hawkes_model(args):
       z_seasonal = numpyro.sample("z_seasonal",
         dist.Normal(jnp.zeros(args["z_dim_seasonal"]), jnp.ones(args["z_dim_seasonal"]))
       )
-      decoder_nn_seasonal = vae_decoder_seasonal(
-        args["hidden_dim1_seasonal"],
-        args["hidden_dim2_seasonal"],
-        args["n_s"]
-      )
-      decoder_params = args["decoder_params_seasonal"]
-      # Approximate Gaussian Process with VAE
-      v_a = numpyro.deterministic("v_a", decoder_nn_seasonal[1](decoder_params, z_seasonal))
+      v_a = numpyro.deterministic("v_a", decode_seasonal_field(
+          z_seasonal, args["decoder_params_seasonal"],
+          args["hidden_dim1_seasonal"], args["hidden_dim2_seasonal"], args["n_s"]))
       f_a = numpyro.deterministic("f_a", v_a[0:args["n_s"]])
       # MARGINAL DIAGNOSTICS ONLY (rate_a, Itot_a): the seasonal integral enters
       # the likelihood only through Itot_time on the diagonal a = sigma(t), not as
@@ -105,14 +97,11 @@ def spatiotemporal_hawkes_model(args):
       z_spatial = numpyro.sample("z_spatial",
         dist.Normal(jnp.zeros(args["z_dim_spatial"]), jnp.ones(args["z_dim_spatial"]))
       )
-      decoder_nn = vae_decoder_spatial(
-        args["hidden_dim1_spatial"],
-        args["hidden_dim2_spatial"],
-        args["n_xy"]
-      )
-      decoder_params = args["decoder_params_spatial"]
-      # Generate Gaussian Process from VAE
-      f_xy = numpyro.deterministic("f_xy", jnp.exp(args['sp_var_mu']) * decoder_nn[1](decoder_params, z_spatial))
+      # exp(sp_var_mu) calibration applied INSIDE decode_spatial_field
+      f_xy = numpyro.deterministic("f_xy", decode_spatial_field(
+          z_spatial, args["decoder_params_spatial"],
+          args["hidden_dim1_spatial"], args["hidden_dim2_spatial"],
+          args["n_xy"], args['sp_var_mu']))
       f_xy_events=f_xy[args["indices_xy"]]
 
       # Calculate spatial intensity
@@ -203,9 +192,9 @@ def spatiotemporal_LGCP_model(args):
 
     #zero mean temporal gp
     z_temporal = numpyro.sample("z_temporal", dist.Normal(jnp.zeros(args["z_dim_temporal"]), jnp.ones(args["z_dim_temporal"])))
-    decoder_nn_temporal = vae_decoder_temporal(args["hidden_dim_temporal"], args["n_t"])
-    decoder_params = args["decoder_params_temporal"]
-    v_t = numpyro.deterministic("v_t", decoder_nn_temporal[1](decoder_params, z_temporal))
+    v_t = numpyro.deterministic("v_t", decode_temporal_field(
+        z_temporal, args["decoder_params_temporal"],
+        args["hidden_dim_temporal"], args["n_t"]))
     f_t = numpyro.deterministic("f_t", v_t[0:args["n_t"]])
     # --- Add month covariate effect ---
     #f_t_i=f_t[args["indices_t"]] + month_effect
@@ -220,10 +209,9 @@ def spatiotemporal_LGCP_model(args):
                               dist.Normal(jnp.zeros(args["z_dim_seasonal"]),
                                           jnp.ones(args["z_dim_seasonal"]))
                              )
-    decoder_nn_seasonal = vae_decoder_seasonal(args["hidden_dim1_seasonal"], args["hidden_dim2_seasonal"], args["n_s"])
-    decoder_params = args["decoder_params_seasonal"]
-    # Approximate Gaussian Process with VAE
-    v_a = numpyro.deterministic("v_a", decoder_nn_seasonal[1](decoder_params, z_seasonal))
+    v_a = numpyro.deterministic("v_a", decode_seasonal_field(
+        z_seasonal, args["decoder_params_seasonal"],
+        args["hidden_dim1_seasonal"], args["hidden_dim2_seasonal"], args["n_s"]))
     f_a = numpyro.deterministic("f_a", v_a[0:args["n_s"]])
     # MARGINAL DIAGNOSTICS ONLY (rate_a, Itot_a): the seasonal integral enters the
     # likelihood only through Itot_time on the diagonal a = sigma(t), not as a
@@ -234,9 +222,10 @@ def spatiotemporal_LGCP_model(args):
 
     # zero mean spatial gp
     z_spatial = numpyro.sample("z_spatial", dist.Normal(jnp.zeros(args["z_dim_spatial"]), jnp.ones(args["z_dim_spatial"])))
-    decoder_nn = vae_decoder_spatial(args["hidden_dim1_spatial"], args["hidden_dim2_spatial"], args["n_xy"])
-    decoder_params = args["decoder_params_spatial"]
-    f_xy = numpyro.deterministic("f_xy", jnp.exp(args['sp_var_mu']) * decoder_nn[1](decoder_params, z_spatial))
+    f_xy = numpyro.deterministic("f_xy", decode_spatial_field(
+        z_spatial, args["decoder_params_spatial"],
+        args["hidden_dim1_spatial"], args["hidden_dim2_spatial"],
+        args["n_xy"], args['sp_var_mu']))
     # rate_xy = exp(f_xy) EXCLUDES the covariate term b_0; in the covariate branch
     # below spatial_integral folds b_0 in directly rather than using rate_xy.
     rate_xy = numpyro.deterministic("rate_xy",jnp.exp(f_xy))  # noqa: F841 -- deterministic trace site (posterior interface, CLAUDE.md)

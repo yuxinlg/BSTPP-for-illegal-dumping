@@ -28,8 +28,8 @@ from .utils import aligned_difference_pairs, exp_sq_kernel
 from .inference_functions import (spatiotemporal_hawkes_model, spatiotemporal_LGCP_model,
                                   run_mcmc, run_SVI, get_samples)
 from .trigger import Temporal_Exponential, Spatial_Symmetric_Gaussian
-from .vae_functions import (vae_decoder_temporal, vae_decoder_seasonal,
-                            vae_decoder_spatial)
+from .decode_fields import (decode_temporal_field, decode_seasonal_field,
+                        decode_spatial_field)
 
 
 def _load_decoder(name):
@@ -1829,21 +1829,25 @@ class Hawkes_Model(Point_Process_Model):
         """
         if parameters is None:
             parameters = {k:np.array(v).mean(axis=0) for k,v in self.samples.items()}
+        # Same decode functions as the model layer (decoders.py): before
+        # extraction this was the THIRD independent copy of the decoder logic.
         if 'f_t' not in parameters and 'z_temporal' in parameters:
-            decoder_nn_temporal = vae_decoder_temporal(self.args["hidden_dim_temporal"], self.args["n_t"])
-            # Approximate Gaussian Process with VAE
-            v_t = decoder_nn_temporal[1](self.args["decoder_params_temporal"], parameters['z_temporal'])
+            v_t = decode_temporal_field(parameters['z_temporal'],
+                                        self.args["decoder_params_temporal"],
+                                        self.args["hidden_dim_temporal"], self.args["n_t"])
             parameters['f_t'] = v_t[0:self.args["n_t"]]
         if 'f_a' not in parameters and 'z_seasonal' in parameters:
-            decoder_nn_seasonal = vae_decoder_seasonal(self.args["hidden_dim1_seasonal"], self.args["hidden_dim2_seasonal"], self.args["n_s"])
-            u_t = decoder_nn_seasonal[1](self.args["decoder_params_seasonal"], parameters['z_seasonal'])
-            parameters['f_a'] = u_t[0:self.args["n_s"]]
+            v_a = decode_seasonal_field(parameters['z_seasonal'],
+                                        self.args["decoder_params_seasonal"],
+                                        self.args["hidden_dim1_seasonal"],
+                                        self.args["hidden_dim2_seasonal"], self.args["n_s"])
+            parameters['f_a'] = v_a[0:self.args["n_s"]]
         if 'f_xy' not in parameters and 'z_spatial' in parameters:
-            #decoder_nn = vae_decoder_spatial(self.args["hidden_dim2_spatial"], self.args["hidden_dim1_spatial"], self.args["n_xy"])
-            decoder_nn = vae_decoder_spatial(self.args["hidden_dim1_spatial"], self.args["hidden_dim2_spatial"], self.args["n_xy"])
-            decoder_params = self.args["decoder_params_spatial"]
-            # Generate Gaussian Process from VAE
-            parameters['f_xy'] = jnp.exp(self.args['sp_var_mu']) * decoder_nn[1](decoder_params, parameters['z_spatial'])
+            # exp(sp_var_mu) calibration applied INSIDE decode_spatial_field
+            parameters['f_xy'] = decode_spatial_field(
+                parameters['z_spatial'], self.args["decoder_params_spatial"],
+                self.args["hidden_dim1_spatial"], self.args["hidden_dim2_spatial"],
+                self.args["n_xy"], self.args['sp_var_mu'])
         if 'w' in parameters and 'b_0' not in parameters:
             parameters['b_0'] = self.args['spatial_cov'] @ parameters['w']
 
