@@ -79,7 +79,6 @@ def spatiotemporal_hawkes_model(args):
       z_seasonal = numpyro.sample("z_seasonal",
         dist.Normal(jnp.zeros(args["z_dim_seasonal"]), jnp.ones(args["z_dim_seasonal"]))
       )
-      #z_seasonal = jnp.append(z_seasonal, z_seasonal[0])
       decoder_nn_seasonal = vae_decoder_seasonal(
         args["hidden_dim1_seasonal"],
         args["hidden_dim2_seasonal"],
@@ -101,7 +100,6 @@ def spatiotemporal_hawkes_model(args):
       z_spatial = numpyro.sample("z_spatial",
         dist.Normal(jnp.zeros(args["z_dim_spatial"]), jnp.ones(args["z_dim_spatial"]))
       )
-      #decoder_nn = vae_decoder_spatial(args["hidden_dim2_spatial"], args["hidden_dim1_spatial"], args["n_xy"])
       decoder_nn = vae_decoder_spatial(
         args["hidden_dim1_spatial"],
         args["hidden_dim2_spatial"],
@@ -144,15 +142,11 @@ def spatiotemporal_hawkes_model(args):
       Itot_time = numpyro.deterministic("Itot_time",
           jnp.sum(jnp.exp(a_0 + f_t) * seasonal_mass))
       Itot_txy_back = numpyro.deterministic("Itot_txy_back", Itot_time * Itot_xy)
-      #Itot_txy_back=numpyro.deterministic("Itot_txy_back",Itot_a*Itot_xy)
 
       ## Replace month effect with day GP
       ## Sample a weight for each day
-      #w_day = numpyro.sample("w_day", dist.Normal(jnp.zeros(365), jnp.ones(365)))
       ## One-hot encode the day indices for each event
-      #day_onehot = jax.nn.one_hot(args['indices_d'], 365)
       ## Compute the day effect for each event
-      #day_effect = (day_onehot * w_day).sum(-1)
       ## Add to your log-intensity
       #f_t_events = f_t_events + day_effect
 
@@ -166,7 +160,6 @@ def spatiotemporal_hawkes_model(args):
 
     T,x_min,x_max,y_min,y_max = args['T'],args['x_min'],args['x_max'],args['y_min'],args['y_max']
 
-    #coords, t_vals, x_vals, y_vals = aligned_difference_pairs(t_events, xy_events[0], xy_events[1], window=15)
     args['coords'] = coords
     args['t_vals'] = t_vals
     args['x_vals'] = x_vals
@@ -190,8 +183,6 @@ def spatiotemporal_hawkes_model(args):
       ell_1=numpyro.deterministic('ell_1',jnp.sum(jnp.log(l_hawkes+mu_xyt_events)))
     elif args['model']=='cox_hawkes':
       ell_1=numpyro.deterministic('ell_1',jnp.sum(jnp.log(l_hawkes+jnp.exp(a_0 + f_t_events + f_a_events + f_xy_events))))
-      #ell_1=numpyro.deterministic('ell_1',jnp.sum(jnp.log(l_hawkes+jnp.exp(f_t_events + f_a_events + f_xy_events))))
-      #ell_1=numpyro.deterministic('ell_1',jnp.sum(jnp.log(l_hawkes+jnp.exp(a_0 + f_a_events + f_xy_events))))
 
     #### hawkes integral
     win = args.get('window', T)   # temporal truncation window; NOT the sampled covariate weights `w`
@@ -223,9 +214,6 @@ def spatiotemporal_LGCP_model(args):
     v_t = numpyro.deterministic("v_t", decoder_nn_temporal[1](decoder_params, z_temporal))
     f_t = numpyro.deterministic("f_t", v_t[0:args["n_t"]])
     # --- Add month covariate effect ---
-    #w_month = numpyro.sample("w_month", dist.Normal(jnp.zeros(12), jnp.ones(12)))
-    #month_onehot = jax.nn.one_hot(args['month_indices'] - 1, 12)
-    #month_effect = (month_onehot * w_month).sum(-1)
     #f_t_i=f_t[args["indices_t"]] + month_effect
     # MARGINAL DIAGNOSTICS ONLY (rate_t, Itot_t): since the seasonal-diagonal fix
     # the likelihood's time integral is Itot_time (computed on the diagonal
@@ -252,7 +240,6 @@ def spatiotemporal_LGCP_model(args):
 
     # zero mean spatial gp
     z_spatial = numpyro.sample("z_spatial", dist.Normal(jnp.zeros(args["z_dim_spatial"]), jnp.ones(args["z_dim_spatial"])))
-    #decoder_nn = vae_decoder_spatial(args["hidden_dim2_spatial"], args["hidden_dim1_spatial"], args["n_xy"])
     decoder_nn = vae_decoder_spatial(args["hidden_dim1_spatial"], args["hidden_dim2_spatial"], args["n_xy"])
     decoder_params = args["decoder_params_spatial"]
     f_xy = numpyro.deterministic("f_xy", jnp.exp(args['sp_var_mu']) * decoder_nn[1](decoder_params, z_spatial))
@@ -330,7 +317,6 @@ def get_samples(rng_key, model, guide, svi_result, args, sites):
 def run_SVI(rng_key, model, args, num_steps, lr, sites, auto_guide = AutoMultivariateNormal, init_strategy=init_to_median,init_state=None):
     start = time.time()
     optimizer = numpyro.optim.Adam(inverse_time_decay(lr,num_steps,4))
-    #optimizer = numpyro.optim.Adam(exponential_decay(lr,num_steps,0.01))
     guide = auto_guide(model,init_loc_fn=init_strategy)
     svi = SVI(model, guide, optimizer, loss=Trace_ELBO())
     svi_result = svi.run(rng_key, num_steps, args, stable_update=True, init_state=init_state)
