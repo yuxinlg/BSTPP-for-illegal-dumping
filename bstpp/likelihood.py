@@ -27,6 +27,11 @@ Equation concordance (guide numbering):
   the refinement-cell areas |C_c intersect A_m|. The no-covariate grid
   integral is the same atom with uniform areas 1/n_xy^2 and no b_0.
   Refinement invariance (I9) is a property of this expression.
+- constant_background_integral .......... plain-Hawkes background compensator
+  mu * T * |X| (reused by _sim_hawkes_bg in Phase 2b, making the background
+  half of (I11) structural).
+- covariate_background_integral ......... plain-Hawkes covariate background
+  compensator (mu_cells @ cell_areas) * T over the covariate partition.
 - rectangular_excitation_compensator .... truncated excitation compensator,
   eq. (14) specialized as implemented: exponential temporal mass F_beta on
   min(T - t_j, w) (temporal truncation matched to the pair set) and Gaussian
@@ -117,3 +122,17 @@ def spatial_refinement_integral(f_xy, field_indices, areas, b_0=None,
     if b_0 is not None:
         log_rate = log_rate + b_0[covariate_indices]
     return jnp.exp(log_rate) @ areas
+
+
+def constant_background_integral(mu, horizon, domain_area):
+    """Compensator of a constant background: mu * T * |X| (internal units)."""
+    return mu * horizon * domain_area
+
+
+def covariate_background_integral(mu_cells, cell_areas, horizon):
+    """Compensator of a piecewise-constant covariate background.
+
+    (mu_cells @ cell_areas) * horizon over the covariate partition {A_m};
+    cell_areas are |A_m| in internal measure (args['cov_area']).
+    """
+    return mu_cells @ cell_areas * horizon

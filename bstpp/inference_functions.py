@@ -12,6 +12,8 @@ from numpyro.infer.autoguide import AutoMultivariateNormal
 from .vae_functions import (vae_decoder_temporal, vae_decoder_seasonal,
                              vae_decoder_spatial)
 from .likelihood import (aggregate_pair_trigger_values,
+                         constant_background_integral,
+                         covariate_background_integral,
                          rectangular_excitation_compensator,
                          seasonal_time_integral,
                          spatial_refinement_integral)
@@ -39,7 +41,7 @@ def spatiotemporal_hawkes_model(args):
         # Background integral contracts cells against their areas.
         Itot_txy_back = numpyro.deterministic(
             "Itot_txy_back",
-            mu_xyt @ args['cov_area'] * args['T']
+            covariate_background_integral(mu_xyt, args['cov_area'], args['T'])
         )
         # Use precomputed indices to evaluate the per-cell rate at each event.
         mu_xyt_events = mu_xyt[args['cov_ind']]                                  # (n_events,)
@@ -48,7 +50,7 @@ def spatiotemporal_hawkes_model(args):
         mu_xyt = numpyro.deterministic("mu_xyt", jnp.exp(a_0 + b_0))
         Itot_txy_back = numpyro.deterministic(
             "Itot_txy_back",
-            mu_xyt * args['T'] * args['A_area']
+            constant_background_integral(mu_xyt, args['T'], args['A_area'])
         )
         mu_xyt_events = mu_xyt
 

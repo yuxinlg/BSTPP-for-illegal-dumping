@@ -21,7 +21,9 @@ import jax.numpy as jnp
 from bstpp.likelihood import (aggregate_pair_trigger_values,
                               rectangular_excitation_compensator,
                               seasonal_time_integral,
-                              spatial_refinement_integral)
+                              spatial_refinement_integral,
+                              constant_background_integral,
+                              covariate_background_integral)
 from bstpp.trigger import Temporal_Exponential, Spatial_Symmetric_Gaussian
 
 
@@ -170,3 +172,20 @@ def test_spatial_refinement_integral_matches_numpy_reference():
         f, jnp.asarray(fi), jnp.asarray(areas), b, jnp.asarray(ci)),
         argnums=(0, 1))(jnp.asarray(f_xy), jnp.asarray(b_0))
     assert all(np.all(np.isfinite(np.asarray(x))) for x in g)
+
+
+def test_background_integrals_match_reference():
+    rng = np.random.default_rng(5)
+    mu_cells = rng.uniform(0.5, 2.0, 4).astype(np.float32)
+    areas = rng.uniform(0.1, 0.4, 4).astype(np.float32)
+    T = 50.0
+    out = float(covariate_background_integral(jnp.asarray(mu_cells),
+                                              jnp.asarray(areas), T))
+    ref = float(mu_cells.astype(np.float64) @ areas.astype(np.float64) * T)
+    np.testing.assert_allclose(out, ref, rtol=2e-6)
+    np.testing.assert_allclose(
+        float(constant_background_integral(jnp.float32(1.3), T, 1.0)),
+        1.3 * T, rtol=2e-6)
+    g = jax.grad(lambda m: covariate_background_integral(m, jnp.asarray(areas), T)
+                 )(jnp.asarray(mu_cells))
+    assert np.all(np.isfinite(np.asarray(g)))
