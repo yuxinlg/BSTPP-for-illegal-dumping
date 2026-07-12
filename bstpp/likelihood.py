@@ -15,8 +15,17 @@ Design contract (Phase 2):
 Equation concordance (guide numbering):
 - aggregate_pair_trigger_values ......... inner sum of eq. (23), given
   per-pair kernel values (kernel evaluation stays at the model layer)
+- rectangular_excitation_compensator .... truncated excitation compensator,
+  eq. (14) specialized as implemented: exponential temporal mass F_beta on
+  min(T - t_j, w) (temporal truncation matched to the pair set) and Gaussian
+  rectangle mass (eq. 27) over axis-aligned bounds. HONEST SCOPE: this is NOT
+  the general-domain compensator -- for non-rectangular domains X the
+  rectangle mass overcharges (declared approximation, guide Sec. 2.5), and a
+  finite spatial_window is applied on the EVENT side only (pair construction),
+  not here (known, documented discrepancy).
 """
 import jax
+import jax.numpy as jnp
 
 
 def aggregate_pair_trigger_values(coords, temporal_values, spatial_values, n_events):
@@ -34,3 +43,30 @@ def aggregate_pair_trigger_values(coords, temporal_values, spatial_values, n_eve
     """
     pair_values = temporal_values * spatial_values
     return jax.ops.segment_sum(pair_values, coords[:, 0], n_events)
+
+
+def rectangular_excitation_compensator(alpha, t_events, xy_events, horizon,
+                                       temporal_window, rectangular_bounds,
+                                       temporal_parameters, spatial_parameters,
+                                       temporal_trigger, spatial_trigger):
+    """Total excitation compensator over [0, horizon] x rectangle.
+
+    Sum over parents j of
+        alpha * F_temporal(min(horizon - t_j, temporal_window))
+              * (Gaussian rectangle mass at s_j, eq. 27),
+    computed through the SAME trigger protocol the likelihood samples from
+    (temporal_trigger.compute_integral / spatial_trigger.compute_integral),
+    so the simulator identity (I4)/(I11) is tied to one expression.
+
+    rectangular_bounds: (x_min, x_max, y_min, y_max) in internal units.
+    See module docstring for the honest scope of this specialization.
+    Returns a scalar.
+    """
+    x_min, x_max, y_min, y_max = rectangular_bounds
+    temp_part = alpha * temporal_trigger.compute_integral(
+        temporal_parameters, jnp.minimum(horizon - t_events, temporal_window))
+    sp_limits = jnp.stack((x_max - xy_events[0], xy_events[0] - x_min,
+                           y_max - xy_events[1], xy_events[1] - y_min)
+                          ).reshape(2, 2, -1)
+    sp_part = spatial_trigger.compute_integral(spatial_parameters, sp_limits)
+    return jnp.sum(temp_part * sp_part)

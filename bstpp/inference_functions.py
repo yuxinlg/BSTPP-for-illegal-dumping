@@ -11,7 +11,8 @@ from numpyro.infer import Trace_ELBO, SVI, Predictive
 from numpyro.infer.autoguide import AutoMultivariateNormal
 from .vae_functions import (vae_decoder_temporal, vae_decoder_seasonal,
                              vae_decoder_spatial)
-from .likelihood import aggregate_pair_trigger_values
+from .likelihood import (aggregate_pair_trigger_values,
+                         rectangular_excitation_compensator)
 
 
 def spatiotemporal_hawkes_model(args):
@@ -174,18 +175,15 @@ def spatiotemporal_hawkes_model(args):
     elif args['model']=='cox_hawkes':
       ell_1=numpyro.deterministic('ell_1',jnp.sum(jnp.log(l_hawkes+jnp.exp(a_0 + f_t_events + f_a_events + f_xy_events))))
 
-    #### hawkes integral
+    #### hawkes integral: truncated excitation compensator over the rectangle
+    #### (eq. 14 specialized + eq. 27; honest scope in likelihood.py docstring)
     win = args.get('window', T)   # temporal truncation window; NOT the sampled covariate weights `w`
-    temp_part = alpha*args['t_trig'].compute_integral(t_pars, jnp.minimum(T - t_events, win))
-
-
-    sp_limits = jnp.stack((x_max-xy_events[0],xy_events[0]-x_min,
-                           y_max-xy_events[1],xy_events[1]-y_min)
-                         ).reshape(2,2,-1)
-
-    sp_part = args['sp_trig'].compute_integral(sp_pars,sp_limits)
-
-    Itot_excite = numpyro.deterministic("Itot_excite",jnp.sum(temp_part*sp_part))
+    Itot_excite = numpyro.deterministic(
+        "Itot_excite",
+        rectangular_excitation_compensator(alpha, t_events, xy_events, T, win,
+                                           (x_min, x_max, y_min, y_max),
+                                           t_pars, sp_pars,
+                                           args['t_trig'], args['sp_trig']))
     ## total integral
     Itot_txy = numpyro.deterministic("Itot_txy",Itot_excite + Itot_txy_back)
     loglik=numpyro.deterministic('loglik',ell_1-Itot_txy)

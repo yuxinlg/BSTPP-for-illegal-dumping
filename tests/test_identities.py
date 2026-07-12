@@ -278,21 +278,23 @@ def test_spatial_affine_unit_invariance():
 # =====================================================================
 
 def _compensator(model, t_events, xy_events, params):
+    # Background assembled here; excitation via the PRODUCTION atom (which has
+    # its own independent-reference unit test in test_likelihood_atoms.py, so
+    # this test does not share a formula with the code under test blindly --
+    # and the traced-Itot_txy guard below cross-checks the full assembly).
+    from bstpp.likelihood import rectangular_excitation_compensator
     args = model.args
     T = args["T"]
     win = args.get("window", T)
-    temp = params["alpha"] * np.asarray(
-        args["t_trig"].compute_integral({"beta": params["beta"]},
-                                        jnp.minimum(T - t_events, win)))
     A_ = args["A_"]
-    x_min, x_max = A_[0]
-    y_min, y_max = A_[1]
-    sp_limits = jnp.stack((x_max - xy_events[0], xy_events[0] - x_min,
-                           y_max - xy_events[1], xy_events[1] - y_min)).reshape(2, 2, -1)
-    sp = np.asarray(args["sp_trig"].compute_integral({"sigmax_2": params["sigmax_2"]},
-                                                     sp_limits))
+    exc = float(rectangular_excitation_compensator(
+        jnp.float32(params["alpha"]), jnp.asarray(t_events), jnp.asarray(xy_events),
+        T, win, (A_[0][0], A_[0][1], A_[1][0], A_[1][1]),
+        {"beta": jnp.float32(params["beta"])},
+        {"sigmax_2": jnp.float32(params["sigmax_2"])},
+        args["t_trig"], args["sp_trig"]))
     lam_bg = float(np.exp(params["a_0"])) * T * args["A_area"]
-    return lam_bg + float(np.sum(temp * sp))
+    return lam_bg + exc
 
 
 def test_simulated_count_matches_compensator():
