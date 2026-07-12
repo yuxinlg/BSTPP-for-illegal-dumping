@@ -169,7 +169,7 @@ class Point_Process_Model:
         priors: dict
             priors for parameters (a_0,w,alpha,beta,sigmax_2). Must be a numpyro distribution.
         """
-        if type(data)==str:
+        if type(data) is str:
             data = pd.read_csv(data)
         self.data = data
 
@@ -306,12 +306,14 @@ class Point_Process_Model:
 
         if spatial_cov is not None:
             #convert input into geopandas dataframe.
-            if type(spatial_cov)==str:
+            if type(spatial_cov) is str:
                 if spatial_cov[-4:] == '.zip' or spatial_cov[-4:] == '.shp':
                     spatial_cov = gpd.read_file(spatial_cov)
                 else:
                     spatial_cov = pd.read_csv(spatial_cov)
-            if type(spatial_cov) == pd.DataFrame:
+            # exact-type check is intentional: GeoDataFrame subclasses DataFrame and must NOT
+            # take this branch (it already carries geometry); isinstance would misroute it.
+            if type(spatial_cov) is pd.DataFrame:
                 polygons = []
                 for i in spatial_cov.index:
                     polygons.append(Polygon([(spatial_cov.loc[i,'X']-cov_grid_size[0]/2,
@@ -523,7 +525,7 @@ class Point_Process_Model:
         return args,points
 
     def log_expected_likelihood(self, data):
-        if type(data) == str:
+        if type(data) is str:
             data = pd.read_csv(data)
         if 'day' in data.columns:
             data = data.drop(columns=['day'])

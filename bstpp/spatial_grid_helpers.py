@@ -188,7 +188,7 @@ def identify_hotspots_coldspots(result_gdf, quantile_method='auto'):
             coldspot_pct = 2.0
             hotspot_threshold = np.percentile(post_mean_values, hotspot_pct)
             coldspot_threshold = np.percentile(post_mean_values, coldspot_pct)
-        except:
+        except Exception:
             # Fallback to 10%
             hotspot_pct = 90.0
             coldspot_pct = 10.0
@@ -461,7 +461,7 @@ def plot_daily_event_counts(result_gdf, events_gdf, plot_mode='combined', figsiz
                 # If spatial join fails, try with intersects as fallback
                 try:
                     events_in_hotspot = events_gdf_clean.sjoin(hotspot_gdf_clean, how='inner', predicate='intersects')
-                except:
+                except Exception:
                     events_in_hotspot = gpd.GeoDataFrame(columns=events_gdf_clean.columns, crs=events_gdf_clean.crs)
             
             if len(events_in_hotspot) > 0:
@@ -495,7 +495,7 @@ def plot_daily_event_counts(result_gdf, events_gdf, plot_mode='combined', figsiz
                 # If spatial join fails, try with intersects as fallback
                 try:
                     events_in_coldspot = events_gdf_clean.sjoin(coldspot_gdf_clean, how='inner', predicate='intersects')
-                except:
+                except Exception:
                     events_in_coldspot = gpd.GeoDataFrame(columns=events_gdf_clean.columns, crs=events_gdf_clean.crs)
             
             if len(events_in_coldspot) > 0:
