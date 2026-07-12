@@ -1,0 +1,175 @@
+From b533445c1ee8eed48d971c1c67faaf7449741ba4 Mon Sep 17 00:00:00 2001
+From: "Phase1 Draft (Claude, for Terhi review)" <draft@local>
+Date: Sun, 12 Jul 2026 04:34:20 +0000
+Subject: [PATCH 4/5] refactor: resolve remaining lint with judgment, not
+ autofix. (1) Remove genuinely-unused plain locals: N in
+ spatiotemporal_hawkes_model; t_events/xy_events/n_obs in
+ spatiotemporal_LGCP_model (the LGCP likelihood reads events through
+ precomputed grid indices in args, never through these locals). (2) Keep the
+ six F841-flagged numpyro.deterministic assignments (Itot_t, Itot_a, rate_time
+ in both model fns) with noqa + rationale: deterministic sites are
+ side-effecting trace registrations and part of the posterior interface
+ (CLAUDE.md 'Sampled site names are the posterior interface'). (3) E721:
+ type()== -> type() is; at the pd.DataFrame dispatch in the constructor, an
+ explanatory comment records why isinstance is WRONG there (GeoDataFrame
+ subclasses DataFrame and must not take the DataFrame branch). (4) E722: three
+ bare excepts in spatial_grid_helpers -> except Exception (behavior note: no
+ longer swallows KeyboardInterrupt/SystemExit -- strictly fail-louder).
+ Verified: ruff clean, 26/26.
+
+---
+ bstpp/inference_functions.py  | 17 ++++++-----------
+ bstpp/main.py                 | 10 ++++++----
+ bstpp/spatial_grid_helpers.py |  6 +++---
+ 3 files changed, 15 insertions(+), 18 deletions(-)
+
+diff --git a/bstpp/inference_functions.py b/bstpp/inference_functions.py
+index ab15722..2314875 100644
+--- a/bstpp/inference_functions.py
++++ b/bstpp/inference_functions.py
+@@ -23,7 +23,6 @@ def spatiotemporal_hawkes_model(args):
+     y_vals = args['y_vals']
+     t_events=args["t_events"]
+     xy_events=args["xy_events"]
+-    N=t_events.shape[0]
+ 
+     # Do NOT recompute aligned_difference_pairs here; use precomputed values from args
+ 
+@@ -72,7 +71,7 @@ def spatiotemporal_hawkes_model(args):
+       # a = sigma(t)); Itot_t * Itot_a * Itot_xy != Itot_txy by design.
+       rate_t = numpyro.deterministic("rate_t",jnp.exp(f_t + a_0))
+       # calculate temporal integral over LGCP
+-      Itot_t=numpyro.deterministic("Itot_t", jnp.sum(rate_t)/args["n_t"]*args["T"])
++      Itot_t=numpyro.deterministic("Itot_t", jnp.sum(rate_t)/args["n_t"]*args["T"])  # noqa: F841 -- deterministic trace site (posterior interface, CLAUDE.md)
+       # Temporal part of log(mu(t,s))
+       f_t_events=f_t[args["indices_t"]]
+ 
+@@ -95,7 +94,7 @@ def spatiotemporal_hawkes_model(args):
+       # a standalone factor; Itot_t * Itot_a * Itot_xy != Itot_txy by design.
+       rate_a = numpyro.deterministic("rate_a",jnp.exp(f_a))
+       # calculate integral over LGCP
+-      Itot_a = numpyro.deterministic("Itot_a", jnp.sum(rate_a)/args["n_s"]*args["S"])
++      Itot_a = numpyro.deterministic("Itot_a", jnp.sum(rate_a)/args["n_s"]*args["S"])  # noqa: F841 -- deterministic trace site (posterior interface, CLAUDE.md)
+       f_a_events = f_a[args["indices_a"]]
+ 
+       # Generate gaussian vector to feed into VAE
+@@ -140,7 +139,7 @@ def spatiotemporal_hawkes_model(args):
+       # This replaces the old midpoint rule exp(a_0 + f_t + f_a[season_idx_of_t]).
+       seasonal_mass = args['season_overlap'] @ jnp.exp(f_a)          # (n_t,)
+       # rate_time is a DIAGNOSTIC ONLY: the exact per-cell average intensity.
+-      rate_time = numpyro.deterministic("rate_time",
++      rate_time = numpyro.deterministic("rate_time",  # noqa: F841 -- deterministic trace site (posterior interface, CLAUDE.md)
+           jnp.exp(a_0 + f_t) * seasonal_mass / (args["T"]/args["n_t"]))
+       Itot_time = numpyro.deterministic("Itot_time",
+           jnp.sum(jnp.exp(a_0 + f_t) * seasonal_mass))
+@@ -214,10 +213,6 @@ def spatiotemporal_hawkes_model(args):
+ 
+ 
+ def spatiotemporal_LGCP_model(args):
+-    t_events=args["t_events"]
+-    xy_events=args["xy_events"]
+-    n_obs=t_events.shape[0]
+-
+     #temporal rate
+     a_0 = numpyro.sample("a_0", args['priors']['a_0'])
+ 
+@@ -236,7 +231,7 @@ def spatiotemporal_LGCP_model(args):
+     # the likelihood's time integral is Itot_time (computed on the diagonal
+     # a = sigma(t)); Itot_t * Itot_a * Itot_xy != Itot_txy by design.
+     rate_t = numpyro.deterministic("rate_t",jnp.exp(f_t+a_0))
+-    Itot_t=numpyro.deterministic("Itot_t", jnp.sum(rate_t)/args["n_t"]*args["T"])
++    Itot_t=numpyro.deterministic("Itot_t", jnp.sum(rate_t)/args["n_t"]*args["T"])  # noqa: F841 -- deterministic trace site (posterior interface, CLAUDE.md)
+ 
+     # seasonal part of log(mu(t,s))
+     z_seasonal = numpyro.sample("z_seasonal",
+@@ -253,7 +248,7 @@ def spatiotemporal_LGCP_model(args):
+     # standalone factor; Itot_t * Itot_a * Itot_xy != Itot_txy by design.
+     rate_a = numpyro.deterministic("rate_a",jnp.exp(f_a))
+     # calculate temporal integral over LGCP
+-    Itot_a = numpyro.deterministic("Itot_a", jnp.sum(rate_a)/args["n_s"]*args["S"])
++    Itot_a = numpyro.deterministic("Itot_a", jnp.sum(rate_a)/args["n_s"]*args["S"])  # noqa: F841 -- deterministic trace site (posterior interface, CLAUDE.md)
+ 
+     # zero mean spatial gp
+     z_spatial = numpyro.sample("z_spatial", dist.Normal(jnp.zeros(args["z_dim_spatial"]), jnp.ones(args["z_dim_spatial"])))
+@@ -291,7 +286,7 @@ def spatiotemporal_LGCP_model(args):
+     # season_idx_of_t; W already carries the internal cell measure).
+     seasonal_mass = args['season_overlap'] @ jnp.exp(f_a)          # (n_t,)
+     # rate_time is a DIAGNOSTIC ONLY: the exact per-cell average intensity.
+-    rate_time = numpyro.deterministic("rate_time",
++    rate_time = numpyro.deterministic("rate_time",  # noqa: F841 -- deterministic trace site (posterior interface, CLAUDE.md)
+         jnp.exp(a_0 + f_t) * seasonal_mass / (args["T"]/args["n_t"]))
+     Itot_time = numpyro.deterministic("Itot_time",
+         jnp.sum(jnp.exp(a_0 + f_t) * seasonal_mass))
+diff --git a/bstpp/main.py b/bstpp/main.py
+index 56bc520..4ff84bb 100644
+--- a/bstpp/main.py
++++ b/bstpp/main.py
+@@ -169,7 +169,7 @@ class Point_Process_Model:
+         priors: dict
+             priors for parameters (a_0,w,alpha,beta,sigmax_2). Must be a numpyro distribution.
+         """
+-        if type(data)==str:
++        if type(data) is str:
+             data = pd.read_csv(data)
+         self.data = data
+ 
+@@ -306,12 +306,14 @@ class Point_Process_Model:
+ 
+         if spatial_cov is not None:
+             #convert input into geopandas dataframe.
+-            if type(spatial_cov)==str:
++            if type(spatial_cov) is str:
+                 if spatial_cov[-4:] == '.zip' or spatial_cov[-4:] == '.shp':
+                     spatial_cov = gpd.read_file(spatial_cov)
+                 else:
+                     spatial_cov = pd.read_csv(spatial_cov)
+-            if type(spatial_cov) == pd.DataFrame:
++            # exact-type check is intentional: GeoDataFrame subclasses DataFrame and must NOT
++            # take this branch (it already carries geometry); isinstance would misroute it.
++            if type(spatial_cov) is pd.DataFrame:
+                 polygons = []
+                 for i in spatial_cov.index:
+                     polygons.append(Polygon([(spatial_cov.loc[i,'X']-cov_grid_size[0]/2,
+@@ -523,7 +525,7 @@ class Point_Process_Model:
+         return args,points
+ 
+     def log_expected_likelihood(self, data):
+-        if type(data) == str:
++        if type(data) is str:
+             data = pd.read_csv(data)
+         if 'day' in data.columns:
+             data = data.drop(columns=['day'])
+diff --git a/bstpp/spatial_grid_helpers.py b/bstpp/spatial_grid_helpers.py
+index 6c77c48..f85fd38 100644
+--- a/bstpp/spatial_grid_helpers.py
++++ b/bstpp/spatial_grid_helpers.py
+@@ -188,7 +188,7 @@ def identify_hotspots_coldspots(result_gdf, quantile_method='auto'):
+             coldspot_pct = 2.0
+             hotspot_threshold = np.percentile(post_mean_values, hotspot_pct)
+             coldspot_threshold = np.percentile(post_mean_values, coldspot_pct)
+-        except:
++        except Exception:
+             # Fallback to 10%
+             hotspot_pct = 90.0
+             coldspot_pct = 10.0
+@@ -461,7 +461,7 @@ def plot_daily_event_counts(result_gdf, events_gdf, plot_mode='combined', figsiz
+                 # If spatial join fails, try with intersects as fallback
+                 try:
+                     events_in_hotspot = events_gdf_clean.sjoin(hotspot_gdf_clean, how='inner', predicate='intersects')
+-                except:
++                except Exception:
+                     events_in_hotspot = gpd.GeoDataFrame(columns=events_gdf_clean.columns, crs=events_gdf_clean.crs)
+             
+             if len(events_in_hotspot) > 0:
+@@ -495,7 +495,7 @@ def plot_daily_event_counts(result_gdf, events_gdf, plot_mode='combined', figsiz
+                 # If spatial join fails, try with intersects as fallback
+                 try:
+                     events_in_coldspot = events_gdf_clean.sjoin(coldspot_gdf_clean, how='inner', predicate='intersects')
+-                except:
++                except Exception:
+                     events_in_coldspot = gpd.GeoDataFrame(columns=events_gdf_clean.columns, crs=events_gdf_clean.crs)
+             
+             if len(events_in_coldspot) > 0:
+-- 
+2.43.0
+

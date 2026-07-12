@@ -1,0 +1,122 @@
+From 489add58f0654578ddb028390eb6bdb18e922b9e Mon Sep 17 00:00:00 2001
+From: "Phase1 Draft (Claude, for Terhi review)" <draft@local>
+Date: Sun, 12 Jul 2026 14:38:33 +0000
+Subject: [PATCH 6/6] refactor(likelihood): extract
+ constant_background_integral and covariate_background_integral (plain-Hawkes
+ compensators) and rewire Itot_txy_back onto them. Unlike the rejected
+ loglik-subtraction wrapper, these earn extraction through reuse:
+ _sim_hawkes_bg consumes them in Phase 2b, making the background half of the
+ conservation identity (I11) structural. Unit tests with float64 references
+ and finite gradients. Pure lifts: value AND gradient pins bit-identical;
+ 32/32.
+
+---
+ bstpp/inference_functions.py   |  6 ++++--
+ bstpp/likelihood.py            | 19 +++++++++++++++++++
+ tests/test_likelihood_atoms.py | 21 ++++++++++++++++++++-
+ 3 files changed, 43 insertions(+), 3 deletions(-)
+
+diff --git a/bstpp/inference_functions.py b/bstpp/inference_functions.py
+index 8ef2162..02db6b6 100644
+--- a/bstpp/inference_functions.py
++++ b/bstpp/inference_functions.py
+@@ -12,6 +12,8 @@ from numpyro.infer.autoguide import AutoMultivariateNormal
+ from .vae_functions import (vae_decoder_temporal, vae_decoder_seasonal,
+                              vae_decoder_spatial)
+ from .likelihood import (aggregate_pair_trigger_values,
++                         constant_background_integral,
++                         covariate_background_integral,
+                          rectangular_excitation_compensator,
+                          seasonal_time_integral,
+                          spatial_refinement_integral)
+@@ -39,7 +41,7 @@ def spatiotemporal_hawkes_model(args):
+         # Background integral contracts cells against their areas.
+         Itot_txy_back = numpyro.deterministic(
+             "Itot_txy_back",
+-            mu_xyt @ args['cov_area'] * args['T']
++            covariate_background_integral(mu_xyt, args['cov_area'], args['T'])
+         )
+         # Use precomputed indices to evaluate the per-cell rate at each event.
+         mu_xyt_events = mu_xyt[args['cov_ind']]                                  # (n_events,)
+@@ -48,7 +50,7 @@ def spatiotemporal_hawkes_model(args):
+         mu_xyt = numpyro.deterministic("mu_xyt", jnp.exp(a_0 + b_0))
+         Itot_txy_back = numpyro.deterministic(
+             "Itot_txy_back",
+-            mu_xyt * args['T'] * args['A_area']
++            constant_background_integral(mu_xyt, args['T'], args['A_area'])
+         )
+         mu_xyt_events = mu_xyt
+ 
+diff --git a/bstpp/likelihood.py b/bstpp/likelihood.py
+index dc43cb2..eda8935 100644
+--- a/bstpp/likelihood.py
++++ b/bstpp/likelihood.py
+@@ -27,6 +27,11 @@ Equation concordance (guide numbering):
+   the refinement-cell areas |C_c intersect A_m|. The no-covariate grid
+   integral is the same atom with uniform areas 1/n_xy^2 and no b_0.
+   Refinement invariance (I9) is a property of this expression.
++- constant_background_integral .......... plain-Hawkes background compensator
++  mu * T * |X| (reused by _sim_hawkes_bg in Phase 2b, making the background
++  half of (I11) structural).
++- covariate_background_integral ......... plain-Hawkes covariate background
++  compensator (mu_cells @ cell_areas) * T over the covariate partition.
+ - rectangular_excitation_compensator .... truncated excitation compensator,
+   eq. (14) specialized as implemented: exponential temporal mass F_beta on
+   min(T - t_j, w) (temporal truncation matched to the pair set) and Gaussian
+@@ -117,3 +122,17 @@ def spatial_refinement_integral(f_xy, field_indices, areas, b_0=None,
+     if b_0 is not None:
+         log_rate = log_rate + b_0[covariate_indices]
+     return jnp.exp(log_rate) @ areas
++
++
++def constant_background_integral(mu, horizon, domain_area):
++    """Compensator of a constant background: mu * T * |X| (internal units)."""
++    return mu * horizon * domain_area
++
++
++def covariate_background_integral(mu_cells, cell_areas, horizon):
++    """Compensator of a piecewise-constant covariate background.
++
++    (mu_cells @ cell_areas) * horizon over the covariate partition {A_m};
++    cell_areas are |A_m| in internal measure (args['cov_area']).
++    """
++    return mu_cells @ cell_areas * horizon
+diff --git a/tests/test_likelihood_atoms.py b/tests/test_likelihood_atoms.py
+index 346127b..a2e8ee3 100644
+--- a/tests/test_likelihood_atoms.py
++++ b/tests/test_likelihood_atoms.py
+@@ -21,7 +21,9 @@ import jax.numpy as jnp
+ from bstpp.likelihood import (aggregate_pair_trigger_values,
+                               rectangular_excitation_compensator,
+                               seasonal_time_integral,
+-                              spatial_refinement_integral)
++                              spatial_refinement_integral,
++                              constant_background_integral,
++                              covariate_background_integral)
+ from bstpp.trigger import Temporal_Exponential, Spatial_Symmetric_Gaussian
+ 
+ 
+@@ -170,3 +172,20 @@ def test_spatial_refinement_integral_matches_numpy_reference():
+         f, jnp.asarray(fi), jnp.asarray(areas), b, jnp.asarray(ci)),
+         argnums=(0, 1))(jnp.asarray(f_xy), jnp.asarray(b_0))
+     assert all(np.all(np.isfinite(np.asarray(x))) for x in g)
++
++
++def test_background_integrals_match_reference():
++    rng = np.random.default_rng(5)
++    mu_cells = rng.uniform(0.5, 2.0, 4).astype(np.float32)
++    areas = rng.uniform(0.1, 0.4, 4).astype(np.float32)
++    T = 50.0
++    out = float(covariate_background_integral(jnp.asarray(mu_cells),
++                                              jnp.asarray(areas), T))
++    ref = float(mu_cells.astype(np.float64) @ areas.astype(np.float64) * T)
++    np.testing.assert_allclose(out, ref, rtol=2e-6)
++    np.testing.assert_allclose(
++        float(constant_background_integral(jnp.float32(1.3), T, 1.0)),
++        1.3 * T, rtol=2e-6)
++    g = jax.grad(lambda m: covariate_background_integral(m, jnp.asarray(areas), T)
++                 )(jnp.asarray(mu_cells))
++    assert np.all(np.isfinite(np.asarray(g)))
+-- 
+2.43.0
+

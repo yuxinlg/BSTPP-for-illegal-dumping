@@ -1,0 +1,229 @@
+From 0535d979682668a0103723dd6fd568e63ddae924 Mon Sep 17 00:00:00 2001
+From: "Phase1 Draft (Claude, for Terhi review)" <draft@local>
+Date: Sun, 12 Jul 2026 04:29:28 +0000
+Subject: [PATCH 1/5] refactor(utils): delete dead helpers -- both duplicate
+ sq_diff/square_mean pairs (utils.py:20-24 and :281-287, zero callers
+ anywhere); GP (zero callers AND broken: references numpyro/dist which utils
+ never imports -> NameError if called); rej_sampling_new, find_nearest,
+ find_nearest_2D, find_index, find_index_b, randdist (zero callers); dense
+ difference_matrix / difference_matrix_partial / difference_pairs /
+ difference_pairs_2d, superseded by aligned_difference_pairs (efc8680); drop
+ the dead difference_matrix name from inference_functions.py:14 import. Kept:
+ dist_euclid (VAE_Train.py:89), exp_sq_kernel (main.py:284 args['gp_kernel']),
+ aligned_difference_pairs. utils.py 288 -> 115 lines. Behavior-preserving by
+ construction (only uncalled code removed); verified 26/26 tests pass.
+
+---
+ bstpp/inference_functions.py |   2 +-
+ bstpp/utils.py               | 171 -----------------------------------
+ 2 files changed, 1 insertion(+), 172 deletions(-)
+
+diff --git a/bstpp/inference_functions.py b/bstpp/inference_functions.py
+index 06cfda9..5fe12d2 100644
+--- a/bstpp/inference_functions.py
++++ b/bstpp/inference_functions.py
+@@ -11,7 +11,7 @@ from numpyro.infer import MCMC, NUTS, init_to_median, init_to_value, init_to_uni
+ from numpyro.infer import Trace_ELBO, SVI, Predictive
+ from numpyro.infer.autoguide import *
+ from numpyro import optim
+-from .utils import difference_matrix, aligned_difference_pairs
++from .utils import aligned_difference_pairs
+ from .vae_functions import *
+ 
+ 
+diff --git a/bstpp/utils.py b/bstpp/utils.py
+index e25d3c0..c40c634 100644
+--- a/bstpp/utils.py
++++ b/bstpp/utils.py
+@@ -17,52 +17,6 @@ from functools import partial
+ 
+ #@title
+ 
+-def square_mean(a,b):
+-  return np.mean((a-b)**2)
+-
+-def sq_diff(a,b):
+-  return np.sum((a-b)**2)
+-  
+-## helper functions
+-def find_nearest(array, value):
+-    array = np.asarray(array)
+-    idx = (np.abs(array - value)).argmin()
+-    return idx.astype(int)
+-
+-def find_nearest_2D(array, value):
+-    array = np.asarray(array)
+-    idx = (np.sqrt(np.sum((array-value)**2,1))).argmin()
+-    return idx
+-
+-    
+-def randdist(x, pdf, nvals):
+-    """Produce nvals random samples from pdf(x), assuming constant spacing in x."""
+-    # get cumulative distribution from 0 to 1
+-    cumpdf = np.cumsum(pdf)
+-    cumpdf *= 1/cumpdf[-1]
+-
+-    # input random values
+-    randv = np.random.uniform(size=nvals)
+-
+-    # find where random values would go
+-    idx1 = np.searchsorted(cumpdf, randv)
+-    # get previous value, avoiding division by zero below
+-    idx0 = np.where(idx1==0, 0, idx1-1)
+-    idx1.at[idx0==0].set(1)
+-
+-    # do linear interpolation in x
+-    frac1 = (randv - cumpdf[idx0]) / (cumpdf[idx1] - cumpdf[idx0])
+-    if x.size==x.shape[0]:
+-        randdist = x[idx0]*(1-frac1) + x[idx1]*frac1
+-    elif x.size==x.shape[0]*2:
+-        randdist = x[idx0,:]*(1-frac1).reshape(idx0.size,1) + x[idx1,:]*frac1.reshape(idx0.size,1) 
+-    randdist_y = pdf[idx0]*(1-frac1) + pdf[idx1]*frac1
+-    indices = randdist>0
+-    return idx0, idx1, randdist[indices], randdist_y[indices]
+-
+-
+-
+-    #@title
+ def dist_euclid(x, z):
+     x = jnp.array(x) 
+     z = jnp.array(z)
+@@ -89,124 +43,6 @@ def exp_sq_kernel(x, z, var, length, noise, jitter=1.0e-6):
+     return k
+ 
+     
+-def GP(args, jitter=1e-4, y=None, var=None, length=None, sigma=None, noise=False):
+-    
+-    x = args["x"]
+-    #obs_idx = args["obs_idx"]
+-    gp_kernel=args["gp_kernel"] 
+-
+-    if length==None:
+-        length = numpyro.sample("kernel_length", dist.InverseGamma(4,1))
+-        
+-    if var==None:
+-        var = numpyro.sample("kernel_var", dist.LogNormal(0.,0.1))
+-    
+-    k = gp_kernel(x, x, var, length, jitter)
+-    
+-    if noise==False:
+-        numpyro.sample("y",  dist.MultivariateNormal(loc=jnp.zeros(x.shape[0]), covariance_matrix=k), obs=y)
+-    else:
+-        sigma = numpyro.sample("noise", dist.HalfNormal(0.05))
+-        f = numpyro.sample("f", dist.MultivariateNormal(loc=jnp.zeros(x.shape[0]), covariance_matrix=k))
+-        numpyro.sample("y", dist.Normal(f, sigma), obs=y)
+-
+-
+-
+-#@title
+-def rej_sampling_new(N, grid, gp_function, n):
+-  f_max=np.max(gp_function);
+-  ids=np.arange(0, n)
+-  if N<100:
+-    N_max=N*100
+-  else:
+-    N_max=N*10;
+-  index=np.random.choice(ids,N_max)
+-
+-  candidate_points=grid[index];
+-
+-  #plt.plot(args['x_t'],gp_function)
+-  #plt.plot(args['x_t'][index],gp_function[index],'x')
+-  U=np.random.uniform(0, f_max, N_max);
+-  #plt.plot(x_t[index],U,'o')
+-  indices=jnp.where(U<gp_function[index]);
+-  #plt.plot(x_t[index][indices],U[indices],'+' )
+-  #plt.plot(x_t[index][indices],np.zeros(indices[0].size),'+' )
+-  accepted_points=grid[index][indices][0:N]
+-  accepted_f=gp_function[index][indices][0:N]
+-  return jnp.array(index[indices][0:N]), accepted_points, accepted_f
+-
+-
+-
+-def find_index_b(events, grid):
+-  n=events.shape[0];
+-  ind=np.zeros(n)*np.nan
+-  for i in range(n):  
+-    if events.size>events.shape[0]:
+-      ind[i]=jnp.nanargmin(np.sqrt(np.sum((events[i,:]-grid)**2,1)))
+-    else:
+-      ind[i]=jnp.nanargmin(np.abs(events[i]-grid))
+-  return ind.astype(int)
+- 
+-
+-#@title
+-def find_index(events, grid):
+-  if isinstance(events,np.ndarray):
+-    n=events.shape[0];
+-    ind=np.zeros(n)*np.nan
+-    for i in range(n):  
+-      if events.size>events.shape[0]:
+-        ind[i]=jnp.nanargmin(np.sqrt(np.sum((events[i,:]-grid)**2,1)))
+-      else:
+-        ind[i]=jnp.nanargmin(np.abs(events[i]-grid))
+-  else:
+-    ind=jnp.nanargmin(np.abs(events-grid))
+-  return ind.astype(int)
+-  
+-
+-  #@title
+-
+-def difference_matrix(a, window=15):
+-    x = jnp.reshape(a, (a.shape[0], 1))
+-    x2 = x - x.T
+-    mask = (x2 > 0) & (x2 <= window)
+-    indices = jnp.where(mask)
+-    values = x2[indices]
+-    coords = jnp.stack(indices, axis=-1)
+-    return coords, values
+-
+-def difference_matrix_partial(a, partial_index, window=15):
+-    x = jnp.reshape(a, (a.shape[0], 1))
+-    x2 = x[partial_index] - x.T
+-    mask = (x2 > 0) & (x2 <= window)
+-    indices = jnp.where(mask)
+-    values = x2[indices]
+-    coords = jnp.stack(indices, axis=-1)
+-    return coords, values
+-
+-def difference_pairs(a, window=15):
+-    x = jnp.reshape(a, (a.shape[0], 1))
+-    x2 = x - x.T
+-    mask = (x2 > 0) & (x2 <= window)
+-    indices = jnp.where(mask)
+-    values = x2[indices]
+-    coords = jnp.stack(indices, axis=-1)
+-    return coords, values
+-
+-def difference_pairs_2d(x, y, window=15):
+-    x = jnp.reshape(x, (x.shape[0], 1))
+-    y = jnp.reshape(y, (y.shape[0], 1))
+-    dx = x - x.T
+-    dy = y - y.T
+-    mask = (dx > 0) & (dx <= window)
+-
+-
+-    
+-    indices = jnp.where(mask)
+-    coords = jnp.stack(indices, axis=-1)
+-    dx_vals = dx[indices]
+-    dy_vals = dy[indices]
+-    return coords, dx_vals, dy_vals
+-
+ def aligned_difference_pairs(t, x, y, window, spatial_window=None):
+     """Emit the (receiver i, source j) excitation pairs with 0 < t[i]-t[j] <= window.
+ 
+@@ -277,10 +113,3 @@ def aligned_difference_pairs(t, x, y, window, spatial_window=None):
+     coords = np.stack((i_idx, j_idx), axis=-1)
+     return (jnp.asarray(coords), jnp.asarray(t_vals),
+             jnp.asarray(x_vals), jnp.asarray(y_vals))
+-
+-def sq_diff(a,b):
+-  return np.sum((a-b)**2)
+-
+-
+-def square_mean(a,b):
+-  return np.mean((a-b)**2)
+-- 
+2.43.0
+

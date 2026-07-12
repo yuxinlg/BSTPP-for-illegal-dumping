@@ -110,6 +110,10 @@ mode, so **validation and testing rank above cleanliness.**
 - Results must be **robust to seed**, not cherry-picked from one lucky seed
   (avoid "seed-hacking"). If a refactor changes the RNG call order, expect
   numeric drift and re-baseline deliberately, documenting why.
+- Golden pins and fixed-seed simulations are machine-local artifacts — never
+  compare across machines
+- `GeoSeries.sample_points` is geopandas-version-sensitive, so the geometry
+  stack (`geopandas`/`shapely`/`GEOS`) belongs alongside the `jax`/`numpy` pins in the environment notes if cross-session reproducibility of simulations ever matters
 ### Managing complexity (the core goal)
 - **Single Responsibility:** each function/class has one cohesive purpose at one
   level of abstraction. Break long functions into named steps.

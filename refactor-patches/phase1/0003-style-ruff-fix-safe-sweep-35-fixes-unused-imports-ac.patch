@@ -1,0 +1,170 @@
+From 9a47f7c26fc990ef11530a490f3eddcadb05c97b Mon Sep 17 00:00:00 2001
+From: "Phase1 Draft (Claude, for Terhi review)" <draft@local>
+Date: Sun, 12 Jul 2026 04:32:27 +0000
+Subject: [PATCH 3/5] style: ruff --fix safe sweep (35 fixes) -- unused imports
+ across bstpp/ (incl. seaborn, dill, scipy.interpolate.interp1d, math.erf/ceil
+ in main.py: verified zero call sites by grep, not just ruff); useless
+ semicolons (E703); unused 'as e' bindings in spatial_grid_helpers except
+ clauses (F841 fixable). Deliberately NOT touched: the nine remaining F841s in
+ inference_functions.py -- six are numpyro.deterministic sites (Itot_t,
+ Itot_a, rate_time x2 each), side-effecting trace sites and part of the
+ posterior interface per CLAUDE.md; three are plain locals handled in the next
+ commit. Verified 26/26.
+
+---
+ bstpp/inference_functions.py  | 10 ++++------
+ bstpp/main.py                 |  7 -------
+ bstpp/spatial_grid_helpers.py |  8 ++++----
+ bstpp/utils.py                |  8 --------
+ bstpp/vae_functions.py        |  2 --
+ 5 files changed, 8 insertions(+), 27 deletions(-)
+
+diff --git a/bstpp/inference_functions.py b/bstpp/inference_functions.py
+index 3fd07d2..ab15722 100644
+--- a/bstpp/inference_functions.py
++++ b/bstpp/inference_functions.py
+@@ -2,16 +2,14 @@ import os
+ import time
+ import jax
+ import jax.numpy as jnp
+-from jax.example_libraries.optimizers import exponential_decay, inverse_time_decay
++from jax.example_libraries.optimizers import inverse_time_decay
+ 
+ # Numpyro
+ import numpyro
+ import numpyro.distributions as dist
+-from numpyro.infer import MCMC, NUTS, init_to_median, init_to_value, init_to_uniform
++from numpyro.infer import MCMC, NUTS, init_to_median
+ from numpyro.infer import Trace_ELBO, SVI, Predictive
+ from numpyro.infer.autoguide import AutoMultivariateNormal
+-from numpyro import optim
+-from .utils import aligned_difference_pairs
+ from .vae_functions import (vae_decoder_temporal, vae_decoder_seasonal,
+                              vae_decoder_spatial)
+ 
+@@ -216,8 +214,8 @@ def spatiotemporal_hawkes_model(args):
+ 
+ 
+ def spatiotemporal_LGCP_model(args):
+-    t_events=args["t_events"];
+-    xy_events=args["xy_events"];
++    t_events=args["t_events"]
++    xy_events=args["xy_events"]
+     n_obs=t_events.shape[0]
+ 
+     #temporal rate
+diff --git a/bstpp/main.py b/bstpp/main.py
+index 8c44e5a..56bc520 100644
+--- a/bstpp/main.py
++++ b/bstpp/main.py
+@@ -1,22 +1,16 @@
+ # general libraries
+-import os
+ from io import BytesIO
+ import numpy as np
+ import pandas as pd
+ import geopandas as gpd
+ from shapely.geometry import Polygon
+ import matplotlib.pyplot as plt
+-from math import erf, ceil
+ import warnings
+-import dill
+ import pickle
+ import pkgutil
+ import math
+ import matplotlib.dates as mdates
+-import datetime
+ import calendar
+-import seaborn as sns
+-import matplotlib.gridspec as gridspec
+ 
+ 
+ # JAX
+@@ -1641,7 +1635,6 @@ class Hawkes_Model(Point_Process_Model):
+         """
+         import numpy as np
+         import matplotlib.pyplot as plt
+-        from scipy.interpolate import interp1d
+         
+         if 'samples' not in dir(self):
+             raise Exception("MCMC posterior sampling has not been performed yet.")
+diff --git a/bstpp/spatial_grid_helpers.py b/bstpp/spatial_grid_helpers.py
+index c491942..6c77c48 100644
+--- a/bstpp/spatial_grid_helpers.py
++++ b/bstpp/spatial_grid_helpers.py
+@@ -310,7 +310,7 @@ def plot_daily_event_counts(result_gdf, events_gdf, plot_mode='combined', figsiz
+                 else:
+                     hotspot_union = gpd.GeoSeries([hotspot_union_geom], crs=hotspots.crs)
+                     hotspot_union_gdf = gpd.GeoDataFrame(geometry=hotspot_union, crs=hotspots.crs)
+-            except Exception as e:
++            except Exception:
+                 # Fallback: use individual polygons if union fails
+                 hotspot_union_gdf = hotspots[['geometry']].copy()
+         
+@@ -325,7 +325,7 @@ def plot_daily_event_counts(result_gdf, events_gdf, plot_mode='combined', figsiz
+                 else:
+                     coldspot_union = gpd.GeoSeries([coldspot_union_geom], crs=coldspots.crs)
+                     coldspot_union_gdf = gpd.GeoDataFrame(geometry=coldspot_union, crs=coldspots.crs)
+-            except Exception as e:
++            except Exception:
+                 # Fallback: use individual polygons if union fails
+                 coldspot_union_gdf = coldspots[['geometry']].copy()
+         
+@@ -457,7 +457,7 @@ def plot_daily_event_counts(result_gdf, events_gdf, plot_mode='combined', figsiz
+                                                           if col in ['index_right', 'index_left']], errors='ignore')
+             try:
+                 events_in_hotspot = events_gdf_clean.sjoin(hotspot_gdf_clean, how='inner', predicate='within')
+-            except Exception as e:
++            except Exception:
+                 # If spatial join fails, try with intersects as fallback
+                 try:
+                     events_in_hotspot = events_gdf_clean.sjoin(hotspot_gdf_clean, how='inner', predicate='intersects')
+@@ -491,7 +491,7 @@ def plot_daily_event_counts(result_gdf, events_gdf, plot_mode='combined', figsiz
+                                                             if col in ['index_right', 'index_left']], errors='ignore')
+             try:
+                 events_in_coldspot = events_gdf_clean.sjoin(coldspot_gdf_clean, how='inner', predicate='within')
+-            except Exception as e:
++            except Exception:
+                 # If spatial join fails, try with intersects as fallback
+                 try:
+                     events_in_coldspot = events_gdf_clean.sjoin(coldspot_gdf_clean, how='inner', predicate='intersects')
+diff --git a/bstpp/utils.py b/bstpp/utils.py
+index c40c634..1b2c291 100644
+--- a/bstpp/utils.py
++++ b/bstpp/utils.py
+@@ -1,18 +1,10 @@
+ # general libraries
+-import time
+-import os
+-import math
+ import numpy as np
+-import matplotlib.pyplot as plt
+-import pickle
+ 
+ # JAX
+-import jax
+ import jax.numpy as jnp
+-from jax import random, lax, jit, ops
+ #from jax.experimental import stax
+ 
+-from functools import partial
+ 
+ 
+ #@title
+diff --git a/bstpp/vae_functions.py b/bstpp/vae_functions.py
+index 5b28720..ea427cf 100644
+--- a/bstpp/vae_functions.py
++++ b/bstpp/vae_functions.py
+@@ -1,9 +1,7 @@
+ #@title
+ 
+ # JAX
+-import jax
+ import jax.numpy as jnp
+-from jax import random, lax, jit, ops
+ from jax.example_libraries import stax
+ 
+ 
+-- 
+2.43.0
+

@@ -1,0 +1,240 @@
+From 2937f60b41c15e19c1b52304b1e4804394ec0213 Mon Sep 17 00:00:00 2001
+From: "Phase1 Draft (Claude, for Terhi review)" <draft@local>
+Date: Sun, 12 Jul 2026 13:28:22 +0000
+Subject: [PATCH 3/3] refactor(likelihood): extract
+ rectangular_excitation_compensator (eq. 14 specialized: exponential temporal
+ mass on min(T - t_j, w), Gaussian rectangle mass eq. 27) and rewire
+ Itot_excite onto it; pure lift, op order preserved. The atom is named and
+ documented for what it computes -- NOT the general-domain compensator:
+ non-rectangular domains overcharge (declared approximation), and finite
+ spatial_window remains event-side only (documented discrepancy). Unit tests:
+ independent SciPy erf reference, finite gradients w.r.t. (alpha, beta,
+ sigmax_2), window>=horizon untruncated recovery (I8b at atom level).
+ test_identities.py's I11 helper now assembles background + the production
+ atom (per review: the atom keeps its own independent-reference unit test so
+ the conservation test does not share an unverified formula with the code
+ under test; the traced-Itot_txy guard is retained). Verified: ruff clean;
+ 29/29; value AND gradient pins bit-identical.
+
+---
+ bstpp/inference_functions.py   | 22 ++++++------
+ bstpp/likelihood.py            | 36 ++++++++++++++++++++
+ tests/test_identities.py       | 22 ++++++------
+ tests/test_likelihood_atoms.py | 62 +++++++++++++++++++++++++++++++++-
+ 4 files changed, 119 insertions(+), 23 deletions(-)
+
+diff --git a/bstpp/inference_functions.py b/bstpp/inference_functions.py
+index 33dd1d9..8e238d0 100644
+--- a/bstpp/inference_functions.py
++++ b/bstpp/inference_functions.py
+@@ -11,7 +11,8 @@ from numpyro.infer import Trace_ELBO, SVI, Predictive
+ from numpyro.infer.autoguide import AutoMultivariateNormal
+ from .vae_functions import (vae_decoder_temporal, vae_decoder_seasonal,
+                              vae_decoder_spatial)
+-from .likelihood import aggregate_pair_trigger_values
++from .likelihood import (aggregate_pair_trigger_values,
++                         rectangular_excitation_compensator)
+ 
+ 
+ def spatiotemporal_hawkes_model(args):
+@@ -174,18 +175,15 @@ def spatiotemporal_hawkes_model(args):
+     elif args['model']=='cox_hawkes':
+       ell_1=numpyro.deterministic('ell_1',jnp.sum(jnp.log(l_hawkes+jnp.exp(a_0 + f_t_events + f_a_events + f_xy_events))))
+ 
+-    #### hawkes integral
++    #### hawkes integral: truncated excitation compensator over the rectangle
++    #### (eq. 14 specialized + eq. 27; honest scope in likelihood.py docstring)
+     win = args.get('window', T)   # temporal truncation window; NOT the sampled covariate weights `w`
+-    temp_part = alpha*args['t_trig'].compute_integral(t_pars, jnp.minimum(T - t_events, win))
+-
+-
+-    sp_limits = jnp.stack((x_max-xy_events[0],xy_events[0]-x_min,
+-                           y_max-xy_events[1],xy_events[1]-y_min)
+-                         ).reshape(2,2,-1)
+-
+-    sp_part = args['sp_trig'].compute_integral(sp_pars,sp_limits)
+-
+-    Itot_excite = numpyro.deterministic("Itot_excite",jnp.sum(temp_part*sp_part))
++    Itot_excite = numpyro.deterministic(
++        "Itot_excite",
++        rectangular_excitation_compensator(alpha, t_events, xy_events, T, win,
++                                           (x_min, x_max, y_min, y_max),
++                                           t_pars, sp_pars,
++                                           args['t_trig'], args['sp_trig']))
+     ## total integral
+     Itot_txy = numpyro.deterministic("Itot_txy",Itot_excite + Itot_txy_back)
+     loglik=numpyro.deterministic('loglik',ell_1-Itot_txy)
+diff --git a/bstpp/likelihood.py b/bstpp/likelihood.py
+index f740127..2e1f976 100644
+--- a/bstpp/likelihood.py
++++ b/bstpp/likelihood.py
+@@ -15,8 +15,17 @@ Design contract (Phase 2):
+ Equation concordance (guide numbering):
+ - aggregate_pair_trigger_values ......... inner sum of eq. (23), given
+   per-pair kernel values (kernel evaluation stays at the model layer)
++- rectangular_excitation_compensator .... truncated excitation compensator,
++  eq. (14) specialized as implemented: exponential temporal mass F_beta on
++  min(T - t_j, w) (temporal truncation matched to the pair set) and Gaussian
++  rectangle mass (eq. 27) over axis-aligned bounds. HONEST SCOPE: this is NOT
++  the general-domain compensator -- for non-rectangular domains X the
++  rectangle mass overcharges (declared approximation, guide Sec. 2.5), and a
++  finite spatial_window is applied on the EVENT side only (pair construction),
++  not here (known, documented discrepancy).
+ """
+ import jax
++import jax.numpy as jnp
+ 
+ 
+ def aggregate_pair_trigger_values(coords, temporal_values, spatial_values, n_events):
+@@ -34,3 +43,30 @@ def aggregate_pair_trigger_values(coords, temporal_values, spatial_values, n_eve
+     """
+     pair_values = temporal_values * spatial_values
+     return jax.ops.segment_sum(pair_values, coords[:, 0], n_events)
++
++
++def rectangular_excitation_compensator(alpha, t_events, xy_events, horizon,
++                                       temporal_window, rectangular_bounds,
++                                       temporal_parameters, spatial_parameters,
++                                       temporal_trigger, spatial_trigger):
++    """Total excitation compensator over [0, horizon] x rectangle.
++
++    Sum over parents j of
++        alpha * F_temporal(min(horizon - t_j, temporal_window))
++              * (Gaussian rectangle mass at s_j, eq. 27),
++    computed through the SAME trigger protocol the likelihood samples from
++    (temporal_trigger.compute_integral / spatial_trigger.compute_integral),
++    so the simulator identity (I4)/(I11) is tied to one expression.
++
++    rectangular_bounds: (x_min, x_max, y_min, y_max) in internal units.
++    See module docstring for the honest scope of this specialization.
++    Returns a scalar.
++    """
++    x_min, x_max, y_min, y_max = rectangular_bounds
++    temp_part = alpha * temporal_trigger.compute_integral(
++        temporal_parameters, jnp.minimum(horizon - t_events, temporal_window))
++    sp_limits = jnp.stack((x_max - xy_events[0], xy_events[0] - x_min,
++                           y_max - xy_events[1], xy_events[1] - y_min)
++                          ).reshape(2, 2, -1)
++    sp_part = spatial_trigger.compute_integral(spatial_parameters, sp_limits)
++    return jnp.sum(temp_part * sp_part)
+diff --git a/tests/test_identities.py b/tests/test_identities.py
+index 42d6072..e9a0e16 100644
+--- a/tests/test_identities.py
++++ b/tests/test_identities.py
+@@ -278,21 +278,23 @@ def test_spatial_affine_unit_invariance():
+ # =====================================================================
+ 
+ def _compensator(model, t_events, xy_events, params):
++    # Background assembled here; excitation via the PRODUCTION atom (which has
++    # its own independent-reference unit test in test_likelihood_atoms.py, so
++    # this test does not share a formula with the code under test blindly --
++    # and the traced-Itot_txy guard below cross-checks the full assembly).
++    from bstpp.likelihood import rectangular_excitation_compensator
+     args = model.args
+     T = args["T"]
+     win = args.get("window", T)
+-    temp = params["alpha"] * np.asarray(
+-        args["t_trig"].compute_integral({"beta": params["beta"]},
+-                                        jnp.minimum(T - t_events, win)))
+     A_ = args["A_"]
+-    x_min, x_max = A_[0]
+-    y_min, y_max = A_[1]
+-    sp_limits = jnp.stack((x_max - xy_events[0], xy_events[0] - x_min,
+-                           y_max - xy_events[1], xy_events[1] - y_min)).reshape(2, 2, -1)
+-    sp = np.asarray(args["sp_trig"].compute_integral({"sigmax_2": params["sigmax_2"]},
+-                                                     sp_limits))
++    exc = float(rectangular_excitation_compensator(
++        jnp.float32(params["alpha"]), jnp.asarray(t_events), jnp.asarray(xy_events),
++        T, win, (A_[0][0], A_[0][1], A_[1][0], A_[1][1]),
++        {"beta": jnp.float32(params["beta"])},
++        {"sigmax_2": jnp.float32(params["sigmax_2"])},
++        args["t_trig"], args["sp_trig"]))
+     lam_bg = float(np.exp(params["a_0"])) * T * args["A_area"]
+-    return lam_bg + float(np.sum(temp * sp))
++    return lam_bg + exc
+ 
+ 
+ def test_simulated_count_matches_compensator():
+diff --git a/tests/test_likelihood_atoms.py b/tests/test_likelihood_atoms.py
+index f7eea72..8bf27e4 100644
+--- a/tests/test_likelihood_atoms.py
++++ b/tests/test_likelihood_atoms.py
+@@ -14,10 +14,13 @@ import warnings
+ warnings.filterwarnings("ignore")
+ 
+ import numpy as np
++from scipy.special import erf
+ import jax
+ import jax.numpy as jnp
+ 
+-from bstpp.likelihood import aggregate_pair_trigger_values
++from bstpp.likelihood import (aggregate_pair_trigger_values,
++                              rectangular_excitation_compensator)
++from bstpp.trigger import Temporal_Exponential, Spatial_Symmetric_Gaussian
+ 
+ 
+ def test_aggregate_pair_trigger_values_matches_numpy_reference():
+@@ -47,3 +50,60 @@ def test_aggregate_pair_trigger_values_matches_numpy_reference():
+     g = jax.grad(lambda t: jnp.sum(aggregate_pair_trigger_values(
+         jnp.asarray(coords), t, jnp.asarray(sv), n)) ** 2)(jnp.asarray(tv))
+     assert np.all(np.isfinite(np.asarray(g)))
++
++
++def _reference_compensator(alpha, t, x, y, T, win, bounds, beta, sigmax_2):
++    """Independent NumPy/SciPy implementation of the rectangular compensator."""
++    x_min, x_max, y_min, y_max = bounds
++    temp = alpha * (1.0 - np.exp(-np.minimum(T - t, win) / beta))
++    s = np.sqrt(2.0 * sigmax_2)
++    mass_x = 0.5 * (erf((x_max - x) / s) + erf((x - x_min) / s))
++    mass_y = 0.5 * (erf((y_max - y) / s) + erf((y - y_min) / s))
++    return float(np.sum(temp * mass_x * mass_y))
++
++
++def test_rectangular_excitation_compensator_matches_reference():
++    rng = np.random.default_rng(1)
++    n = 40
++    T, win = 50.0, 7.5
++    bounds = (0.0, 1.0, 0.0, 1.0)
++    t = np.sort(rng.uniform(0, T, n)).astype(np.float32)
++    x = rng.uniform(0, 1, n).astype(np.float32)
++    y = rng.uniform(0, 1, n).astype(np.float32)
++    alpha, beta, sigmax_2 = 0.4, 2.5, 0.03
++
++    out = float(rectangular_excitation_compensator(
++        jnp.float32(alpha), jnp.asarray(t), jnp.stack([jnp.asarray(x), jnp.asarray(y)]),
++        T, win, bounds, {"beta": jnp.float32(beta)}, {"sigmax_2": jnp.float32(sigmax_2)},
++        Temporal_Exponential({}), Spatial_Symmetric_Gaussian({})))
++    ref = _reference_compensator(alpha, t.astype(np.float64), x.astype(np.float64),
++                                 y.astype(np.float64), T, win, bounds, beta, sigmax_2)
++    np.testing.assert_allclose(out, ref, rtol=2e-5)
++
++    # gradients w.r.t. all continuous kernel parameters must be finite
++    def f(a, b, s2):
++        return rectangular_excitation_compensator(
++            a, jnp.asarray(t), jnp.stack([jnp.asarray(x), jnp.asarray(y)]),
++            T, win, bounds, {"beta": b}, {"sigmax_2": s2},
++            Temporal_Exponential({}), Spatial_Symmetric_Gaussian({}))
++    grads = jax.grad(f, argnums=(0, 1, 2))(jnp.float32(alpha), jnp.float32(beta),
++                                           jnp.float32(sigmax_2))
++    assert all(np.isfinite(float(g)) for g in grads)
++
++
++def test_compensator_window_beyond_horizon_is_untruncated():
++    """min(T - t, win) = T - t when win >= T: I8b restated at the atom level."""
++    rng = np.random.default_rng(2)
++    t = np.sort(rng.uniform(0, 50.0, 30)).astype(np.float32)
++    xy = jnp.stack([jnp.asarray(rng.uniform(0, 1, 30).astype(np.float32)),
++                    jnp.asarray(rng.uniform(0, 1, 30).astype(np.float32))])
++    common = dict(rectangular_bounds=(0.0, 1.0, 0.0, 1.0),
++                  temporal_parameters={"beta": jnp.float32(2.0)},
++                  spatial_parameters={"sigmax_2": jnp.float32(0.05)},
++                  temporal_trigger=Temporal_Exponential({}),
++                  spatial_trigger=Spatial_Symmetric_Gaussian({}))
++    a = rectangular_excitation_compensator(jnp.float32(0.3), jnp.asarray(t), xy,
++                                           50.0, 50.0, **common)
++    b = rectangular_excitation_compensator(jnp.float32(0.3), jnp.asarray(t), xy,
++                                           50.0, 1e9, **common)
++    np.testing.assert_allclose(float(a), float(b), rtol=1e-6)
+-- 
+2.43.0
+

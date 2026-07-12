@@ -1,0 +1,144 @@
+From 8a74e38ebdbcca62d42e791c43defdc175b0d20b Mon Sep 17 00:00:00 2001
+From: "Phase1 Draft (Claude, for Terhi review)" <draft@local>
+Date: Sun, 12 Jul 2026 14:32:04 +0000
+Subject: [PATCH 4/6] refactor(likelihood): extract seasonal_time_integral (eq.
+ 26 via the eq. 25 overlap matrix; signature includes f_a per review -- the W
+ @ exp(f_a) contraction is the point of the exact integral) and rewire BOTH
+ spatiotemporal_hawkes_model and spatiotemporal_LGCP_model onto it,
+ deduplicating the previously copy-pasted block. Returns (seasonal_mass,
+ total): the per-cell mass still feeds the rate_time diagnostic at the model
+ layer and will feed the _sim_cox normalizer in Phase 2b, making (I1)
+ structural. Unit test: independent float64 NumPy reference; finite gradients
+ w.r.t. (a_0, f_t, f_a). Pure lift, op order preserved: value AND gradient
+ pins bit-identical; 30/30.
+
+---
+ bstpp/inference_functions.py   | 15 ++++++++-------
+ bstpp/likelihood.py            | 21 +++++++++++++++++++++
+ tests/test_likelihood_atoms.py | 24 +++++++++++++++++++++++-
+ 3 files changed, 52 insertions(+), 8 deletions(-)
+
+diff --git a/bstpp/inference_functions.py b/bstpp/inference_functions.py
+index 8e238d0..38c141d 100644
+--- a/bstpp/inference_functions.py
++++ b/bstpp/inference_functions.py
+@@ -12,7 +12,8 @@ from numpyro.infer.autoguide import AutoMultivariateNormal
+ from .vae_functions import (vae_decoder_temporal, vae_decoder_seasonal,
+                              vae_decoder_spatial)
+ from .likelihood import (aggregate_pair_trigger_values,
+-                         rectangular_excitation_compensator)
++                         rectangular_excitation_compensator,
++                         seasonal_time_integral)
+ 
+ 
+ def spatiotemporal_hawkes_model(args):
+@@ -133,12 +134,12 @@ def spatiotemporal_hawkes_model(args):
+       # each temporal cell, seasonal_mass integrates exp(f_a[sigma(t)]) over the cell
+       # (W already carries the internal cell measure, so no extra /n_t*T factor).
+       # This replaces the old midpoint rule exp(a_0 + f_t + f_a[season_idx_of_t]).
+-      seasonal_mass = args['season_overlap'] @ jnp.exp(f_a)          # (n_t,)
++      seasonal_mass, Itot_time_val = seasonal_time_integral(
++          a_0, f_t, f_a, args['season_overlap'])
+       # rate_time is a DIAGNOSTIC ONLY: the exact per-cell average intensity.
+       rate_time = numpyro.deterministic("rate_time",  # noqa: F841 -- deterministic trace site (posterior interface, CLAUDE.md)
+           jnp.exp(a_0 + f_t) * seasonal_mass / (args["T"]/args["n_t"]))
+-      Itot_time = numpyro.deterministic("Itot_time",
+-          jnp.sum(jnp.exp(a_0 + f_t) * seasonal_mass))
++      Itot_time = numpyro.deterministic("Itot_time", Itot_time_val)
+       Itot_txy_back = numpyro.deterministic("Itot_txy_back", Itot_time * Itot_xy)
+ 
+       ## Replace month effect with day GP
+@@ -259,12 +260,12 @@ def spatiotemporal_LGCP_model(args):
+     # EXACT time integral on the seasonal diagonal a = sigma(t) via the precomputed
+     # (n_t x n_s) overlap matrix season_overlap (replaces the midpoint rule at
+     # season_idx_of_t; W already carries the internal cell measure).
+-    seasonal_mass = args['season_overlap'] @ jnp.exp(f_a)          # (n_t,)
++    seasonal_mass, Itot_time_val = seasonal_time_integral(
++        a_0, f_t, f_a, args['season_overlap'])
+     # rate_time is a DIAGNOSTIC ONLY: the exact per-cell average intensity.
+     rate_time = numpyro.deterministic("rate_time",  # noqa: F841 -- deterministic trace site (posterior interface, CLAUDE.md)
+         jnp.exp(a_0 + f_t) * seasonal_mass / (args["T"]/args["n_t"]))
+-    Itot_time = numpyro.deterministic("Itot_time",
+-        jnp.sum(jnp.exp(a_0 + f_t) * seasonal_mass))
++    Itot_time = numpyro.deterministic("Itot_time", Itot_time_val)
+     Itot_txy = numpyro.deterministic("Itot_txy", Itot_time * Itot_xy)
+     loglik-=Itot_txy
+     numpyro.deterministic("loglik",loglik)
+diff --git a/bstpp/likelihood.py b/bstpp/likelihood.py
+index 2e1f976..51d8147 100644
+--- a/bstpp/likelihood.py
++++ b/bstpp/likelihood.py
+@@ -15,6 +15,13 @@ Design contract (Phase 2):
+ Equation concordance (guide numbering):
+ - aggregate_pair_trigger_values ......... inner sum of eq. (23), given
+   per-pair kernel values (kernel evaluation stays at the model layer)
++- seasonal_time_integral ................ exact background time integral on
++  the seasonal diagonal a = sigma(t), eq. (26): the (n_t x n_s) overlap
++  matrix W (eq. 25, carrying the internal cell measure) contracts exp(f_a),
++  then exp(a_0 + f_t) weights the per-cell seasonal mass. Returns
++  (seasonal_mass, total) -- the per-cell mass also feeds the rate_time
++  diagnostic at the model layer, and (Phase 2b) the _sim_cox normalizer,
++  which makes identity (I1) structural.
+ - rectangular_excitation_compensator .... truncated excitation compensator,
+   eq. (14) specialized as implemented: exponential temporal mass F_beta on
+   min(T - t_j, w) (temporal truncation matched to the pair set) and Gaussian
+@@ -70,3 +77,17 @@ def rectangular_excitation_compensator(alpha, t_events, xy_events, horizon,
+                           ).reshape(2, 2, -1)
+     sp_part = spatial_trigger.compute_integral(spatial_parameters, sp_limits)
+     return jnp.sum(temp_part * sp_part)
++
++
++def seasonal_time_integral(a_0, f_t, f_a, season_overlap):
++    """Exact time integral of the Cox background on the seasonal diagonal.
++
++    Eq. (26): Lambda_time = sum_c exp(a_0 + f_t[c]) * (W @ exp(f_a))[c],
++    where W = season_overlap (eq. 25) already carries the internal cell
++    measure (no extra T/n_t factor -- see the seasonal-diagonal fix).
++    Returns (seasonal_mass, total): seasonal_mass = W @ exp(f_a), shape
++    (n_t,); total is the scalar Itot_time.
++    """
++    seasonal_mass = season_overlap @ jnp.exp(f_a)
++    total = jnp.sum(jnp.exp(a_0 + f_t) * seasonal_mass)
++    return seasonal_mass, total
+diff --git a/tests/test_likelihood_atoms.py b/tests/test_likelihood_atoms.py
+index 8bf27e4..2d719d9 100644
+--- a/tests/test_likelihood_atoms.py
++++ b/tests/test_likelihood_atoms.py
+@@ -19,7 +19,8 @@ import jax
+ import jax.numpy as jnp
+ 
+ from bstpp.likelihood import (aggregate_pair_trigger_values,
+-                              rectangular_excitation_compensator)
++                              rectangular_excitation_compensator,
++                              seasonal_time_integral)
+ from bstpp.trigger import Temporal_Exponential, Spatial_Symmetric_Gaussian
+ 
+ 
+@@ -107,3 +108,24 @@ def test_compensator_window_beyond_horizon_is_untruncated():
+     b = rectangular_excitation_compensator(jnp.float32(0.3), jnp.asarray(t), xy,
+                                            50.0, 1e9, **common)
+     np.testing.assert_allclose(float(a), float(b), rtol=1e-6)
++
++
++def test_seasonal_time_integral_matches_numpy_reference():
++    rng = np.random.default_rng(3)
++    n_t, n_s = 50, 24
++    W = rng.uniform(0, 0.1, (n_t, n_s)).astype(np.float32)
++    f_t = rng.normal(0, 0.5, n_t).astype(np.float32)
++    f_a = rng.normal(0, 0.5, n_s).astype(np.float32)
++    a_0 = np.float32(0.3)
++
++    mass, total = seasonal_time_integral(jnp.float32(a_0), jnp.asarray(f_t),
++                                         jnp.asarray(f_a), jnp.asarray(W))
++    ref_mass = W.astype(np.float64) @ np.exp(f_a.astype(np.float64))
++    ref_total = float(np.sum(np.exp(np.float64(a_0) + f_t.astype(np.float64)) * ref_mass))
++    np.testing.assert_allclose(np.asarray(mass), ref_mass, rtol=2e-6)
++    np.testing.assert_allclose(float(total), ref_total, rtol=2e-6)
++
++    # gradients w.r.t. all field inputs finite
++    g = jax.grad(lambda a, ft, fa: seasonal_time_integral(a, ft, fa, jnp.asarray(W))[1],
++                 argnums=(0, 1, 2))(jnp.float32(a_0), jnp.asarray(f_t), jnp.asarray(f_a))
++    assert all(np.all(np.isfinite(np.asarray(x))) for x in g)
+-- 
+2.43.0
+

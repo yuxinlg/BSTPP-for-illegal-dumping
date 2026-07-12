@@ -1,0 +1,77 @@
+From 98284e281bf154d465fa8322925b7c4ccaa863a9 Mon Sep 17 00:00:00 2001
+From: "Phase1 Draft (Claude, for Terhi review)" <draft@local>
+Date: Sun, 12 Jul 2026 04:31:17 +0000
+Subject: [PATCH 2/5] refactor(imports): replace all six wildcard imports with
+ explicit names, enumerated empirically (strip wildcards -> ruff F821 ->
+ import exactly those). main.py: from .utils import aligned_difference_pairs,
+ exp_sq_kernel; from .inference_functions import spatiotemporal_hawkes_model,
+ spatiotemporal_LGCP_model, run_mcmc, run_SVI, get_samples; from .trigger
+ import Temporal_Exponential, Spatial_Symmetric_Gaussian; from .vae_functions
+ import vae_decoder_*; plus direct import jax / import numpyro (previously
+ supplied transitively through the inference_functions wildcard); dedupe the
+ doubled matplotlib.pyplot/pandas imports (F811). inference_functions.py:
+ autoguide -> AutoMultivariateNormal only; vae_functions -> the three decoder
+ constructors. Verified: ruff F403/F405/F811/F821 clean; 26/26 tests; demo.py
+ import surface (load_Chicago_Shootings, load_Boko_Haram,
+ bstpp.trigger.Trigger) intact.
+
+---
+ bstpp/inference_functions.py |  5 +++--
+ bstpp/main.py                | 16 +++++++++-------
+ 2 files changed, 12 insertions(+), 9 deletions(-)
+
+diff --git a/bstpp/inference_functions.py b/bstpp/inference_functions.py
+index 5fe12d2..3fd07d2 100644
+--- a/bstpp/inference_functions.py
++++ b/bstpp/inference_functions.py
+@@ -9,10 +9,11 @@ import numpyro
+ import numpyro.distributions as dist
+ from numpyro.infer import MCMC, NUTS, init_to_median, init_to_value, init_to_uniform
+ from numpyro.infer import Trace_ELBO, SVI, Predictive
+-from numpyro.infer.autoguide import *
++from numpyro.infer.autoguide import AutoMultivariateNormal
+ from numpyro import optim
+ from .utils import aligned_difference_pairs
+-from .vae_functions import *
++from .vae_functions import (vae_decoder_temporal, vae_decoder_seasonal,
++                             vae_decoder_spatial)
+ 
+ 
+ def spatiotemporal_hawkes_model(args):
+diff --git a/bstpp/main.py b/bstpp/main.py
+index e8856d5..8c44e5a 100644
+--- a/bstpp/main.py
++++ b/bstpp/main.py
+@@ -15,8 +15,6 @@ import math
+ import matplotlib.dates as mdates
+ import datetime
+ import calendar
+-import matplotlib.pyplot as plt
+-import pandas as pd
+ import seaborn as sns
+ import matplotlib.gridspec as gridspec
+ 
+@@ -29,11 +27,15 @@ from numpyro.diagnostics import hpdi
+ from jax.scipy.special import logsumexp
+ from numpyro.infer import log_likelihood
+ 
+-from .utils import *
+-from .inference_functions import *
+-from .trigger import *
+-from .vae_functions import *
+-from .utils import aligned_difference_pairs
++import jax
++import numpyro
++
++from .utils import aligned_difference_pairs, exp_sq_kernel
++from .inference_functions import (spatiotemporal_hawkes_model, spatiotemporal_LGCP_model,
++                                  run_mcmc, run_SVI, get_samples)
++from .trigger import Temporal_Exponential, Spatial_Symmetric_Gaussian
++from .vae_functions import (vae_decoder_temporal, vae_decoder_seasonal,
++                            vae_decoder_spatial)
+ 
+ 
+ def _load_decoder(name):
+-- 
+2.43.0
+

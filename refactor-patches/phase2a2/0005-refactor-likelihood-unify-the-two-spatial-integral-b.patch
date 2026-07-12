@@ -1,0 +1,220 @@
+From b9829f5607a65922d435a4fc781f3ebe4ff4680f Mon Sep 17 00:00:00 2001
+From: "Phase1 Draft (Claude, for Terhi review)" <draft@local>
+Date: Sun, 12 Jul 2026 14:37:16 +0000
+Subject: [PATCH 5/6] refactor(likelihood): unify the two spatial-integral
+ branches into spatial_refinement_integral (eq. 24) -- exp(f_xy[c] (+ b_0[m]))
+ contracted against refinement-cell areas; the no-covariate grid is the same
+ atom with uniform areas 1/n_xy^2. Constructor now derives
+ integration_field_indices / integration_cov_indices / integration_areas as
+ plain NumPy arrays once (from int_df in the covariate case), so NO
+ pandas/GeoPandas object is read inside traced likelihood code (int_df itself
+ stays in args for plotting). Rewires both model fns; rate_xy deterministics
+ kept as trace sites (now noqa'd in both fns -- the atom recomputes exp(f_xy)
+ on the indexed subset). DECLARED EXPRESSION CHANGE (not a pure lift): the
+ plain branch becomes exp(f_xy[cells]) @ areas instead of
+ sum(exp(f_xy)[cells])/n_xy^2 -- algebraically equal, different rounding
+ sequence; acceptance criterion was rtol=2e-6 on all value+gradient pins;
+ OBSERVED: pins bit-identical anyway (worst relative movement 0.0), so no
+ re-baselining was ultimately needed. Atom unit tests: independent float64
+ reference, plain special case, refinement invariance (I9) at atom level,
+ finite gradients w.r.t. (f_xy, b_0). 31/31.
+
+---
+ bstpp/inference_functions.py   | 25 +++++++++++---------
+ bstpp/likelihood.py            | 26 ++++++++++++++++++++
+ bstpp/main.py                  | 17 ++++++++++++++
+ tests/test_likelihood_atoms.py | 43 +++++++++++++++++++++++++++++++++-
+ 4 files changed, 99 insertions(+), 12 deletions(-)
+
+diff --git a/bstpp/inference_functions.py b/bstpp/inference_functions.py
+index 38c141d..8ef2162 100644
+--- a/bstpp/inference_functions.py
++++ b/bstpp/inference_functions.py
+@@ -13,7 +13,8 @@ from .vae_functions import (vae_decoder_temporal, vae_decoder_seasonal,
+                              vae_decoder_spatial)
+ from .likelihood import (aggregate_pair_trigger_values,
+                          rectangular_excitation_compensator,
+-                         seasonal_time_integral)
++                         seasonal_time_integral,
++                         spatial_refinement_integral)
+ 
+ 
+ def spatiotemporal_hawkes_model(args):
+@@ -120,13 +121,15 @@ def spatiotemporal_hawkes_model(args):
+           b_0 = numpyro.deterministic("b_0", args['spatial_cov'] @ w)
+ 
+           f_xy_events = f_xy_events + b_0[args['cov_ind']]
+-          spatial_integral = jnp.exp(b_0[args['int_df']['cov_ind'].values] +
+-                                     f_xy[args['int_df']['comp_grid_id'].values]) @ args['int_df']['area'].values
++          spatial_integral = spatial_refinement_integral(
++              f_xy, args['integration_field_indices'], args['integration_areas'],
++              b_0, args['integration_cov_indices'])
+       else:
+           # rate_xy = exp(f_xy) EXCLUDES the covariate term b_0; when covariates
+           # are present the branch above folds b_0 into spatial_integral directly.
+-          rate_xy = numpyro.deterministic("rate_xy",jnp.exp(f_xy))
+-          spatial_integral = jnp.sum(rate_xy[args['spatial_grid_cells']])/args['n_xy']**2
++          rate_xy = numpyro.deterministic("rate_xy",jnp.exp(f_xy))  # noqa: F841 -- deterministic trace site (posterior interface, CLAUDE.md)
++          spatial_integral = spatial_refinement_integral(
++              f_xy, args['integration_field_indices'], args['integration_areas'])
+       Itot_xy=numpyro.deterministic("Itot_xy", spatial_integral)
+ 
+       # Total background integral on the seasonal diagonal a = sigma(t), computed
+@@ -234,7 +237,7 @@ def spatiotemporal_LGCP_model(args):
+     f_xy = numpyro.deterministic("f_xy", jnp.exp(args['sp_var_mu']) * decoder_nn[1](decoder_params, z_spatial))
+     # rate_xy = exp(f_xy) EXCLUDES the covariate term b_0; in the covariate branch
+     # below spatial_integral folds b_0 in directly rather than using rate_xy.
+-    rate_xy = numpyro.deterministic("rate_xy",jnp.exp(f_xy))
++    rate_xy = numpyro.deterministic("rate_xy",jnp.exp(f_xy))  # noqa: F841 -- deterministic trace site (posterior interface, CLAUDE.md)
+     f_xy_i=f_xy[args["indices_xy"]]
+ 
+     if 'spatial_cov' in args:
+@@ -243,13 +246,13 @@ def spatiotemporal_LGCP_model(args):
+         b_0 = numpyro.deterministic("b_0", args['spatial_cov'] @ w)
+         # Use precomputed indices for event locations
+         f_xy_i = f_xy[args["indices_xy"]] + b_0[args['cov_ind']]
+-        spatial_integral = jnp.exp(
+-            b_0[args['int_df']['cov_ind'].values] +
+-            f_xy[args['int_df']['comp_grid_id'].values]
+-        ) @ args['int_df']['area'].values
++        spatial_integral = spatial_refinement_integral(
++            f_xy, args['integration_field_indices'], args['integration_areas'],
++            b_0, args['integration_cov_indices'])
+     else:
+         f_xy_i = f_xy[args["indices_xy"]]
+-        spatial_integral = jnp.sum(rate_xy[args['spatial_grid_cells']]) / args['n_xy'] ** 2
++        spatial_integral = spatial_refinement_integral(
++            f_xy, args['integration_field_indices'], args['integration_areas'])
+ 
+     Itot_xy=numpyro.deterministic("Itot_xy", spatial_integral)
+ 
+diff --git a/bstpp/likelihood.py b/bstpp/likelihood.py
+index 51d8147..dc43cb2 100644
+--- a/bstpp/likelihood.py
++++ b/bstpp/likelihood.py
+@@ -22,6 +22,11 @@ Equation concordance (guide numbering):
+   (seasonal_mass, total) -- the per-cell mass also feeds the rate_time
+   diagnostic at the model layer, and (Phase 2b) the _sim_cox normalizer,
+   which makes identity (I1) structural.
++- spatial_refinement_integral ........... spatial background integral over
++  the common refinement, eq. (24): exp(f_xy[c] (+ b_0[m])) contracted against
++  the refinement-cell areas |C_c intersect A_m|. The no-covariate grid
++  integral is the same atom with uniform areas 1/n_xy^2 and no b_0.
++  Refinement invariance (I9) is a property of this expression.
+ - rectangular_excitation_compensator .... truncated excitation compensator,
+   eq. (14) specialized as implemented: exponential temporal mass F_beta on
+   min(T - t_j, w) (temporal truncation matched to the pair set) and Gaussian
+@@ -91,3 +96,24 @@ def seasonal_time_integral(a_0, f_t, f_a, season_overlap):
+     seasonal_mass = season_overlap @ jnp.exp(f_a)
+     total = jnp.sum(jnp.exp(a_0 + f_t) * seasonal_mass)
+     return seasonal_mass, total
++
++
++def spatial_refinement_integral(f_xy, field_indices, areas, b_0=None,
++                                covariate_indices=None):
++    """Spatial integral of the background over a refinement partition.
++
++    Eq. (24): sum_k exp(f_xy[field_indices[k]] + b_0[covariate_indices[k]])
++    * areas[k], with the b_0 term omitted when b_0 is None. field_indices map
++    refinement cells to spatial-field cells; areas are the refinement-cell
++    areas in internal (unit-square) measure. The uniform no-covariate grid is
++    the special case field_indices = in-domain cells, areas = 1/n_xy^2.
++
++    Note (rebaseline history): this atom computes exp(log_rate) @ areas; the
++    pre-extraction no-covariate code computed sum(exp(f_xy)[cells]) / n_xy^2,
++    an algebraically equal expression with a different floating-point
++    rounding sequence (declared expression change, tolerance-verified).
++    """
++    log_rate = f_xy[field_indices]
++    if b_0 is not None:
++        log_rate = log_rate + b_0[covariate_indices]
++    return jnp.exp(log_rate) @ areas
+diff --git a/bstpp/main.py b/bstpp/main.py
+index 4ff84bb..36d71de 100644
+--- a/bstpp/main.py
++++ b/bstpp/main.py
+@@ -360,6 +360,23 @@ class Point_Process_Model:
+             else:
+                 args['cov_area'] = (spatial_cov.area/((A_[0,1]-A_[0,0])*(A_[1,1]-A_[1,0]))).values
+ 
++        # Integration arrays for the pure spatial_refinement_integral atom
++        # (eq. 24): plain NumPy arrays only, derived once here, so no pandas /
++        # GeoPandas object is ever read inside traced likelihood code. The
++        # no-covariate grid is the special case of the common refinement with
++        # uniform cell areas 1/n_xy^2.
++        if args['model'] in ['lgcp', 'cox_hawkes']:
++            if 'int_df' in args:
++                args['integration_field_indices'] = args['int_df']['comp_grid_id'].values
++                args['integration_cov_indices'] = args['int_df']['cov_ind'].values
++                args['integration_areas'] = args['int_df']['area'].values
++            else:
++                args['integration_field_indices'] = args['spatial_grid_cells']
++                args['integration_cov_indices'] = None
++                args['integration_areas'] = np.full(
++                    len(args['spatial_grid_cells']), 1.0 / args['n_xy'] ** 2,
++                    dtype=np.float32)
++
+         #Set up parameter priors
+         default_priors = {}
+         if 'num_cov' in args:
+diff --git a/tests/test_likelihood_atoms.py b/tests/test_likelihood_atoms.py
+index 2d719d9..346127b 100644
+--- a/tests/test_likelihood_atoms.py
++++ b/tests/test_likelihood_atoms.py
+@@ -20,7 +20,8 @@ import jax.numpy as jnp
+ 
+ from bstpp.likelihood import (aggregate_pair_trigger_values,
+                               rectangular_excitation_compensator,
+-                              seasonal_time_integral)
++                              seasonal_time_integral,
++                              spatial_refinement_integral)
+ from bstpp.trigger import Temporal_Exponential, Spatial_Symmetric_Gaussian
+ 
+ 
+@@ -129,3 +130,43 @@ def test_seasonal_time_integral_matches_numpy_reference():
+     g = jax.grad(lambda a, ft, fa: seasonal_time_integral(a, ft, fa, jnp.asarray(W))[1],
+                  argnums=(0, 1, 2))(jnp.float32(a_0), jnp.asarray(f_t), jnp.asarray(f_a))
+     assert all(np.all(np.isfinite(np.asarray(x))) for x in g)
++
++
++def test_spatial_refinement_integral_matches_numpy_reference():
++    rng = np.random.default_rng(4)
++    n_field, n_cov, K = 625, 4, 900
++    f_xy = rng.normal(0, 0.5, n_field).astype(np.float32)
++    b_0 = rng.normal(0, 0.5, n_cov).astype(np.float32)
++    fi = rng.integers(0, n_field, K)
++    ci = rng.integers(0, n_cov, K)
++    areas = rng.uniform(0, 2.0 / K, K).astype(np.float32)
++
++    out = float(spatial_refinement_integral(jnp.asarray(f_xy), jnp.asarray(fi),
++                                            jnp.asarray(areas), jnp.asarray(b_0),
++                                            jnp.asarray(ci)))
++    ref = float(np.exp(f_xy.astype(np.float64)[fi] + b_0.astype(np.float64)[ci])
++                @ areas.astype(np.float64))
++    np.testing.assert_allclose(out, ref, rtol=2e-6)
++
++    # no-covariate special case == uniform-area contraction of the plain grid
++    cells = np.arange(n_field)
++    out_plain = float(spatial_refinement_integral(
++        jnp.asarray(f_xy), jnp.asarray(cells),
++        jnp.full(n_field, 1.0 / n_field, dtype=np.float32)))
++    ref_plain = float(np.sum(np.exp(f_xy.astype(np.float64))) / n_field)
++    np.testing.assert_allclose(out_plain, ref_plain, rtol=2e-6)
++
++    # refinement invariance at the atom level (I9): splitting a refinement
++    # cell in two with the same indices and half the area changes nothing
++    fi2 = np.concatenate([fi, fi]); ci2 = np.concatenate([ci, ci])
++    areas2 = np.concatenate([areas / 2, areas / 2]).astype(np.float32)
++    out2 = float(spatial_refinement_integral(jnp.asarray(f_xy), jnp.asarray(fi2),
++                                             jnp.asarray(areas2), jnp.asarray(b_0),
++                                             jnp.asarray(ci2)))
++    np.testing.assert_allclose(out2, out, rtol=2e-6)
++
++    # gradients w.r.t. both fields finite
++    g = jax.grad(lambda f, b: spatial_refinement_integral(
++        f, jnp.asarray(fi), jnp.asarray(areas), b, jnp.asarray(ci)),
++        argnums=(0, 1))(jnp.asarray(f_xy), jnp.asarray(b_0))
++    assert all(np.all(np.isfinite(np.asarray(x))) for x in g)
+-- 
+2.43.0
+

@@ -1,0 +1,161 @@
+From 2cd75aca3d6aeab4e2da0dcdbb79251fbed92721 Mon Sep 17 00:00:00 2001
+From: "Phase1 Draft (Claude, for Terhi review)" <draft@local>
+Date: Sun, 12 Jul 2026 13:27:32 +0000
+Subject: [PATCH 2/3] refactor(likelihood): extract
+ aggregate_pair_trigger_values into new bstpp/likelihood.py -- the pure inner
+ sum of the event term (eq. 23): multiply aligned per-pair kernel values,
+ segment_sum by parent index. Kernel evaluation
+ (t_trig/sp_trig.compute_trigger) deliberately stays at the model layer so
+ this atom needs no trigger-protocol knowledge; the module docstring states
+ the dependency policy (likelihood.py may depend on the pure trigger protocol
+ where kernel knowledge is required, and doesn't where it isn't). Drops the
+ now-unused top-level import jax from inference_functions.py (segment_sum
+ lives in the atom). New tests/test_likelihood_atoms.py: independent NumPy
+ reference (np.add.at), pair-order invariance (I3 at atom level),
+ finite-gradient check. Pure lift: value AND gradient pins bit-identical;
+ 27/27.
+
+---
+ bstpp/inference_functions.py   | 12 ++++-----
+ bstpp/likelihood.py            | 36 +++++++++++++++++++++++++
+ tests/test_likelihood_atoms.py | 49 ++++++++++++++++++++++++++++++++++
+ 3 files changed, 90 insertions(+), 7 deletions(-)
+ create mode 100644 bstpp/likelihood.py
+ create mode 100644 tests/test_likelihood_atoms.py
+
+diff --git a/bstpp/inference_functions.py b/bstpp/inference_functions.py
+index 8b1e087..33dd1d9 100644
+--- a/bstpp/inference_functions.py
++++ b/bstpp/inference_functions.py
+@@ -1,6 +1,5 @@
+ import os
+ import time
+-import jax
+ import jax.numpy as jnp
+ from jax.example_libraries.optimizers import inverse_time_decay
+ 
+@@ -12,6 +11,7 @@ from numpyro.infer import Trace_ELBO, SVI, Predictive
+ from numpyro.infer.autoguide import AutoMultivariateNormal
+ from .vae_functions import (vae_decoder_temporal, vae_decoder_seasonal,
+                              vae_decoder_spatial)
++from .likelihood import aggregate_pair_trigger_values
+ 
+ 
+ def spatiotemporal_hawkes_model(args):
+@@ -163,12 +163,10 @@ def spatiotemporal_hawkes_model(args):
+     # Spatial trigger: use coords, x_vals, y_vals
+     _, s_trigger_vals = args['sp_trig'].compute_trigger(sp_pars, (coords, x_vals, y_vals))
+ 
+-    # Multiply only the values (they are aligned by coords)
+-    l_hawkes_vals = t_trigger_vals * s_trigger_vals
+-
+-    # Aggregate by row (i)
+-    n = t_events.shape[0]
+-    l_hawkes_sum = jax.ops.segment_sum(l_hawkes_vals, coords[:, 0], n)
++    # Inner sum of the event term, eq. (23): pure aggregation atom
++    # (kernel evaluation stays here at the model layer; see likelihood.py)
++    l_hawkes_sum = aggregate_pair_trigger_values(coords, t_trigger_vals,
++                                                 s_trigger_vals, t_events.shape[0])
+     l_hawkes = numpyro.deterministic('l_hawkes', alpha * l_hawkes_sum)
+ 
+     if args['model'] == 'hawkes':
+diff --git a/bstpp/likelihood.py b/bstpp/likelihood.py
+new file mode 100644
+index 0000000..f740127
+--- /dev/null
++++ b/bstpp/likelihood.py
+@@ -0,0 +1,36 @@
++"""Pure likelihood atoms for the BSTPP discrete model (guide, Section 2).
++
++Design contract (Phase 2):
++- Pure JAX only: no numpyro, no reads/writes of the model `args` dict, no
++  pandas/GeoPandas. All inputs are explicit arrays, scalars, trigger-parameter
++  dicts, or trigger objects.
++- Trace-site registration (numpyro.deterministic / numpyro.factor) stays in
++  inference_functions.py: sampled and deterministic site names are the
++  posterior interface and are never created here.
++- This module MAY depend on the trigger protocol (compute_trigger /
++  compute_integral, both pure) -- that protocol is the package's documented
++  extension point. Atoms that do not need kernel knowledge (e.g. pair
++  aggregation) deliberately do not receive trigger objects.
++
++Equation concordance (guide numbering):
++- aggregate_pair_trigger_values ......... inner sum of eq. (23), given
++  per-pair kernel values (kernel evaluation stays at the model layer)
++"""
++import jax
++
++
++def aggregate_pair_trigger_values(coords, temporal_values, spatial_values, n_events):
++    """Per-event excitation sums from aligned per-pair kernel values.
++
++    Inner sum of the event term, eq. (23): for each event i, sums
++    temporal_values[p] * spatial_values[p] over all admissible pairs
++    p = (i, j) with coords[p] = (i, j). The three arrays are aligned by the
++    pair axis; ordering within the pair axis is irrelevant (I3).
++
++    Parameters: coords (P, 2) int pair indices from aligned_difference_pairs;
++    temporal_values, spatial_values (P,) kernel evaluations at the pair lags /
++    displacements; n_events static int (segment_sum needs a static size).
++    Returns (n_events,) -- the per-event sums; the caller multiplies by alpha.
++    """
++    pair_values = temporal_values * spatial_values
++    return jax.ops.segment_sum(pair_values, coords[:, 0], n_events)
+diff --git a/tests/test_likelihood_atoms.py b/tests/test_likelihood_atoms.py
+new file mode 100644
+index 0000000..f7eea72
+--- /dev/null
++++ b/tests/test_likelihood_atoms.py
+@@ -0,0 +1,49 @@
++"""Unit tests for bstpp/likelihood.py atoms.
++
++Each atom is tested against an INDEPENDENT NumPy/SciPy reference
++implementation on random inputs (never against the code path it was lifted
++from), plus finite-gradient checks -- these atoms live inside NUTS/SVI, so
++differentiability is part of the contract, not an implementation detail.
++"""
++import os
++import sys
++
++sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
++os.environ.setdefault("JAX_PLATFORM_NAME", "cpu")
++import warnings
++warnings.filterwarnings("ignore")
++
++import numpy as np
++import jax
++import jax.numpy as jnp
++
++from bstpp.likelihood import aggregate_pair_trigger_values
++
++
++def test_aggregate_pair_trigger_values_matches_numpy_reference():
++    rng = np.random.default_rng(0)
++    n, P = 25, 300
++    i = rng.integers(0, n, P)
++    j = rng.integers(0, n, P)
++    coords = np.stack([i, j], axis=1)
++    tv = rng.uniform(0.1, 2.0, P).astype(np.float32)
++    sv = rng.uniform(0.1, 2.0, P).astype(np.float32)
++
++    ref = np.zeros(n, dtype=np.float64)
++    np.add.at(ref, i, tv.astype(np.float64) * sv.astype(np.float64))
++
++    out = np.asarray(aggregate_pair_trigger_values(jnp.asarray(coords),
++                                                   jnp.asarray(tv),
++                                                   jnp.asarray(sv), n))
++    np.testing.assert_allclose(out, ref, rtol=2e-6, atol=2e-6)
++
++    # pair order irrelevant (I3 restated at the atom level)
++    perm = rng.permutation(P)
++    out_perm = np.asarray(aggregate_pair_trigger_values(
++        jnp.asarray(coords[perm]), jnp.asarray(tv[perm]), jnp.asarray(sv[perm]), n))
++    np.testing.assert_allclose(out_perm, out, rtol=2e-6, atol=2e-6)
++
++    # differentiable w.r.t. kernel values, finite gradient
++    g = jax.grad(lambda t: jnp.sum(aggregate_pair_trigger_values(
++        jnp.asarray(coords), t, jnp.asarray(sv), n)) ** 2)(jnp.asarray(tv))
++    assert np.all(np.isfinite(np.asarray(g)))
+-- 
+2.43.0
+
