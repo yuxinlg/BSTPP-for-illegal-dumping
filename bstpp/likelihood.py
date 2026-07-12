@@ -22,6 +22,11 @@ Equation concordance (guide numbering):
   (seasonal_mass, total) -- the per-cell mass also feeds the rate_time
   diagnostic at the model layer, and (Phase 2b) the _sim_cox normalizer,
   which makes identity (I1) structural.
+- spatial_refinement_integral ........... spatial background integral over
+  the common refinement, eq. (24): exp(f_xy[c] (+ b_0[m])) contracted against
+  the refinement-cell areas |C_c intersect A_m|. The no-covariate grid
+  integral is the same atom with uniform areas 1/n_xy^2 and no b_0.
+  Refinement invariance (I9) is a property of this expression.
 - rectangular_excitation_compensator .... truncated excitation compensator,
   eq. (14) specialized as implemented: exponential temporal mass F_beta on
   min(T - t_j, w) (temporal truncation matched to the pair set) and Gaussian
@@ -91,3 +96,24 @@ def seasonal_time_integral(a_0, f_t, f_a, season_overlap):
     seasonal_mass = season_overlap @ jnp.exp(f_a)
     total = jnp.sum(jnp.exp(a_0 + f_t) * seasonal_mass)
     return seasonal_mass, total
+
+
+def spatial_refinement_integral(f_xy, field_indices, areas, b_0=None,
+                                covariate_indices=None):
+    """Spatial integral of the background over a refinement partition.
+
+    Eq. (24): sum_k exp(f_xy[field_indices[k]] + b_0[covariate_indices[k]])
+    * areas[k], with the b_0 term omitted when b_0 is None. field_indices map
+    refinement cells to spatial-field cells; areas are the refinement-cell
+    areas in internal (unit-square) measure. The uniform no-covariate grid is
+    the special case field_indices = in-domain cells, areas = 1/n_xy^2.
+
+    Note (rebaseline history): this atom computes exp(log_rate) @ areas; the
+    pre-extraction no-covariate code computed sum(exp(f_xy)[cells]) / n_xy^2,
+    an algebraically equal expression with a different floating-point
+    rounding sequence (declared expression change, tolerance-verified).
+    """
+    log_rate = f_xy[field_indices]
+    if b_0 is not None:
+        log_rate = log_rate + b_0[covariate_indices]
+    return jnp.exp(log_rate) @ areas

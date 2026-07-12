@@ -13,7 +13,8 @@ from .vae_functions import (vae_decoder_temporal, vae_decoder_seasonal,
                              vae_decoder_spatial)
 from .likelihood import (aggregate_pair_trigger_values,
                          rectangular_excitation_compensator,
-                         seasonal_time_integral)
+                         seasonal_time_integral,
+                         spatial_refinement_integral)
 
 
 def spatiotemporal_hawkes_model(args):
@@ -120,13 +121,15 @@ def spatiotemporal_hawkes_model(args):
           b_0 = numpyro.deterministic("b_0", args['spatial_cov'] @ w)
 
           f_xy_events = f_xy_events + b_0[args['cov_ind']]
-          spatial_integral = jnp.exp(b_0[args['int_df']['cov_ind'].values] +
-                                     f_xy[args['int_df']['comp_grid_id'].values]) @ args['int_df']['area'].values
+          spatial_integral = spatial_refinement_integral(
+              f_xy, args['integration_field_indices'], args['integration_areas'],
+              b_0, args['integration_cov_indices'])
       else:
           # rate_xy = exp(f_xy) EXCLUDES the covariate term b_0; when covariates
           # are present the branch above folds b_0 into spatial_integral directly.
-          rate_xy = numpyro.deterministic("rate_xy",jnp.exp(f_xy))
-          spatial_integral = jnp.sum(rate_xy[args['spatial_grid_cells']])/args['n_xy']**2
+          rate_xy = numpyro.deterministic("rate_xy",jnp.exp(f_xy))  # noqa: F841 -- deterministic trace site (posterior interface, CLAUDE.md)
+          spatial_integral = spatial_refinement_integral(
+              f_xy, args['integration_field_indices'], args['integration_areas'])
       Itot_xy=numpyro.deterministic("Itot_xy", spatial_integral)
 
       # Total background integral on the seasonal diagonal a = sigma(t), computed
@@ -234,7 +237,7 @@ def spatiotemporal_LGCP_model(args):
     f_xy = numpyro.deterministic("f_xy", jnp.exp(args['sp_var_mu']) * decoder_nn[1](decoder_params, z_spatial))
     # rate_xy = exp(f_xy) EXCLUDES the covariate term b_0; in the covariate branch
     # below spatial_integral folds b_0 in directly rather than using rate_xy.
-    rate_xy = numpyro.deterministic("rate_xy",jnp.exp(f_xy))
+    rate_xy = numpyro.deterministic("rate_xy",jnp.exp(f_xy))  # noqa: F841 -- deterministic trace site (posterior interface, CLAUDE.md)
     f_xy_i=f_xy[args["indices_xy"]]
 
     if 'spatial_cov' in args:
@@ -243,13 +246,13 @@ def spatiotemporal_LGCP_model(args):
         b_0 = numpyro.deterministic("b_0", args['spatial_cov'] @ w)
         # Use precomputed indices for event locations
         f_xy_i = f_xy[args["indices_xy"]] + b_0[args['cov_ind']]
-        spatial_integral = jnp.exp(
-            b_0[args['int_df']['cov_ind'].values] +
-            f_xy[args['int_df']['comp_grid_id'].values]
-        ) @ args['int_df']['area'].values
+        spatial_integral = spatial_refinement_integral(
+            f_xy, args['integration_field_indices'], args['integration_areas'],
+            b_0, args['integration_cov_indices'])
     else:
         f_xy_i = f_xy[args["indices_xy"]]
-        spatial_integral = jnp.sum(rate_xy[args['spatial_grid_cells']]) / args['n_xy'] ** 2
+        spatial_integral = spatial_refinement_integral(
+            f_xy, args['integration_field_indices'], args['integration_areas'])
 
     Itot_xy=numpyro.deterministic("Itot_xy", spatial_integral)
 

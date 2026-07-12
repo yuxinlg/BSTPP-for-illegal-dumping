@@ -360,6 +360,23 @@ class Point_Process_Model:
             else:
                 args['cov_area'] = (spatial_cov.area/((A_[0,1]-A_[0,0])*(A_[1,1]-A_[1,0]))).values
 
+        # Integration arrays for the pure spatial_refinement_integral atom
+        # (eq. 24): plain NumPy arrays only, derived once here, so no pandas /
+        # GeoPandas object is ever read inside traced likelihood code. The
+        # no-covariate grid is the special case of the common refinement with
+        # uniform cell areas 1/n_xy^2.
+        if args['model'] in ['lgcp', 'cox_hawkes']:
+            if 'int_df' in args:
+                args['integration_field_indices'] = args['int_df']['comp_grid_id'].values
+                args['integration_cov_indices'] = args['int_df']['cov_ind'].values
+                args['integration_areas'] = args['int_df']['area'].values
+            else:
+                args['integration_field_indices'] = args['spatial_grid_cells']
+                args['integration_cov_indices'] = None
+                args['integration_areas'] = np.full(
+                    len(args['spatial_grid_cells']), 1.0 / args['n_xy'] ** 2,
+                    dtype=np.float32)
+
         #Set up parameter priors
         default_priors = {}
         if 'num_cov' in args:

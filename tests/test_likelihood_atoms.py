@@ -20,7 +20,8 @@ import jax.numpy as jnp
 
 from bstpp.likelihood import (aggregate_pair_trigger_values,
                               rectangular_excitation_compensator,
-                              seasonal_time_integral)
+                              seasonal_time_integral,
+                              spatial_refinement_integral)
 from bstpp.trigger import Temporal_Exponential, Spatial_Symmetric_Gaussian
 
 
@@ -128,4 +129,44 @@ def test_seasonal_time_integral_matches_numpy_reference():
     # gradients w.r.t. all field inputs finite
     g = jax.grad(lambda a, ft, fa: seasonal_time_integral(a, ft, fa, jnp.asarray(W))[1],
                  argnums=(0, 1, 2))(jnp.float32(a_0), jnp.asarray(f_t), jnp.asarray(f_a))
+    assert all(np.all(np.isfinite(np.asarray(x))) for x in g)
+
+
+def test_spatial_refinement_integral_matches_numpy_reference():
+    rng = np.random.default_rng(4)
+    n_field, n_cov, K = 625, 4, 900
+    f_xy = rng.normal(0, 0.5, n_field).astype(np.float32)
+    b_0 = rng.normal(0, 0.5, n_cov).astype(np.float32)
+    fi = rng.integers(0, n_field, K)
+    ci = rng.integers(0, n_cov, K)
+    areas = rng.uniform(0, 2.0 / K, K).astype(np.float32)
+
+    out = float(spatial_refinement_integral(jnp.asarray(f_xy), jnp.asarray(fi),
+                                            jnp.asarray(areas), jnp.asarray(b_0),
+                                            jnp.asarray(ci)))
+    ref = float(np.exp(f_xy.astype(np.float64)[fi] + b_0.astype(np.float64)[ci])
+                @ areas.astype(np.float64))
+    np.testing.assert_allclose(out, ref, rtol=2e-6)
+
+    # no-covariate special case == uniform-area contraction of the plain grid
+    cells = np.arange(n_field)
+    out_plain = float(spatial_refinement_integral(
+        jnp.asarray(f_xy), jnp.asarray(cells),
+        jnp.full(n_field, 1.0 / n_field, dtype=np.float32)))
+    ref_plain = float(np.sum(np.exp(f_xy.astype(np.float64))) / n_field)
+    np.testing.assert_allclose(out_plain, ref_plain, rtol=2e-6)
+
+    # refinement invariance at the atom level (I9): splitting a refinement
+    # cell in two with the same indices and half the area changes nothing
+    fi2 = np.concatenate([fi, fi]); ci2 = np.concatenate([ci, ci])
+    areas2 = np.concatenate([areas / 2, areas / 2]).astype(np.float32)
+    out2 = float(spatial_refinement_integral(jnp.asarray(f_xy), jnp.asarray(fi2),
+                                             jnp.asarray(areas2), jnp.asarray(b_0),
+                                             jnp.asarray(ci2)))
+    np.testing.assert_allclose(out2, out, rtol=2e-6)
+
+    # gradients w.r.t. both fields finite
+    g = jax.grad(lambda f, b: spatial_refinement_integral(
+        f, jnp.asarray(fi), jnp.asarray(areas), b, jnp.asarray(ci)),
+        argnums=(0, 1))(jnp.asarray(f_xy), jnp.asarray(b_0))
     assert all(np.all(np.isfinite(np.asarray(x))) for x in g)
