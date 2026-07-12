@@ -11,7 +11,7 @@ from numpyro.infer import MCMC, NUTS, init_to_median, init_to_value, init_to_uni
 from numpyro.infer import Trace_ELBO, SVI, Predictive
 from numpyro.infer.autoguide import *
 from numpyro import optim
-from .utils import difference_matrix, aligned_difference_pairs
+from .utils import aligned_difference_pairs
 from .vae_functions import *
 
 
