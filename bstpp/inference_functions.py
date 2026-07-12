@@ -112,11 +112,8 @@ def spatiotemporal_hawkes_model(args):
 
       # Calculate spatial intensity
       if 'spatial_cov' in args:
-          spatial_cov = args['spatial_cov']
-          if spatial_cov.ndim == 1:
-              spatial_cov = spatial_cov[:, None]
-          args['spatial_cov'] = spatial_cov
           # weights for linear combination
+          # (args['spatial_cov'] is guaranteed 2-D by the constructor: X_s[:, None])
           w = numpyro.sample("w", args['priors']['w'])
           b_0 = numpyro.deterministic("b_0", args['spatial_cov'] @ w)
 
@@ -159,11 +156,6 @@ def spatiotemporal_hawkes_model(args):
     sp_pars = args['sp_trig'].sample_parameters()
 
     T,x_min,x_max,y_min,y_max = args['T'],args['x_min'],args['x_max'],args['y_min'],args['y_max']
-
-    args['coords'] = coords
-    args['t_vals'] = t_vals
-    args['x_vals'] = x_vals
-    args['y_vals'] = y_vals
 
     # Temporal trigger: use coords and t_vals
     _, t_trigger_vals = args['t_trig'].compute_trigger(t_pars, (coords, t_vals))
