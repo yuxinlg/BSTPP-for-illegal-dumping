@@ -12,7 +12,8 @@ from numpyro.infer.autoguide import AutoMultivariateNormal
 from .vae_functions import (vae_decoder_temporal, vae_decoder_seasonal,
                              vae_decoder_spatial)
 from .likelihood import (aggregate_pair_trigger_values,
-                         rectangular_excitation_compensator)
+                         rectangular_excitation_compensator,
+                         seasonal_time_integral)
 
 
 def spatiotemporal_hawkes_model(args):
@@ -133,12 +134,12 @@ def spatiotemporal_hawkes_model(args):
       # each temporal cell, seasonal_mass integrates exp(f_a[sigma(t)]) over the cell
       # (W already carries the internal cell measure, so no extra /n_t*T factor).
       # This replaces the old midpoint rule exp(a_0 + f_t + f_a[season_idx_of_t]).
-      seasonal_mass = args['season_overlap'] @ jnp.exp(f_a)          # (n_t,)
+      seasonal_mass, Itot_time_val = seasonal_time_integral(
+          a_0, f_t, f_a, args['season_overlap'])
       # rate_time is a DIAGNOSTIC ONLY: the exact per-cell average intensity.
       rate_time = numpyro.deterministic("rate_time",  # noqa: F841 -- deterministic trace site (posterior interface, CLAUDE.md)
           jnp.exp(a_0 + f_t) * seasonal_mass / (args["T"]/args["n_t"]))
-      Itot_time = numpyro.deterministic("Itot_time",
-          jnp.sum(jnp.exp(a_0 + f_t) * seasonal_mass))
+      Itot_time = numpyro.deterministic("Itot_time", Itot_time_val)
       Itot_txy_back = numpyro.deterministic("Itot_txy_back", Itot_time * Itot_xy)
 
       ## Replace month effect with day GP
@@ -259,12 +260,12 @@ def spatiotemporal_LGCP_model(args):
     # EXACT time integral on the seasonal diagonal a = sigma(t) via the precomputed
     # (n_t x n_s) overlap matrix season_overlap (replaces the midpoint rule at
     # season_idx_of_t; W already carries the internal cell measure).
-    seasonal_mass = args['season_overlap'] @ jnp.exp(f_a)          # (n_t,)
+    seasonal_mass, Itot_time_val = seasonal_time_integral(
+        a_0, f_t, f_a, args['season_overlap'])
     # rate_time is a DIAGNOSTIC ONLY: the exact per-cell average intensity.
     rate_time = numpyro.deterministic("rate_time",  # noqa: F841 -- deterministic trace site (posterior interface, CLAUDE.md)
         jnp.exp(a_0 + f_t) * seasonal_mass / (args["T"]/args["n_t"]))
-    Itot_time = numpyro.deterministic("Itot_time",
-        jnp.sum(jnp.exp(a_0 + f_t) * seasonal_mass))
+    Itot_time = numpyro.deterministic("Itot_time", Itot_time_val)
     Itot_txy = numpyro.deterministic("Itot_txy", Itot_time * Itot_xy)
     loglik-=Itot_txy
     numpyro.deterministic("loglik",loglik)

@@ -19,7 +19,8 @@ import jax
 import jax.numpy as jnp
 
 from bstpp.likelihood import (aggregate_pair_trigger_values,
-                              rectangular_excitation_compensator)
+                              rectangular_excitation_compensator,
+                              seasonal_time_integral)
 from bstpp.trigger import Temporal_Exponential, Spatial_Symmetric_Gaussian
 
 
@@ -107,3 +108,24 @@ def test_compensator_window_beyond_horizon_is_untruncated():
     b = rectangular_excitation_compensator(jnp.float32(0.3), jnp.asarray(t), xy,
                                            50.0, 1e9, **common)
     np.testing.assert_allclose(float(a), float(b), rtol=1e-6)
+
+
+def test_seasonal_time_integral_matches_numpy_reference():
+    rng = np.random.default_rng(3)
+    n_t, n_s = 50, 24
+    W = rng.uniform(0, 0.1, (n_t, n_s)).astype(np.float32)
+    f_t = rng.normal(0, 0.5, n_t).astype(np.float32)
+    f_a = rng.normal(0, 0.5, n_s).astype(np.float32)
+    a_0 = np.float32(0.3)
+
+    mass, total = seasonal_time_integral(jnp.float32(a_0), jnp.asarray(f_t),
+                                         jnp.asarray(f_a), jnp.asarray(W))
+    ref_mass = W.astype(np.float64) @ np.exp(f_a.astype(np.float64))
+    ref_total = float(np.sum(np.exp(np.float64(a_0) + f_t.astype(np.float64)) * ref_mass))
+    np.testing.assert_allclose(np.asarray(mass), ref_mass, rtol=2e-6)
+    np.testing.assert_allclose(float(total), ref_total, rtol=2e-6)
+
+    # gradients w.r.t. all field inputs finite
+    g = jax.grad(lambda a, ft, fa: seasonal_time_integral(a, ft, fa, jnp.asarray(W))[1],
+                 argnums=(0, 1, 2))(jnp.float32(a_0), jnp.asarray(f_t), jnp.asarray(f_a))
+    assert all(np.all(np.isfinite(np.asarray(x))) for x in g)

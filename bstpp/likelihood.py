@@ -15,6 +15,13 @@ Design contract (Phase 2):
 Equation concordance (guide numbering):
 - aggregate_pair_trigger_values ......... inner sum of eq. (23), given
   per-pair kernel values (kernel evaluation stays at the model layer)
+- seasonal_time_integral ................ exact background time integral on
+  the seasonal diagonal a = sigma(t), eq. (26): the (n_t x n_s) overlap
+  matrix W (eq. 25, carrying the internal cell measure) contracts exp(f_a),
+  then exp(a_0 + f_t) weights the per-cell seasonal mass. Returns
+  (seasonal_mass, total) -- the per-cell mass also feeds the rate_time
+  diagnostic at the model layer, and (Phase 2b) the _sim_cox normalizer,
+  which makes identity (I1) structural.
 - rectangular_excitation_compensator .... truncated excitation compensator,
   eq. (14) specialized as implemented: exponential temporal mass F_beta on
   min(T - t_j, w) (temporal truncation matched to the pair set) and Gaussian
@@ -70,3 +77,17 @@ def rectangular_excitation_compensator(alpha, t_events, xy_events, horizon,
                           ).reshape(2, 2, -1)
     sp_part = spatial_trigger.compute_integral(spatial_parameters, sp_limits)
     return jnp.sum(temp_part * sp_part)
+
+
+def seasonal_time_integral(a_0, f_t, f_a, season_overlap):
+    """Exact time integral of the Cox background on the seasonal diagonal.
+
+    Eq. (26): Lambda_time = sum_c exp(a_0 + f_t[c]) * (W @ exp(f_a))[c],
+    where W = season_overlap (eq. 25) already carries the internal cell
+    measure (no extra T/n_t factor -- see the seasonal-diagonal fix).
+    Returns (seasonal_mass, total): seasonal_mass = W @ exp(f_a), shape
+    (n_t,); total is the scalar Itot_time.
+    """
+    seasonal_mass = season_overlap @ jnp.exp(f_a)
+    total = jnp.sum(jnp.exp(a_0 + f_t) * seasonal_mass)
+    return seasonal_mass, total
