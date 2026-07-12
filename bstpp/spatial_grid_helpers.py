@@ -310,7 +310,7 @@ def plot_daily_event_counts(result_gdf, events_gdf, plot_mode='combined', figsiz
                 else:
                     hotspot_union = gpd.GeoSeries([hotspot_union_geom], crs=hotspots.crs)
                     hotspot_union_gdf = gpd.GeoDataFrame(geometry=hotspot_union, crs=hotspots.crs)
-            except Exception as e:
+            except Exception:
                 # Fallback: use individual polygons if union fails
                 hotspot_union_gdf = hotspots[['geometry']].copy()
         
@@ -325,7 +325,7 @@ def plot_daily_event_counts(result_gdf, events_gdf, plot_mode='combined', figsiz
                 else:
                     coldspot_union = gpd.GeoSeries([coldspot_union_geom], crs=coldspots.crs)
                     coldspot_union_gdf = gpd.GeoDataFrame(geometry=coldspot_union, crs=coldspots.crs)
-            except Exception as e:
+            except Exception:
                 # Fallback: use individual polygons if union fails
                 coldspot_union_gdf = coldspots[['geometry']].copy()
         
@@ -457,7 +457,7 @@ def plot_daily_event_counts(result_gdf, events_gdf, plot_mode='combined', figsiz
                                                           if col in ['index_right', 'index_left']], errors='ignore')
             try:
                 events_in_hotspot = events_gdf_clean.sjoin(hotspot_gdf_clean, how='inner', predicate='within')
-            except Exception as e:
+            except Exception:
                 # If spatial join fails, try with intersects as fallback
                 try:
                     events_in_hotspot = events_gdf_clean.sjoin(hotspot_gdf_clean, how='inner', predicate='intersects')
@@ -491,7 +491,7 @@ def plot_daily_event_counts(result_gdf, events_gdf, plot_mode='combined', figsiz
                                                             if col in ['index_right', 'index_left']], errors='ignore')
             try:
                 events_in_coldspot = events_gdf_clean.sjoin(coldspot_gdf_clean, how='inner', predicate='within')
-            except Exception as e:
+            except Exception:
                 # If spatial join fails, try with intersects as fallback
                 try:
                     events_in_coldspot = events_gdf_clean.sjoin(coldspot_gdf_clean, how='inner', predicate='intersects')

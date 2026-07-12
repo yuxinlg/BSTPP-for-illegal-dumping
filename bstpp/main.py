@@ -1,22 +1,16 @@
 # general libraries
-import os
 from io import BytesIO
 import numpy as np
 import pandas as pd
 import geopandas as gpd
 from shapely.geometry import Polygon
 import matplotlib.pyplot as plt
-from math import erf, ceil
 import warnings
-import dill
 import pickle
 import pkgutil
 import math
 import matplotlib.dates as mdates
-import datetime
 import calendar
-import seaborn as sns
-import matplotlib.gridspec as gridspec
 
 
 # JAX
@@ -1641,7 +1635,6 @@ class Hawkes_Model(Point_Process_Model):
         """
         import numpy as np
         import matplotlib.pyplot as plt
-        from scipy.interpolate import interp1d
         
         if 'samples' not in dir(self):
             raise Exception("MCMC posterior sampling has not been performed yet.")

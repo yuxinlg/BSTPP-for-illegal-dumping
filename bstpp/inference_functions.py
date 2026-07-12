@@ -2,16 +2,14 @@ import os
 import time
 import jax
 import jax.numpy as jnp
-from jax.example_libraries.optimizers import exponential_decay, inverse_time_decay
+from jax.example_libraries.optimizers import inverse_time_decay
 
 # Numpyro
 import numpyro
 import numpyro.distributions as dist
-from numpyro.infer import MCMC, NUTS, init_to_median, init_to_value, init_to_uniform
+from numpyro.infer import MCMC, NUTS, init_to_median
 from numpyro.infer import Trace_ELBO, SVI, Predictive
 from numpyro.infer.autoguide import AutoMultivariateNormal
-from numpyro import optim
-from .utils import aligned_difference_pairs
 from .vae_functions import (vae_decoder_temporal, vae_decoder_seasonal,
                              vae_decoder_spatial)
 
@@ -216,8 +214,8 @@ def spatiotemporal_hawkes_model(args):
 
 
 def spatiotemporal_LGCP_model(args):
-    t_events=args["t_events"];
-    xy_events=args["xy_events"];
+    t_events=args["t_events"]
+    xy_events=args["xy_events"]
     n_obs=t_events.shape[0]
 
     #temporal rate

@@ -1,9 +1,7 @@
 #@title
 
 # JAX
-import jax
 import jax.numpy as jnp
-from jax import random, lax, jit, ops
 from jax.example_libraries import stax
 
 
