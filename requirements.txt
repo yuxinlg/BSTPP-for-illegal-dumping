@@ -32,3 +32,7 @@ matplotlib-scalebar>=0.8
 # rasterio pinned <1.4: rasterio>=1.5 requires numpy>=2, which conflicts with
 # the numpy<2 pin above (forced by jax 0.4.23). Pulled in by contextily.
 rasterio<1.4
+
+# Dev tooling: linter used for the refactor. Pure binary wheel, no Python deps,
+# so it does not interact with the numpy<2 / jax 0.4.23 pins above.
+ruff==0.15.21
