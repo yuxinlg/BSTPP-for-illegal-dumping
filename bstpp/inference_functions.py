@@ -1,6 +1,5 @@
 import os
 import time
-import jax
 import jax.numpy as jnp
 from jax.example_libraries.optimizers import inverse_time_decay
 
@@ -12,6 +11,7 @@ from numpyro.infer import Trace_ELBO, SVI, Predictive
 from numpyro.infer.autoguide import AutoMultivariateNormal
 from .vae_functions import (vae_decoder_temporal, vae_decoder_seasonal,
                              vae_decoder_spatial)
+from .likelihood import aggregate_pair_trigger_values
 
 
 def spatiotemporal_hawkes_model(args):
@@ -163,12 +163,10 @@ def spatiotemporal_hawkes_model(args):
     # Spatial trigger: use coords, x_vals, y_vals
     _, s_trigger_vals = args['sp_trig'].compute_trigger(sp_pars, (coords, x_vals, y_vals))
 
-    # Multiply only the values (they are aligned by coords)
-    l_hawkes_vals = t_trigger_vals * s_trigger_vals
-
-    # Aggregate by row (i)
-    n = t_events.shape[0]
-    l_hawkes_sum = jax.ops.segment_sum(l_hawkes_vals, coords[:, 0], n)
+    # Inner sum of the event term, eq. (23): pure aggregation atom
+    # (kernel evaluation stays here at the model layer; see likelihood.py)
+    l_hawkes_sum = aggregate_pair_trigger_values(coords, t_trigger_vals,
+                                                 s_trigger_vals, t_events.shape[0])
     l_hawkes = numpyro.deterministic('l_hawkes', alpha * l_hawkes_sum)
 
     if args['model'] == 'hawkes':
