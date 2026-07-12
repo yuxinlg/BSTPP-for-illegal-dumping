@@ -9,10 +9,11 @@ import numpyro
 import numpyro.distributions as dist
 from numpyro.infer import MCMC, NUTS, init_to_median, init_to_value, init_to_uniform
 from numpyro.infer import Trace_ELBO, SVI, Predictive
-from numpyro.infer.autoguide import *
+from numpyro.infer.autoguide import AutoMultivariateNormal
 from numpyro import optim
 from .utils import aligned_difference_pairs
-from .vae_functions import *
+from .vae_functions import (vae_decoder_temporal, vae_decoder_seasonal,
+                             vae_decoder_spatial)
 
 
 def spatiotemporal_hawkes_model(args):

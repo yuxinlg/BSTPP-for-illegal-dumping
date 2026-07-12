@@ -15,8 +15,6 @@ import math
 import matplotlib.dates as mdates
 import datetime
 import calendar
-import matplotlib.pyplot as plt
-import pandas as pd
 import seaborn as sns
 import matplotlib.gridspec as gridspec
 
@@ -29,11 +27,15 @@ from numpyro.diagnostics import hpdi
 from jax.scipy.special import logsumexp
 from numpyro.infer import log_likelihood
 
-from .utils import *
-from .inference_functions import *
-from .trigger import *
-from .vae_functions import *
-from .utils import aligned_difference_pairs
+import jax
+import numpyro
+
+from .utils import aligned_difference_pairs, exp_sq_kernel
+from .inference_functions import (spatiotemporal_hawkes_model, spatiotemporal_LGCP_model,
+                                  run_mcmc, run_SVI, get_samples)
+from .trigger import Temporal_Exponential, Spatial_Symmetric_Gaussian
+from .vae_functions import (vae_decoder_temporal, vae_decoder_seasonal,
+                            vae_decoder_spatial)
 
 
 def _load_decoder(name):
