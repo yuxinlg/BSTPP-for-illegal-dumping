@@ -22,11 +22,14 @@ Equation concordance (guide numbering):
   (seasonal_mass, total) -- the per-cell mass also feeds the rate_time
   diagnostic at the model layer, and (Phase 2b) the _sim_cox normalizer,
   which makes identity (I1) structural.
-- spatial_refinement_integral ........... spatial background integral over
-  the common refinement, eq. (24): exp(f_xy[c] (+ b_0[m])) contracted against
-  the refinement-cell areas |C_c intersect A_m|. The no-covariate grid
-  integral is the same atom with uniform areas 1/n_xy^2 and no b_0.
-  Refinement invariance (I9) is a property of this expression.
+- spatial_refinement_masses ............. per-cell masses of the eq. (24)
+  integrand, exp(f_xy[c] (+ b_0[m])) * |C_c intersect A_m|: the BASE
+  computation, consumed by the simulator's conditional cell draw.
+- spatial_refinement_integral ........... eq. (24) integral, literally
+  sum(spatial_refinement_masses(...)): one source of truth for the
+  integrand. The no-covariate grid is the special case of uniform areas
+  1/n_xy^2 and no b_0. Refinement invariance (I9) is a property of this
+  expression.
 - constant_background_integral .......... plain-Hawkes background compensator
   mu * T * |X| (reused by _sim_hawkes_bg in Phase 2b, making the background
   half of (I11) structural).
@@ -113,15 +116,32 @@ def spatial_refinement_integral(f_xy, field_indices, areas, b_0=None,
     areas in internal (unit-square) measure. The uniform no-covariate grid is
     the special case field_indices = in-domain cells, areas = 1/n_xy^2.
 
-    Note (rebaseline history): this atom computes exp(log_rate) @ areas; the
-    pre-extraction no-covariate code computed sum(exp(f_xy)[cells]) / n_xy^2,
-    an algebraically equal expression with a different floating-point
-    rounding sequence (declared expression change, tolerance-verified).
+    Rebaseline history: (1) pre-extraction the no-covariate code computed
+    sum(exp(f_xy)[cells]) / n_xy^2; (2) the first extraction computed
+    exp(log_rate) @ areas; (3) this version computes sum(exp(log_rate) *
+    areas) = sum(spatial_refinement_masses(...)) so the integrand has one
+    source of truth. All three are algebraically equal with different
+    floating-point reduction orders; each transition was a DECLARED
+    expression change, tolerance-verified against the value+gradient pins.
+    """
+    return jnp.sum(spatial_refinement_masses(f_xy, field_indices, areas,
+                                              b_0, covariate_indices))
+
+
+def spatial_refinement_masses(f_xy, field_indices, areas, b_0=None,
+                              covariate_indices=None):
+    """Per-cell masses of the eq. (24) integrand: exp(log_rate) * areas.
+
+    This is the BASE computation: spatial_refinement_integral is literally
+    sum(masses), so the integrand exists in exactly one place and the
+    simulator's conditional cell draw and the likelihood's integral cannot
+    drift apart. The simulator self-normalizes the conditional (masses /
+    masses.sum()) and takes the count rate from the same vector's sum.
     """
     log_rate = f_xy[field_indices]
     if b_0 is not None:
         log_rate = log_rate + b_0[covariate_indices]
-    return jnp.exp(log_rate) @ areas
+    return jnp.exp(log_rate) * areas
 
 
 def constant_background_integral(mu, horizon, domain_area):

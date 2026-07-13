@@ -22,6 +22,7 @@ from bstpp.likelihood import (aggregate_pair_trigger_values,
                               rectangular_excitation_compensator,
                               seasonal_time_integral,
                               spatial_refinement_integral,
+                              spatial_refinement_masses,
                               constant_background_integral,
                               covariate_background_integral)
 from bstpp.trigger import Temporal_Exponential, Spatial_Symmetric_Gaussian
@@ -189,3 +190,24 @@ def test_background_integrals_match_reference():
     g = jax.grad(lambda m: covariate_background_integral(m, jnp.asarray(areas), T)
                  )(jnp.asarray(mu_cells))
     assert np.all(np.isfinite(np.asarray(g)))
+
+
+def test_spatial_refinement_masses_and_integral_share_one_integrand():
+    rng = np.random.default_rng(8)
+    n_field, n_cov, K = 625, 4, 700
+    f_xy = rng.normal(0, 0.5, n_field).astype(np.float32)
+    b_0 = rng.normal(0, 0.5, n_cov).astype(np.float32)
+    fi = rng.integers(0, n_field, K); ci = rng.integers(0, n_cov, K)
+    areas = rng.uniform(0, 2.0 / K, K).astype(np.float32)
+    masses = np.asarray(spatial_refinement_masses(
+        jnp.asarray(f_xy), jnp.asarray(fi), jnp.asarray(areas),
+        jnp.asarray(b_0), jnp.asarray(ci)))
+    ref = np.exp(f_xy.astype(np.float64)[fi] + b_0.astype(np.float64)[ci]) \
+        * areas.astype(np.float64)
+    np.testing.assert_allclose(masses, ref, rtol=2e-6)
+    assert np.all(masses >= 0)
+    total = float(spatial_refinement_integral(
+        jnp.asarray(f_xy), jnp.asarray(fi), jnp.asarray(areas),
+        jnp.asarray(b_0), jnp.asarray(ci)))
+    # integral IS sum(masses) by construction -- exact, not tolerance-based
+    assert total == float(np.float32(np.asarray(jnp.sum(jnp.asarray(masses)))))
