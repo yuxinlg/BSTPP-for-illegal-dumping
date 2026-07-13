@@ -30,9 +30,13 @@ Equation concordance (guide numbering):
   integrand. The no-covariate grid is the special case of uniform areas
   1/n_xy^2 and no b_0. Refinement invariance (I9) is a property of this
   expression.
+- background_masses ..................... per-cell masses of the plain-Hawkes
+  background compensator, mu * |cell| * T (mu scalar for the constant
+  background, vector over the covariate partition): the simulator's per-cell
+  Poisson rates. Unit tests pin sum(background_masses) against the two
+  integral atoms below.
 - constant_background_integral .......... plain-Hawkes background compensator
-  mu * T * |X| (reused by _sim_hawkes_bg in Phase 2b, making the background
-  half of (I11) structural).
+  mu * T * |X|.
 - covariate_background_integral ......... plain-Hawkes covariate background
   compensator (mu_cells @ cell_areas) * T over the covariate partition.
 - rectangular_excitation_compensator .... truncated excitation compensator,
@@ -156,3 +160,16 @@ def covariate_background_integral(mu_cells, cell_areas, horizon):
     cell_areas are |A_m| in internal measure (args['cov_area']).
     """
     return mu_cells @ cell_areas * horizon
+
+
+def background_masses(mu, cell_areas, horizon):
+    """Per-cell masses of the plain-Hawkes background compensator.
+
+    mu * cell_areas * horizon, broadcasting: mu is a scalar for the constant
+    background (cells = domain rows) or a vector over the covariate partition.
+    The simulator superposes per-cell Poisson draws on these rates, which is
+    distributionally identical to Poisson(total) + multinomial; unit tests
+    (not runtime asserts) pin sum(background_masses) against
+    constant_background_integral / covariate_background_integral.
+    """
+    return mu * cell_areas * horizon

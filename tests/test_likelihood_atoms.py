@@ -23,6 +23,7 @@ from bstpp.likelihood import (aggregate_pair_trigger_values,
                               seasonal_time_integral,
                               spatial_refinement_integral,
                               spatial_refinement_masses,
+                              background_masses,
                               constant_background_integral,
                               covariate_background_integral)
 from bstpp.trigger import Temporal_Exponential, Spatial_Symmetric_Gaussian
@@ -211,3 +212,20 @@ def test_spatial_refinement_masses_and_integral_share_one_integrand():
         jnp.asarray(b_0), jnp.asarray(ci)))
     # integral IS sum(masses) by construction -- exact, not tolerance-based
     assert total == float(np.float32(np.asarray(jnp.sum(jnp.asarray(masses)))))
+
+
+def test_background_masses_sum_to_the_integral_atoms():
+    rng = np.random.default_rng(9)
+    T = 50.0
+    mu_cells = rng.uniform(0.5, 2.0, 4).astype(np.float32)
+    areas = rng.uniform(0.1, 0.4, 4).astype(np.float32)
+    mc = np.asarray(background_masses(jnp.asarray(mu_cells), jnp.asarray(areas), T))
+    np.testing.assert_allclose(
+        float(mc.sum()),
+        float(covariate_background_integral(jnp.asarray(mu_cells),
+                                            jnp.asarray(areas), T)), rtol=2e-6)
+    dom_areas = np.array([0.6, 0.4], np.float32)   # multi-row domain, |X| = 1
+    m0 = np.asarray(background_masses(jnp.float32(1.3), jnp.asarray(dom_areas), T))
+    np.testing.assert_allclose(
+        float(m0.sum()),
+        float(constant_background_integral(jnp.float32(1.3), T, 1.0)), rtol=2e-6)

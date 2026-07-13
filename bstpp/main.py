@@ -30,7 +30,8 @@ from .inference_functions import (spatiotemporal_hawkes_model, spatiotemporal_LG
 from .trigger import Temporal_Exponential, Spatial_Symmetric_Gaussian
 from .decode_fields import (decode_temporal_field, decode_seasonal_field,
                         decode_spatial_field)
-from .likelihood import (seasonal_time_integral, spatial_refinement_masses)
+from .likelihood import (seasonal_time_integral, spatial_refinement_masses,
+                         background_masses)
 
 
 def _load_decoder(name):
@@ -1308,13 +1309,6 @@ class Point_Process_Model:
         self.points.plot(ax=ax[1],color='red',marker='x',**kwargs)
         ax[1].set_title('Mean Posterior $f_s + X(s)w$ With Events')
 
-    def _sim_spatial(self, geo_df):
-        lam = geo_df['area']*np.exp(geo_df['log_intensity'])
-        num_samp = np.random.poisson(lam)
-        mask_zero = num_samp!=0
-        samples = geo_df[mask_zero].sample_points(size=num_samp[mask_zero])
-        return samples.explode(index_parts=False)
-
     def _sim_cox(self, parameters, rng=None):
         """Exact sampler for the factorized Cox background, in internal units.
 
@@ -1811,18 +1805,35 @@ class Hawkes_Model(Point_Process_Model):
                                f"{counts.sum()} requested; refusing to truncate")
         return np.stack((pts.x.values, pts.y.values), axis=1)
 
-    def _sim_hawkes_bg(self,parameters):
-        a_0 = parameters['a_0']
+    def _sim_hawkes_bg(self, parameters):
+        """Constant / covariate background via per-cell Poisson superposition.
+
+        Cell rates are background_masses(...) -- the integrand of the
+        background compensator atoms, whose sum the unit tests pin against
+        constant/covariate_background_integral -- so the simulator and
+        likelihood share one background-mass expression (no runtime assert:
+        one shared computation plus tests, per review). Superposing per-cell
+        Poisson draws is distributionally identical to Poisson(total) +
+        multinomial. Legacy quirk preserved and documented: the sample_points
+        draw here is UNSEEDED (ignores np.random and the rng argument);
+        unifying all draws under one Generator is a recorded follow-up, and
+        until then simulate() is not fully seed-reproducible on this path.
+        """
+        a_0 = float(parameters['a_0'])
+        T_int = self.args['T']
         if 'spatial_cov' in self.args:
-            geo_df = self.spatial_cov.copy()
-            geo_df['log_intensity'] = a_0 + np.log(self.args['T']) + parameters['b_0']
+            geo_df = self.spatial_cov
+            mu = np.exp(a_0 + np.asarray(parameters['b_0']))
+            areas = np.asarray(self.args['cov_area'])
         else:
-            geo_df = self.A.copy()
-            geo_df['log_intensity'] = a_0 + np.log(self.args['T'])
-        A_ = self.args['A_']
-        geo_df['area'] = geo_df.area/((A_[0,1]-A_[0,0])*(A_[1,1]-A_[1,0]))
-        sp = self._sim_spatial(geo_df)
-        return np.stack((sp.x,sp.y,np.random.uniform(0, self.args['T'],size=len(sp)))).T
+            geo_df = self.A
+            A_ = self.args['A_']
+            mu = np.exp(a_0)
+            areas = (geo_df.area / ((A_[0, 1]-A_[0, 0]) * (A_[1, 1]-A_[1, 0]))).values
+        cell_rates = np.asarray(background_masses(mu, areas, T_int))
+        num = np.random.poisson(cell_rates)
+        xy = self._sample_cells(geo_df, num, rng=None)
+        return np.column_stack((xy, np.random.uniform(0, T_int, size=len(xy))))
 
     def _sim_offspring(self,bg,par):
         i = 0
