@@ -1372,9 +1372,19 @@ class Point_Process_Model:
                      + np.asarray(parameters['f_xy'])[geo_df['comp_grid_id'].values])
             area = geo_df['area'].values
         else:
-            geo_df = self.comp_grid.sjoin(self.A[['geometry']], how='inner').copy()
-            log_h = np.asarray(parameters['f_xy'])[geo_df['comp_grid_id'].values]
-            area = np.full(len(geo_df), 1.0 / self.args['n_xy']**2)
+            # Support and areas come from the constructor's integration arrays,
+            # via an INDEXED lookup by comp_grid_id -- NEVER a geometric
+            # self-join. History: comp_grid.sjoin(self.A) duplicated cells for
+            # array domains (self.A IS the comp grid there); exact geometry
+            # predicts 5329 rows, the float-built grid gave 4761 (degree
+            # histogram {4:36, 6:228, 9:361}; ~11% of adjacencies fail at the
+            # ulp level), so sampling weights were float-noise-dependent and
+            # the Poisson mean was inflated 7.62x for a flat field. See
+            # test_sim_cox_array_domain_support_regression.
+            fi = np.asarray(self.args['integration_field_indices'])
+            geo_df = self.comp_grid.set_index('comp_grid_id').loc[fi]
+            log_h = np.asarray(parameters['f_xy'])[fi]
+            area = np.asarray(self.args['integration_areas'])
         h_mass = np.exp(log_h) * area
         Ih = h_mass.sum()
         # --- exact two-step draw

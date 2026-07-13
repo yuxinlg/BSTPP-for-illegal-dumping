@@ -183,15 +183,14 @@ def test_real_sim_cox_uses_exact_integral():
     finally:
         np.random.poisson = orig
     assert bg.ndim == 2 and bg.shape[1] == 3
-    # Recover the real Ig from the captured Poisson mean (Ig * Ih) by dividing out Ih,
-    # computed exactly as _sim_cox's non-covariate spatial branch does (the sjoin has
-    # border duplicates, so Ih != the traced Itot_xy).
-    gj = model.comp_grid.sjoin(model.A[["geometry"]], how="inner")
-    log_h = f_xy[gj["comp_grid_id"].values]
-    area = np.full(len(gj), 1.0 / model.args["n_xy"] ** 2)
-    Ih = float((np.exp(log_h) * area).sum())
-    Ig_real = captured["lam"] / Ih
-    assert np.isclose(Ig_real, Itot_time, rtol=1e-5)
+    # STRUCTURAL COUNT TARGET: the Poisson mean must equal the likelihood's own
+    # compensator, Itot_time * Itot_xy, both read from the trace. This test
+    # previously MIRRORED the duplicated self-join construction to recover Ig
+    # (see test_sim_cox_array_domain_support_regression for the defect and its
+    # quantification); it now asserts the mathematical invariant. Test-edit
+    # sign-off: Terhi, alongside the dedicated regression test.
+    Itot_xy = float(np.asarray(tr["Itot_xy"]["value"]))
+    assert np.isclose(captured["lam"], Itot_time * Itot_xy, rtol=1e-5)
 
 
 def test_recover_test_imports_and_season_idx_runs():
@@ -204,3 +203,65 @@ def test_recover_test_imports_and_season_idx_runs():
     val = recover_test.intercept_combination(
         1.0, np.zeros(n_t), np.arange(n_s, dtype=float), np.zeros(25 ** 2), sidx)
     assert np.isfinite(val)
+
+
+@needs_decoder
+def test_sim_cox_array_domain_support_regression():
+    """REGRESSION (array-domain spatial support): _sim_cox's no-covariate cell
+    support must be the constructor's integration arrays -- one row per
+    in-domain cell -- never a geometric self-join.
+
+    HISTORY: the old branch built geo_df = comp_grid.sjoin(self.A); for an
+    ARRAY domain self.A IS the comp grid, so the join returned cell-neighbor
+    pairs. Exact geometry predicts 5329 rows (degrees 4/6/9 for corner/edge/
+    interior, mean 8.53); the float-constructed grid actually produced 4761
+    rows with degree histogram {4: 36, 6: 228, 9: 361} because ~11% of
+    adjacencies fail at the ulp level (cell edges built as j*w + w vs
+    (j+1)*w) -- i.e. the sampling weights were FLOAT-NOISE-DEPENDENT, the
+    Poisson mean was inflated 7.62x for a flat field (4761/625), and under a
+    flat field a full-degree interior cell carried 9/4 = 2.25x the weight of
+    a corner cell. GeoDataFrame domains were unaffected (their sjoin is
+    against a genuine polygon and deduplicated by np.unique).
+
+    With a ZERO spatial field the mathematical targets are exact:
+    the cell-probability vector is uniform over exactly n_xy^2 cells, and the
+    Poisson mean is Ig * Ih = T_internal * 1.
+    """
+    model = Hawkes_Model(DATA, A_RECT, T_DAYS, cox_background=True, **PRIORS)
+    n_cells = model.args["n_xy"] ** 2
+    fi = np.asarray(model.args["integration_field_indices"])
+    assert len(fi) == n_cells and len(np.unique(fi)) == n_cells
+
+    params = {"a_0": 0.0,
+              "f_t": np.zeros(model.args["n_t"], np.float32),
+              "f_a": np.zeros(model.args["n_s"], np.float32),
+              "f_xy": np.zeros(n_cells, np.float32)}
+    captured = {}
+    real_poisson, real_choice = np.random.poisson, np.random.choice
+
+    def spy_poisson(lam, *a, **k):
+        captured["lam"] = float(lam)
+        return real_poisson(lam, *a, **k)
+
+    def spy_choice(n, *a, **k):
+        captured["p"] = np.asarray(k["p"])
+        captured["support"] = n
+        return real_choice(n, *a, **k)
+
+    np.random.seed(3)
+    try:
+        np.random.poisson, np.random.choice = spy_poisson, spy_choice
+        bg = model._sim_cox(params, rng=np.random.default_rng(3))
+    finally:
+        np.random.poisson, np.random.choice = real_poisson, real_choice
+
+    assert bg.ndim == 2 and bg.shape[1] == 3
+    # support: exactly one row per cell
+    assert captured["support"] == n_cells, \
+        f"cell support has {captured['support']} rows, expected {n_cells}"
+    # zero field: uniform cell probabilities
+    np.testing.assert_allclose(captured["p"], np.full(n_cells, 1.0 / n_cells),
+                               rtol=1e-5)
+    # zero field: Poisson mean = Ig * Ih = T_internal * 1
+    assert np.isclose(captured["lam"], float(model.args["T"]), rtol=1e-5), \
+        f"Poisson mean {captured['lam']:.4f}, mathematical target {model.args['T']}"
