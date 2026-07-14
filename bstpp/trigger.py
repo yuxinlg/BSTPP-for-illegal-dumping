@@ -125,8 +125,10 @@ class Temporal_Power_Law(Trigger):
         """
         super().__init__(prior)
     
-    def simulate_trigger(self,pars):
-        return lomax.rvs(pars['beta'])*pars['gamma']
+    def simulate_trigger(self, pars, rng=None):
+        # random_state=None keeps scipy on numpy's global state, matching the
+        # rng=None legacy fallback of the other triggers
+        return lomax.rvs(pars['beta'], random_state=rng)*pars['gamma']
 
     def compute_trigger(self, pars, pairs_and_values):
         coords, values = pairs_and_values
@@ -232,8 +234,9 @@ class Temporal_Exponential(Trigger):
     
     """
     
-    def simulate_trigger(self, pars):
-        return np.random.exponential(pars['beta'])
+    def simulate_trigger(self, pars, rng=None):
+        gen = rng if rng is not None else np.random
+        return gen.exponential(pars['beta'])
     
     def compute_trigger(self, pars, pairs_and_values):
         coords, values = pairs_and_values
@@ -264,8 +267,9 @@ class Spatial_Symmetric_Gaussian(Trigger):
     the bounding rectangle's shape.
     """
 
-    def simulate_trigger(self, pars):
-        return np.random.normal(scale=pars['sigmax_2']**0.5,size=2)
+    def simulate_trigger(self, pars, rng=None):
+        gen = rng if rng is not None else np.random
+        return gen.normal(scale=pars['sigmax_2']**0.5,size=2)
     
     def compute_trigger(self, pars, pairs_and_dxdy):
         coords, dx_vals, dy_vals = pairs_and_dxdy

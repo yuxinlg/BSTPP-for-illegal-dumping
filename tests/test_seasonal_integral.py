@@ -49,6 +49,27 @@ PRIORS = dict(a_0=dist.Normal(0, 5), alpha=dist.Beta(2, 2),
               beta=dist.HalfNormal(1.0), sigmax_2=dist.HalfNormal(0.25))
 
 
+
+class _SpyGen(np.random.Generator):
+    """A real numpy Generator (subclass, so geopandas' default_rng(rng)
+    passes it through) that records the Poisson mean and the multinomial p
+    vector _sim_cox uses. Needed since the RNG unification: all draws go
+    through the passed Generator, so module-level np.random spies no longer
+    see them (test-capture adaptation to the signed-off API change)."""
+
+    def __init__(self, seed):
+        super().__init__(np.random.PCG64(seed))
+        self.captured = {}
+
+    def poisson(self, lam, *a, **k):
+        self.captured.setdefault("lam", float(np.asarray(lam)))
+        return super().poisson(lam, *a, **k)
+
+    def choice(self, n, *a, **k):
+        self.captured["p"] = np.asarray(k["p"])
+        self.captured["support"] = n
+        return super().choice(n, *a, **k)
+
 def _model(offset_seasonal=0):
     # season_overlap is built for every model in __init__, so a plain (decoder-free)
     # Hawkes model is enough to exercise the overlap matrix and the integral formulas.
@@ -168,20 +189,10 @@ def test_real_sim_cox_uses_exact_integral():
 
     # capture the real Poisson mean (Ig * Ih) from inside _sim_cox
     captured = {}
-    real_poisson = np.random.poisson
-
-    def spy(lam, *a, **k):
-        captured["lam"] = float(lam)
-        return real_poisson(lam, *a, **k)
-
     params = {"a_0": a_0, "f_t": f_t, "f_a": f_a, "f_xy": f_xy}
-    np.random.seed(0)
-    orig = np.random.poisson
-    try:
-        np.random.poisson = spy
-        bg = model._sim_cox(params)
-    finally:
-        np.random.poisson = orig
+    spy = _SpyGen(0)
+    bg = model._sim_cox(params, rng=spy)
+    captured.update(spy.captured)
     assert bg.ndim == 2 and bg.shape[1] == 3
     # STRUCTURAL COUNT TARGET: the Poisson mean must equal the likelihood's own
     # compensator, Itot_time * Itot_xy, both read from the trace. This test
@@ -236,24 +247,9 @@ def test_sim_cox_array_domain_support_regression():
               "f_t": np.zeros(model.args["n_t"], np.float32),
               "f_a": np.zeros(model.args["n_s"], np.float32),
               "f_xy": np.zeros(n_cells, np.float32)}
-    captured = {}
-    real_poisson, real_choice = np.random.poisson, np.random.choice
-
-    def spy_poisson(lam, *a, **k):
-        captured["lam"] = float(lam)
-        return real_poisson(lam, *a, **k)
-
-    def spy_choice(n, *a, **k):
-        captured["p"] = np.asarray(k["p"])
-        captured["support"] = n
-        return real_choice(n, *a, **k)
-
-    np.random.seed(3)
-    try:
-        np.random.poisson, np.random.choice = spy_poisson, spy_choice
-        bg = model._sim_cox(params, rng=np.random.default_rng(3))
-    finally:
-        np.random.poisson, np.random.choice = real_poisson, real_choice
+    spy = _SpyGen(3)
+    bg = model._sim_cox(params, rng=spy)
+    captured = spy.captured
 
     assert bg.ndim == 2 and bg.shape[1] == 3
     # support: exactly one row per cell

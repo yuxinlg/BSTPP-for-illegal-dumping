@@ -1335,8 +1335,10 @@ class Point_Process_Model:
 
         rng: numpy.random.Generator, optional
             Used for the spatial GeoSeries.sample_points draw, which ignores numpy's legacy
-            global seed; the Poisson / inverse-CDF / multinomial draws use np.random, so seed
-            those with np.random.seed(...). Provide both for a fully reproducible draw.
+            When provided, rng drives EVERY draw (Poisson count, inverse-CDF
+            uniforms, cell multinomial, sample_points): one Generator gives a
+            fully reproducible draw. rng=None falls back to np.random (plus
+            geopandas' own unseeded sample_points), preserving legacy behavior.
 
         Known approximations (all vanish for a rectangle domain -- use a rectangle A for
         simulate-and-recover / SBC):
@@ -1399,15 +1401,16 @@ class Point_Process_Model:
                                f"integration arrays ({len(h_mass)})")
         Ih = h_mass.sum()
         # --- exact two-step draw
-        N = np.random.poisson(Ig * Ih)
+        gen = rng if rng is not None else np.random
+        N = gen.poisson(Ig * Ih)
         if N == 0:
             return np.empty((0, 3))
         # inverse-CDF on segment MASS (g_j * len_j), then uniform within the chosen segment
         w = g * seg_len
         cdf = np.cumsum(w) / w.sum()
-        bins = np.searchsorted(cdf, np.random.uniform(size=N), side='right')
-        times = seg_lo[bins] + np.random.uniform(size=N) * seg_len[bins]
-        cells = np.random.choice(len(h_mass), size=N, p=h_mass / h_mass.sum())
+        bins = np.searchsorted(cdf, gen.uniform(size=N), side='right')
+        times = seg_lo[bins] + gen.uniform(size=N) * seg_len[bins]
+        cells = gen.choice(len(h_mass), size=N, p=h_mass / h_mass.sum())
         counts = np.bincount(cells, minlength=len(h_mass))
         xy = self._sample_cells(geo_df, counts, rng=rng)
         # times and locations are independent given the factorization: pairing is arbitrary
@@ -1824,7 +1827,7 @@ class Hawkes_Model(Point_Process_Model):
                                f"{counts.sum()} requested; refusing to truncate")
         return np.stack((pts.x.values, pts.y.values), axis=1)
 
-    def _sim_hawkes_bg(self, parameters):
+    def _sim_hawkes_bg(self, parameters, rng=None):
         """Constant / covariate background via per-cell Poisson superposition.
 
         Cell rates are background_masses(...) -- the integrand of the
@@ -1833,11 +1836,12 @@ class Hawkes_Model(Point_Process_Model):
         likelihood share one background-mass expression (no runtime assert:
         one shared computation plus tests, per review). Superposing per-cell
         Poisson draws is distributionally identical to Poisson(total) +
-        multinomial. Legacy quirk preserved and documented: the sample_points
-        draw here is UNSEEDED (ignores np.random and the rng argument);
-        unifying all draws under one Generator is a recorded follow-up, and
-        until then simulate() is not fully seed-reproducible on this path.
+        multinomial. RNG: when rng is provided it drives EVERY draw here
+        (Poisson counts, sample_points, uniform times) -- the historical
+        unseeded-sample_points quirk is resolved; rng=None preserves the old
+        np.random + unseeded behavior for legacy callers.
         """
+        gen = rng if rng is not None else np.random
         a_0 = float(parameters['a_0'])
         T_int = self.args['T']
         if 'spatial_cov' in self.args:
@@ -1850,21 +1854,34 @@ class Hawkes_Model(Point_Process_Model):
             mu = np.exp(a_0)
             areas = (geo_df.area / ((A_[0, 1]-A_[0, 0]) * (A_[1, 1]-A_[1, 0]))).values
         cell_rates = np.asarray(background_masses(mu, areas, T_int))
-        num = np.random.poisson(cell_rates)
-        xy = self._sample_cells(geo_df, num, rng=None)
-        return np.column_stack((xy, np.random.uniform(0, T_int, size=len(xy))))
+        num = gen.poisson(cell_rates)
+        xy = self._sample_cells(geo_df, num, rng=rng)
+        return np.column_stack((xy, gen.uniform(0, T_int, size=len(xy))))
 
-    def _sim_offspring(self,bg,par):
+    def _sim_offspring(self, bg, par, rng=None):
+        # One Generator drives every draw when provided (offspring counts and
+        # both trigger simulations); rng=None falls back to np.random so
+        # legacy call sites and user-defined triggers keep working. User
+        # triggers with the old simulate_trigger(pars) signature are called
+        # without rng (TypeError fallback) and stay on np.random.
+        gen = rng if rng is not None else np.random
+
+        def _trig_draw(trig):
+            try:
+                return trig.simulate_trigger(par, rng=rng)
+            except TypeError:
+                return trig.simulate_trigger(par)
+
         i = 0
         while i < len(bg):
-            for j in range(np.random.poisson(lam=par['alpha'])):
+            for j in range(gen.poisson(lam=par['alpha'])):
                 #simulate trigger: REAL-unit contract -- the spatial trigger
                 #draws the offspring displacement directly in real coordinate
                 #units, matching the real-unit kernel the likelihood evaluates
                 #(the historical internal draw * per-axis box-span rescale is
                 #gone; that rescale WAS the aspect-ratio anisotropy defect).
-                sp_dif = self.args['sp_trig'].simulate_trigger(par)
-                t_dif = [self.args['t_trig'].simulate_trigger(par)]
+                sp_dif = _trig_draw(self.args['sp_trig'])
+                t_dif = [_trig_draw(self.args['t_trig'])]
                 # window-consistent thinning: match the truncated-kernel likelihood
                 # (Poisson(alpha) parents thinned by F(w) => expected offspring alpha*F(w))
                 if t_dif[0] > self.args['window']:
@@ -1933,8 +1950,8 @@ class Hawkes_Model(Point_Process_Model):
         if self.args['model'] == 'cox_hawkes':
             bg = self._sim_cox(parameters, rng=rng)
         else:
-            bg = self._sim_hawkes_bg(parameters)
-        sample = self._sim_offspring(bg,parameters)
+            bg = self._sim_hawkes_bg(parameters, rng=rng)
+        sample = self._sim_offspring(bg, parameters, rng=rng)
         #filter out offspring after cutoff
         sample = sample[sample.T[2]<self.args['T']]
         geometry = gpd.points_from_xy(sample.T[0], sample.T[1],crs=self.A.crs)

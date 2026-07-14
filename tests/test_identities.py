@@ -626,3 +626,27 @@ def test_trigger_legs_invariant_to_bounding_rectangle():
     assert np.array_equal(outs[0], outs[1]), \
         "offspring cascades differ across bounding rectangles under a shared seed"
     assert len(outs[0]) > 1, "cascade produced no offspring; seed/config uninformative"
+
+
+@pytest.mark.parametrize("cox", [False, "cox"])
+def test_simulate_fully_reproducible_with_generator(cox):
+    """RNG unification: one Generator drives every draw, so two simulate()
+    calls with identically seeded fresh Generators are byte-identical --
+    including the pure-Hawkes background path, whose sample_points draw was
+    historically unseeded. (rng=None preserves the legacy behavior.)"""
+    if cox == "cox" and not os.path.isfile(_SEASONAL_DECODER):
+        pytest.skip("seasonal decoder artifact absent")
+    model = Hawkes_Model(DATA, A_GDF, T_DAYS, cox_background=cox, **PRIORS)
+    if cox == "cox":
+        tr = handlers.trace(handlers.seed(model.model,
+                                          jax.random.PRNGKey(3))).get_trace(model.args)
+        truth = {k: np.asarray(tr[k]["value"]) for k in
+                 ("a_0", "z_temporal", "z_seasonal", "z_spatial")}
+        truth.update(alpha=np.float32(0.25), beta=np.float32(2.0),
+                     sigmax_2=np.float32(0.02))
+    else:
+        truth = dict(a_0=0.4, alpha=0.3, beta=2.0, sigmax_2=0.02)
+    a = model.simulate(parameters=dict(truth), rng=np.random.default_rng(17))
+    b = model.simulate(parameters=dict(truth), rng=np.random.default_rng(17))
+    np.testing.assert_array_equal(np.asarray(a[["X", "Y", "T"]], dtype=np.float64),
+                                  np.asarray(b[["X", "Y", "T"]], dtype=np.float64))
