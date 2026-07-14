@@ -24,7 +24,7 @@ from numpyro.infer import log_likelihood
 import jax
 import numpyro
 
-from .utils import aligned_difference_pairs, exp_sq_kernel
+from .utils import aligned_difference_pairs, exp_sq_kernel, within_real_box_window
 from .inference_functions import (spatiotemporal_hawkes_model, spatiotemporal_LGCP_model,
                                   run_mcmc, run_SVI, get_samples)
 from .trigger import Temporal_Exponential, Spatial_Symmetric_Gaussian
@@ -588,6 +588,7 @@ class Point_Process_Model:
                 test_args['xy_events'][1],
                 self.args['window'],
                 spatial_window=self.args.get('spatial_window'),
+                axis_scales=np.asarray(self.args['axis_scales']),
             )
             test_args['coords'] = coords
             test_args['t_vals'] = t_vals
@@ -1339,9 +1340,9 @@ class Point_Process_Model:
 
         Known approximations (all vanish for a rectangle domain -- use a rectangle A for
         simulate-and-recover / SBC):
-          - spatial_window truncation is intentionally NOT mirrored in offspring thinning;
-            the spatial excitation integral is left untruncated by design, so keep
-            spatial_window=None for calibration work.
+          - a finite spatial_window IS mirrored in the offspring thinning (real-unit
+            box, within_real_box_window), matching the clipped compensator exactly, so
+            finite-ws configurations are inside the calibration-supported regime.
           - For a GeoDataFrame domain, boundary cells are sampled over the FULL cell and then
             clipped by simulate()'s A-filter, and the excitation compensator integrates over
             the bounding rectangle A_ rather than the polygon.
@@ -1414,19 +1415,23 @@ class Point_Process_Model:
 
 
     def set_window(self, window, spatial_window=None):
+        """window: temporal truncation, INTERNAL units. spatial_window:
+        spatial truncation, REAL length (real-space square of half-width ws;
+        see aligned_difference_pairs / within_real_box_window)."""
         window = float(window)
         if spatial_window is not None:
             spatial_window = float(spatial_window)
         self.args['window'] = window
         self.args['spatial_window'] = spatial_window
 
-        # Recompute pairs with both windows
+        # Recompute pairs with both windows (spatial one in REAL units)
         coords, t_vals, x_vals, y_vals = aligned_difference_pairs(
             self.args['t_events'],
             self.args['xy_events'][0],
             self.args['xy_events'][1],
             window=window,
-            spatial_window=spatial_window
+            spatial_window=spatial_window,
+            axis_scales=np.asarray(self.args['axis_scales'])
         )
 
         self.args['coords'] = coords
@@ -1503,10 +1508,15 @@ class Hawkes_Model(Point_Process_Model):
             window >= 5*beta) or be left at the default. Defaults to T, i.e. the full
             window / no truncation, which exactly reproduces the previous likelihood.
         spatial_window: float, optional
-            Spatial truncation radius for excitation pairs, in the rescaled spatial units
-            (the [0, 1] square). KNOWN APPROXIMATION: this truncates pairs spatially WITHOUT
-            a matching truncation of the spatial integral, so it does not yield an exact
-            likelihood; leave it None for calibration/SBC work. Defaults to None.
+            Spatial truncation half-width for excitation pairs, a REAL length in the units
+            of the input X/Y columns: pairs are kept iff max(|dx|, |dy|) <= spatial_window
+            in real coordinates (a real-space square; per-axis box semantics -- the only
+            shape the compensator can charge in closed form). The excitation integral and
+            the offspring thinning apply the SAME truncation, so this is the exact
+            likelihood of the truncated-kernel model and finite values are safe for
+            calibration/SBC. Must comfortably exceed the posterior real-unit kernel scale
+            (rule of thumb: spatial_window >= 4 * sqrt(sigmax_2)). Defaults to None (no
+            spatial truncation).
         sp_var_mu: float
             Fixed log-amplitude multiplier applied to the spatial VAE decoder output; see
             Point_Process_Model for calibration guidance. Default 2.0.
@@ -1858,6 +1868,13 @@ class Hawkes_Model(Point_Process_Model):
                 # window-consistent thinning: match the truncated-kernel likelihood
                 # (Poisson(alpha) parents thinned by F(w) => expected offspring alpha*F(w))
                 if t_dif[0] > self.args['window']:
+                    continue
+                # spatial window: the SAME real-unit box predicate the pair set
+                # uses and the compensator integrates (single-sourced; the
+                # spatial draw is already in real units under the contract)
+                sw = self.args.get('spatial_window')
+                if sw is not None and not within_real_box_window(
+                        sp_dif[0], sp_dif[1], sw):
                     continue
                 cand = bg[i] + np.append(sp_dif, t_dif)
                 # Prop 1.1(ii): offspring outside the bounding rectangle X --

@@ -15,6 +15,9 @@ Coverage map (guide identity -> test / existing test):
 - (I10) unit covariance            -> test_spatial_similarity_covariance,
                                       test_spatial_kernel_family_is_real_unit_not_internal (HERE)
 - (I11) conservation E[n] = E[Lam] -> test_simulated_count_matches_compensator (HERE)
+- (I4-ws)/(I11-ws) finite spatial_window variants -> (HERE); impossible before
+  the three-leg real-unit box symmetry (event-side-only truncation)
+- (I12) box invariance             -> test_trigger_legs_invariant_to_bounding_rectangle (HERE)
 
 These are behavior pins for the architecture rewrite: they test the mathematical
 contract (what any correct implementation must output), not internals, so they
@@ -357,7 +360,8 @@ def _compensator(model, t_events, xy_events, params):
         {"beta": jnp.float32(params["beta"])},
         {"sigmax_2": jnp.float32(params["sigmax_2"])},
         args["t_trig"], args["sp_trig"],
-        axis_scales=args["axis_scales"]))
+        axis_scales=args["axis_scales"],
+        spatial_window=args.get("spatial_window")))
     lam_bg = float(np.exp(params["a_0"])) * T * args["A_area"]
     return lam_bg + exc
 
@@ -464,3 +468,161 @@ def test_offspring_displacements_isotropic_in_real_units():
         f"per-axis real-space variance ratio {ratio:.2f} (n={len(disp)}) -- "
         "offspring displacements are not isotropic in real units "
         "(internal-unit kernel rescaled by the box spans gives ratio ~16 here)")
+
+
+def test_offspring_thinning_matches_compensator_mass_finite_spatial_window():
+    """(I4-ws) With a finite REAL-unit spatial_window the per-parent cascade
+    mean must be m/(1-m) with m = alpha * F_beta(w) * BoxMass(ws), computed
+    through the PRODUCTION compensator atom on a single center event. The
+    center immigrant with ws << distance-to-boundary keeps every retained
+    cascade member deep in the interior, so m is location-constant to ~1e-6
+    and the geometric cascade law applies. This identity was IMPOSSIBLE
+    before the three-leg symmetry: the event side truncated at ws while the
+    compensator charged the full rectangle mass and the simulator never
+    thinned spatially."""
+    from bstpp.likelihood import rectangular_excitation_compensator
+    model = Hawkes_Model(DATA, A_RECT, T_DAYS, cox_background=False, **PRIORS)
+    win, sw = 1.5, 0.15                       # sw REAL units (== internal on the unit box)
+    model.set_window(win, spatial_window=sw)
+    par = dict(alpha=0.5, beta=3.0, sigmax_2=0.01)   # sd 0.1 real: BoxMass(ws) ~ 0.75
+
+    m = float(rectangular_excitation_compensator(
+        jnp.float32(par["alpha"]), jnp.float32([0.0]),
+        jnp.float32([[0.5], [0.5]]), 1e9, win, (0.0, 1.0, 0.0, 1.0),
+        {"beta": jnp.float32(par["beta"])},
+        {"sigmax_2": jnp.float32(par["sigmax_2"])},
+        model.args["t_trig"], model.args["sp_trig"],
+        axis_scales=model.args["axis_scales"], spatial_window=sw))
+    assert 0.0 < m < 1.0
+    expected = m / (1.0 - m)
+
+    np.random.seed(41)
+    R = 4000
+    totals = np.empty(R)
+    immigrant = np.array([[0.5, 0.5, 0.0]])
+    for r in range(R):
+        totals[r] = len(model._sim_offspring(immigrant.copy(), par)) - 1
+    mean, se = totals.mean(), totals.std(ddof=1) / np.sqrt(R)
+    assert abs(mean - expected) < 5 * se, (
+        f"E[descendants] = {mean:.4f} +/- {se:.4f} vs m/(1-m) = {expected:.4f} "
+        f"with m = alpha*F_beta(w)*BoxMass(ws) = {m:.4f}")
+
+
+def test_simulated_count_matches_compensator_finite_spatial_window():
+    """(I11-ws) Conservation on the unit box with spatial_window = 0.2 (real
+    units): holds only because all three legs -- pair set, compensator, and
+    offspring thinning -- share the real-unit box semantics. IMPOSSIBLE
+    before the symmetry fix."""
+    model = Hawkes_Model(DATA, A_GDF, T_DAYS, cox_background=False, **PRIORS)
+    model.set_window(float(model.args["T"]), spatial_window=0.2)
+    truth = dict(a_0=0.4, alpha=0.3, beta=2.0, sigmax_2=0.01)
+
+    _, tr = _loglik_at(model, model.args, {k: np.float32(v) for k, v in truth.items()})
+    lam_train = _compensator(model, np.asarray(model.args["t_events"]),
+                             np.asarray(model.args["xy_events"]), truth)
+    assert lam_train == pytest.approx(float(np.asarray(tr["Itot_txy"]["value"])),
+                                      rel=2e-5)
+
+    np.random.seed(43)
+    rng = np.random.default_rng(47)
+    R = 30
+    diffs = np.empty(R)
+    counts = np.empty(R)
+    for r in range(R):
+        sim = model.simulate(parameters=dict(truth), rng=rng)
+        counts[r] = len(sim)
+        ta, _ = model._scale_xyt(pd.DataFrame(sim[["X", "Y", "T"]]),
+                                 model.args.copy(), model.comp_grid)
+        diffs[r] = counts[r] - _compensator(model, np.asarray(ta["t_events"]),
+                                            np.asarray(ta["xy_events"]), truth)
+    mean = diffs.mean()
+    se = diffs.std(ddof=1) / np.sqrt(R)
+    assert counts.mean() > 20
+    assert abs(mean) < 5 * se + 1e-6, (
+        f"E[n - Lambda] = {mean:.3f} +/- {se:.3f} with spatial_window=0.2 -- "
+        "the three-leg real-unit box symmetry is violated")
+
+
+# =====================================================================
+# (I12) Box invariance: the TRIGGER legs of the model are invariant to the
+# choice of bounding rectangle. The same real-coordinate dataset ingested
+# under two differently-shaped rectangles must yield (a) the same excitation
+# pair set under a real-unit spatial_window, with the same real-unit
+# displacements; (b) the same real-unit kernel densities at the pairs (the
+# internal-measure atom values divided by the per-box Jacobian); (c) the same
+# excitation compensator when the ws-square around every event is interior to
+# both rectangles (all limits clip to the scalar ws); (d) byte-identical
+# offspring cascades in real coordinates under a shared seed. Pre-fix this
+# identity FAILS at (a) already: the internal-Euclidean window kept different
+# pair sets in differently-shaped boxes. The background legs are exactly
+# affine-invariant by construction (piecewise-constant fields; no metric
+# object), so the trigger legs are the entire content of box invariance.
+# =====================================================================
+
+def test_trigger_legs_invariant_to_bounding_rectangle():
+    from bstpp.likelihood import (real_spatial_trigger_values,
+                                  rectangular_excitation_compensator)
+    rng = np.random.RandomState(17)
+    n = 50
+    data = pd.DataFrame({
+        "X": rng.uniform(10.3, 13.7, n),
+        "Y": rng.uniform(20.2, 20.8, n),          # margin >= 0.2 to box1 edges
+        "T": np.sort(rng.uniform(0, T_DAYS, n)),
+    })
+    box1 = np.array([[10.0, 14.0], [20.0, 21.0]])      # 4:1 aspect
+    box2 = np.array([[9.0, 15.0], [19.5, 21.5]])       # 3:1 aspect, padded
+    win, sw = 5.0, 0.15                                 # ws < every edge margin
+    par = dict(alpha=0.4, beta=2.0, sigmax_2=0.02)      # sd ~0.14: BoxMass(ws) ~ 0.5
+
+    models = [Hawkes_Model(data, A, T_DAYS, cox_background=False,
+                           window=win, spatial_window=sw, **PRIORS)
+              for A in (box1, box2)]
+
+    # (a) same pair set, same REAL displacements
+    reals = []
+    for m in models:
+        sx, sy = np.asarray(m.args["axis_scales"])
+        c = np.asarray(m.args["coords"]).reshape(-1, 2)
+        order = np.lexsort((c[:, 1], c[:, 0]))
+        reals.append((c[order],
+                      np.asarray(m.args["x_vals"])[order] * sx,
+                      np.asarray(m.args["y_vals"])[order] * sy,
+                      order))
+    assert reals[0][0].shape == reals[1][0].shape and np.array_equal(reals[0][0], reals[1][0]), \
+        "pair sets differ across bounding rectangles"
+    np.testing.assert_allclose(reals[0][1], reals[1][1], rtol=2e-5, atol=1e-6)
+    np.testing.assert_allclose(reals[0][2], reals[1][2], rtol=2e-5, atol=1e-6)
+
+    # (b) same real-unit kernel densities: atom values / per-box Jacobian
+    dens = []
+    for m, (c, _, _, order) in zip(models, reals):
+        sx, sy = np.asarray(m.args["axis_scales"])
+        v = np.asarray(real_spatial_trigger_values(
+            m.args["sp_trig"], {"sigmax_2": jnp.float32(par["sigmax_2"])},
+            m.args["coords"], m.args["x_vals"], m.args["y_vals"],
+            m.args["axis_scales"]))
+        dens.append(v[order] / (sx * sy))
+    np.testing.assert_allclose(dens[0], dens[1], rtol=2e-5)
+
+    # (c) same excitation compensator (every limit clips to the scalar ws)
+    comps = []
+    for m in models:
+        comps.append(float(rectangular_excitation_compensator(
+            jnp.float32(par["alpha"]), jnp.asarray(m.args["t_events"]),
+            jnp.asarray(m.args["xy_events"]), m.args["T"], win,
+            (m.args["x_min"], m.args["x_max"], m.args["y_min"], m.args["y_max"]),
+            {"beta": jnp.float32(par["beta"])},
+            {"sigmax_2": jnp.float32(par["sigmax_2"])},
+            m.args["t_trig"], m.args["sp_trig"],
+            axis_scales=m.args["axis_scales"], spatial_window=sw)))
+    assert comps[0] == pytest.approx(comps[1], rel=1e-6)
+
+    # (d) byte-identical offspring cascades in real coordinates, shared seed
+    immigrant = np.array([[12.0, 20.5, 0.0]])
+    outs = []
+    for m in models:
+        np.random.seed(97)
+        outs.append(m._sim_offspring(immigrant.copy(), par))
+    assert np.array_equal(outs[0], outs[1]), \
+        "offspring cascades differ across bounding rectangles under a shared seed"
+    assert len(outs[0]) > 1, "cascade produced no offspring; seed/config uninformative"

@@ -30,7 +30,7 @@ from bstpp.main import Hawkes_Model
 
 
 # --- private copy of the ORIGINAL dense implementation, as the reference oracle ---
-def _dense_pairs(t, x, y, window, spatial_window=None):
+def _dense_pairs(t, x, y, window, spatial_window=None, axis_scales=(1.0, 1.0)):
     window = float(window)
     if spatial_window is not None:
         spatial_window = float(spatial_window)
@@ -45,7 +45,11 @@ def _dense_pairs(t, x, y, window, spatial_window=None):
 
     t_mask = (t_diff > 0) & (t_diff <= window)
     if spatial_window is not None:
-        spatial_dist = jnp.sqrt(x_diff**2 + y_diff**2)
+        # REAL-unit per-axis box truncation (semantics change from internal
+        # Euclidean, signed off with the real-unit trigger contract -- see
+        # aligned_difference_pairs / within_real_box_window)
+        spatial_dist = jnp.maximum(jnp.abs(x_diff) * float(axis_scales[0]),
+                                   jnp.abs(y_diff) * float(axis_scales[1]))
         mask = t_mask & (spatial_dist <= spatial_window)
     else:
         mask = t_mask
@@ -95,9 +99,14 @@ def test_equivalence_vs_dense():
         y = rng.uniform(0, 1, n)
         trange = float(t.max() - t.min()) if n else 0.0
         for window in (max(trange * 0.3, 0.5), trange + 5.0):   # smaller & larger than range
-            for spatial_window in (None, 0.2):
-                new = aligned_difference_pairs(t, x, y, window, spatial_window=spatial_window)
-                old = _dense_pairs(t, x, y, window, spatial_window=spatial_window)
+            # exercise the real-unit box mask with non-trivial, UNEQUAL scales
+            for spatial_window, scales in ((None, (1.0, 1.0)), (0.2, (1.0, 1.0)),
+                                           (0.5, (4.0, 1.0))):
+                new = aligned_difference_pairs(t, x, y, window,
+                                               spatial_window=spatial_window,
+                                               axis_scales=scales)
+                old = _dense_pairs(t, x, y, window, spatial_window=spatial_window,
+                                   axis_scales=scales)
                 _assert_same(new, old)
                 n_checks += 1
     assert n_checks >= 10   # >= 10 random datasets/config combinations compared

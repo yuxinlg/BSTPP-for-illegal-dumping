@@ -35,7 +35,26 @@ def exp_sq_kernel(x, z, var, length, noise, jitter=1.0e-6):
     return k
 
     
-def aligned_difference_pairs(t, x, y, window, spatial_window=None):
+def within_real_box_window(dx_real, dy_real, spatial_window):
+    """Shared spatial-window predicate: max(|dx|, |dy|) <= w_s in REAL units.
+
+    spatial_window is a REAL length; the kept region is a SQUARE in real
+    space (a rectangle in internal coordinates). Per-axis box semantics are
+    the only choice the excitation compensator can charge exactly (per-axis
+    erf limits clipped at w_s -- the Gaussian mass of disc-intersect-rectangle
+    has no closed form), exactly mirroring min(T - t, w) temporally.
+
+    SINGLE SOURCE for all three legs -- the event-side pair mask
+    (aligned_difference_pairs) and the offspring thinning (_sim_offspring)
+    both call this, and the compensator's scalar clip at w_s on its real-unit
+    limits is the integral of the same predicate -- so the legs cannot drift
+    apart (the Phase 2b lesson: one expression, not three copies).
+    """
+    return np.maximum(np.abs(dx_real), np.abs(dy_real)) <= spatial_window
+
+
+def aligned_difference_pairs(t, x, y, window, spatial_window=None,
+                             axis_scales=(1.0, 1.0)):
     """Emit the (receiver i, source j) excitation pairs with 0 < t[i]-t[j] <= window.
 
     Contract (identical to the former dense n x n implementation):
@@ -43,9 +62,17 @@ def aligned_difference_pairs(t, x, y, window, spatial_window=None):
       - coords is (P, 2) with coords[:, 0] = i (receiver / later event) and
         coords[:, 1] = j (source / earlier event), in the ORIGINAL event order;
       - t_vals = t[i] - t[j], strictly > 0 and <= window (equal times excluded);
-      - x_vals = x[i] - x[j], y_vals = y[i] - y[j];
-      - if spatial_window is not None, only pairs with
-        sqrt(x_vals**2 + y_vals**2) <= spatial_window are kept.
+      - x_vals = x[i] - x[j], y_vals = y[i] - y[j], in INTERNAL units;
+      - if spatial_window is not None, only pairs within the REAL-unit box
+        window are kept: max(|x_vals| * axis_scales[0],
+        |y_vals| * axis_scales[1]) <= spatial_window (within_real_box_window,
+        the single-sourced predicate shared with the offspring thinning).
+        SEMANTICS CHANGE, signed off: previously Euclidean in INTERNAL units
+        (sqrt(x**2 + y**2) <= ws). spatial_window is now a REAL length and
+        the kept region is a real-space square -- matching the real-unit
+        trigger contract, exactly integrable by the compensator (per-axis
+        real-unit erf limits clipped at ws), and invariant to the choice of
+        bounding rectangle (identity I12).
 
     The pair ORDERING within the returned arrays is NOT part of the contract:
     the likelihood aggregates them with segment_sum on coords[:, 0], which is
@@ -98,7 +125,9 @@ def aligned_difference_pairs(t, x, y, window, spatial_window=None):
     y_vals = y[i_idx] - y[j_idx]
 
     if spatial_window is not None:
-        keep = np.sqrt(x_vals**2 + y_vals**2) <= spatial_window
+        keep = within_real_box_window(x_vals * float(axis_scales[0]),
+                                      y_vals * float(axis_scales[1]),
+                                      spatial_window)
         i_idx, j_idx = i_idx[keep], j_idx[keep]
         t_vals, x_vals, y_vals = t_vals[keep], x_vals[keep], y_vals[keep]
 

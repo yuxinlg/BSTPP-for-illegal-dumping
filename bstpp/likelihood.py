@@ -53,8 +53,11 @@ Equation concordance (guide numbering):
   probability, so no Jacobian appears here, unlike the event term). HONEST
   SCOPE: this is NOT the general-domain compensator -- for non-rectangular
   domains X the rectangle mass overcharges (declared approximation, guide
-  Sec. 2.5), and a finite spatial_window is applied on the EVENT side only
-  (pair construction), not here (known, documented discrepancy).
+  Sec. 2.5). A finite spatial_window (REAL length) is charged EXACTLY: the
+  real-unit limits are clipped at the scalar ws -- the same per-axis box the
+  pair set and the offspring thinning use (within_real_box_window), so all
+  three legs agree on rectangles and the historical event-side-only
+  discrepancy is closed.
 
 Unit contract (real-unit spatial trigger). The spatial trigger is a density
 per REAL area, isotropic in the units of the input X/Y columns; sigmax_2 and
@@ -118,7 +121,7 @@ def rectangular_excitation_compensator(alpha, t_events, xy_events, horizon,
                                        temporal_window, rectangular_bounds,
                                        temporal_parameters, spatial_parameters,
                                        temporal_trigger, spatial_trigger, *,
-                                       axis_scales):
+                                       axis_scales, spatial_window=None):
     """Total excitation compensator over [0, horizon] x rectangle.
 
     Sum over parents j of
@@ -136,6 +139,16 @@ def rectangular_excitation_compensator(alpha, t_events, xy_events, horizon,
     stretched per axis -- matching the real-unit kernel the event term
     evaluates. The spatial mass is a probability (dimensionless), so unlike
     the event term no Jacobian factor appears here.
+
+    spatial_window: optional REAL length. When given, each real-unit limit is
+    clipped at the SCALAR spatial_window -- charging the Gaussian mass of
+    (real-space square of half-width ws at s_j) INTERSECT rectangle, the
+    exact integral of the event-side pair predicate (within_real_box_window)
+    and the offspring thinning, and a perfect per-axis mirror of
+    min(horizon - t, temporal_window) on the time axis. The clip lands AFTER
+    the real-unit stretch, which is what makes it a scalar; per-axis box
+    semantics are the only choice with a closed-form mass (disc-intersect-
+    rectangle has none).
     See module docstring for the honest scope of this specialization.
     Returns a scalar.
     """
@@ -147,6 +160,9 @@ def rectangular_excitation_compensator(alpha, t_events, xy_events, horizon,
                           ).reshape(2, 2, -1)
     # real-unit trigger contract: stretch internal edge distances per axis
     sp_limits = sp_limits * axis_scales[:, None, None]
+    if spatial_window is not None:
+        # real-unit box window: all three legs share these semantics exactly
+        sp_limits = jnp.minimum(sp_limits, spatial_window)
     sp_part = spatial_trigger.compute_integral(spatial_parameters, sp_limits)
     return jnp.sum(temp_part * sp_part)
 

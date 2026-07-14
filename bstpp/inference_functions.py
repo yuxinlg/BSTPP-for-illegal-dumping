@@ -184,7 +184,8 @@ def spatiotemporal_hawkes_model(args):
                                            (x_min, x_max, y_min, y_max),
                                            t_pars, sp_pars,
                                            args['t_trig'], args['sp_trig'],
-                                           axis_scales=args['axis_scales']))
+                                           axis_scales=args['axis_scales'],
+                                           spatial_window=args.get('spatial_window')))
     ## total integral
     Itot_txy = numpyro.deterministic("Itot_txy",Itot_excite + Itot_txy_back)
     loglik=numpyro.deterministic('loglik',ell_1-Itot_txy)
