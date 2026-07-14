@@ -20,7 +20,18 @@ class Trigger(ABC):
         - `get_par_names`: returns a list of the parameter names used in the trigger function
         
         `simulate_trigger` is used only if a user wishes to simulate from the trigger function.
-        
+
+        UNIT CONTRACT: SPATIAL triggers operate entirely in REAL coordinate
+        units (the units of the input X/Y columns): compute_trigger receives
+        real-unit displacements, compute_integral real-unit rectangle limits,
+        simulate_trigger returns a real-unit displacement, and any sampled
+        parameters (and their priors) are real-unit quantities. TEMPORAL
+        triggers remain in internal time units (data time rescaled to
+        [0, 50]); this asymmetry is deliberate and documented -- the temporal
+        conversion is a pure relabel, deferred to the conversion layer.
+        Custom spatial triggers written against the pre-contract API (internal
+        units) will still run but their parameters change meaning.
+
         Parameters
         ----------
         prior: dict of numpyro distributions
@@ -241,7 +252,16 @@ class Spatial_Symmetric_Gaussian(Trigger):
     Single parameter symmetric spatial gaussian trigger given by,
 
     $$\varphi(\mathbf{x};\sigma_x^2) = \frac{1}{2 \pi \sigma_x} exp(-\frac{1}{2\sigma_x^2} \mathbf{x} \cdot \mathbf{x})$$
-    
+
+    UNIT CONTRACT (real-unit spatial trigger): sigmax_2 is the kernel variance
+    in SQUARED REAL units -- the units of the input X/Y columns -- and its
+    prior must be specified accordingly. The density is per REAL area;
+    compute_trigger receives real-unit displacements, compute_integral
+    real-unit rectangle limits, and simulate_trigger returns a real-unit
+    displacement. The internal <-> real conversion happens at the likelihood
+    boundary (likelihood.py), never here. Offspring displacements are
+    therefore N(0, sigmax_2 * I) in real coordinates, isotropic regardless of
+    the bounding rectangle's shape.
     """
 
     def simulate_trigger(self, pars):

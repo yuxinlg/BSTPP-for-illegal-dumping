@@ -15,6 +15,12 @@ Design contract (Phase 2):
 Equation concordance (guide numbering):
 - aggregate_pair_trigger_values ......... inner sum of eq. (23), given
   per-pair kernel values (kernel evaluation stays at the model layer)
+- real_spatial_trigger_values ........... spatial kernel values at the
+  excitation pairs under the REAL-unit trigger contract: internal pair
+  displacements stretched to real units per axis, the real-area density
+  evaluated there, then converted to the internal measure by the Jacobian
+  axis_scales[0] * axis_scales[1] of the affine ingestion map. This atom is
+  the SINGLE declared unit boundary of the event term.
 - seasonal_time_integral ................ exact background time integral on
   the seasonal diagonal a = sigma(t), eq. (26): the (n_t x n_s) overlap
   matrix W (eq. 25, carrying the internal cell measure) contracts exp(f_a),
@@ -42,11 +48,24 @@ Equation concordance (guide numbering):
 - rectangular_excitation_compensator .... truncated excitation compensator,
   eq. (14) specialized as implemented: exponential temporal mass F_beta on
   min(T - t_j, w) (temporal truncation matched to the pair set) and Gaussian
-  rectangle mass (eq. 27) over axis-aligned bounds. HONEST SCOPE: this is NOT
-  the general-domain compensator -- for non-rectangular domains X the
-  rectangle mass overcharges (declared approximation, guide Sec. 2.5), and a
-  finite spatial_window is applied on the EVENT side only (pair construction),
-  not here (known, documented discrepancy).
+  rectangle mass (eq. 27) over axis-aligned bounds, evaluated at REAL-unit
+  limits (internal edge distances stretched per axis; the mass itself is a
+  probability, so no Jacobian appears here, unlike the event term). HONEST
+  SCOPE: this is NOT the general-domain compensator -- for non-rectangular
+  domains X the rectangle mass overcharges (declared approximation, guide
+  Sec. 2.5), and a finite spatial_window is applied on the EVENT side only
+  (pair construction), not here (known, documented discrepancy).
+
+Unit contract (real-unit spatial trigger). The spatial trigger is a density
+per REAL area, isotropic in the units of the input X/Y columns; sigmax_2 and
+its prior are REAL-unit quantities. The likelihood's intensity remains per
+INTERNAL volume, so exactly two conversions exist, both in this module:
+real_spatial_trigger_values (displacements out, Jacobian back) and the
+compensator's limit stretch (mass is dimensionless). The temporal trigger
+remains internal-unit (declared asymmetry; the temporal conversion is a pure
+relabel deferred to the Phase 3 conversion layer). On a square box of side L,
+sigma_real = sigma_internal * L reproduces the historical internal-unit
+kernel exactly (Jacobian L^2 cancels the density normalization).
 """
 import jax
 import jax.numpy as jnp
@@ -69,10 +88,37 @@ def aggregate_pair_trigger_values(coords, temporal_values, spatial_values, n_eve
     return jax.ops.segment_sum(pair_values, coords[:, 0], n_events)
 
 
+def real_spatial_trigger_values(spatial_trigger, spatial_parameters, coords,
+                                x_vals, y_vals, axis_scales):
+    """Per-pair spatial kernel values under the REAL-unit trigger contract,
+    expressed in the internal measure the likelihood integrates over.
+
+    Contract: the spatial trigger is a probability density per REAL area
+    (isotropic in the units of the input X/Y columns). The likelihood's
+    intensity is per INTERNAL (unit-square) area, so two conversions happen
+    HERE and only here -- the single declared unit boundary of the event term:
+
+      1. the internal pair displacements (x_vals, y_vals) are stretched to
+         real units per axis: dx_real = dx * axis_scales[0], etc.;
+      2. the real-area density converts to the internal measure by the
+         Jacobian of the per-axis affine ingestion map:
+         phi_internal = axis_scales[0] * axis_scales[1] * phi_real.
+
+    On a square box of side L with sigma_real = sigma_internal * L the two
+    factors cancel exactly and this reproduces the historical internal-unit
+    kernel (pinned in tests/test_likelihood_atoms.py).
+    """
+    _, values = spatial_trigger.compute_trigger(
+        spatial_parameters,
+        (coords, x_vals * axis_scales[0], y_vals * axis_scales[1]))
+    return values * (axis_scales[0] * axis_scales[1])
+
+
 def rectangular_excitation_compensator(alpha, t_events, xy_events, horizon,
                                        temporal_window, rectangular_bounds,
                                        temporal_parameters, spatial_parameters,
-                                       temporal_trigger, spatial_trigger):
+                                       temporal_trigger, spatial_trigger, *,
+                                       axis_scales):
     """Total excitation compensator over [0, horizon] x rectangle.
 
     Sum over parents j of
@@ -83,6 +129,13 @@ def rectangular_excitation_compensator(alpha, t_events, xy_events, horizon,
     so the simulator identity (I4)/(I11) is tied to one expression.
 
     rectangular_bounds: (x_min, x_max, y_min, y_max) in internal units.
+    axis_scales: (2,) per-axis real lengths of the bounding rectangle
+    (REQUIRED, keyword-only: unit interfaces are declared, never implicit).
+    The spatial integral limits handed to compute_integral are the REAL-unit
+    distances from each parent to the rectangle edges -- internal distances
+    stretched per axis -- matching the real-unit kernel the event term
+    evaluates. The spatial mass is a probability (dimensionless), so unlike
+    the event term no Jacobian factor appears here.
     See module docstring for the honest scope of this specialization.
     Returns a scalar.
     """
@@ -92,6 +145,8 @@ def rectangular_excitation_compensator(alpha, t_events, xy_events, horizon,
     sp_limits = jnp.stack((x_max - xy_events[0], xy_events[0] - x_min,
                            y_max - xy_events[1], xy_events[1] - y_min)
                           ).reshape(2, 2, -1)
+    # real-unit trigger contract: stretch internal edge distances per axis
+    sp_limits = sp_limits * axis_scales[:, None, None]
     sp_part = spatial_trigger.compute_integral(spatial_parameters, sp_limits)
     return jnp.sum(temp_part * sp_part)
 

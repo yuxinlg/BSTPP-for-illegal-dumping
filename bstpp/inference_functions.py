@@ -14,6 +14,7 @@ from .decode_fields import (decode_temporal_field, decode_seasonal_field,
 from .likelihood import (aggregate_pair_trigger_values,
                          constant_background_integral,
                          covariate_background_integral,
+                         real_spatial_trigger_values,
                          rectangular_excitation_compensator,
                          seasonal_time_integral,
                          spatial_refinement_integral)
@@ -156,8 +157,12 @@ def spatiotemporal_hawkes_model(args):
     # Temporal trigger: use coords and t_vals
     _, t_trigger_vals = args['t_trig'].compute_trigger(t_pars, (coords, t_vals))
 
-    # Spatial trigger: use coords, x_vals, y_vals
-    _, s_trigger_vals = args['sp_trig'].compute_trigger(sp_pars, (coords, x_vals, y_vals))
+    # Spatial trigger: REAL-unit contract -- internal pair displacements are
+    # stretched to real units and the real-area density is converted back to
+    # the internal measure inside the atom (the single declared unit boundary
+    # of the event term; see likelihood.py).
+    s_trigger_vals = real_spatial_trigger_values(
+        args['sp_trig'], sp_pars, coords, x_vals, y_vals, args['axis_scales'])
 
     # Inner sum of the event term, eq. (23): pure aggregation atom
     # (kernel evaluation stays here at the model layer; see likelihood.py)
@@ -178,7 +183,8 @@ def spatiotemporal_hawkes_model(args):
         rectangular_excitation_compensator(alpha, t_events, xy_events, T, win,
                                            (x_min, x_max, y_min, y_max),
                                            t_pars, sp_pars,
-                                           args['t_trig'], args['sp_trig']))
+                                           args['t_trig'], args['sp_trig'],
+                                           axis_scales=args['axis_scales']))
     ## total integral
     Itot_txy = numpyro.deterministic("Itot_txy",Itot_excite + Itot_txy_back)
     loglik=numpyro.deterministic('loglik',ell_1-Itot_txy)

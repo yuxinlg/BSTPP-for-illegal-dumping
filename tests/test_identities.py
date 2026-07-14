@@ -12,7 +12,8 @@ Coverage map (guide identity -> test / existing test):
 - (I8)  special-case reduction     -> test_alpha_zero_reduces_cox_hawkes_to_lgcp,
                                       test_window_at_horizon_recovers_untruncated_loglik (HERE)
 - (I9)  refinement invariance      -> test_covariate_refinement_invariance (HERE)
-- (I10) unit invariance            -> test_spatial_affine_unit_invariance (HERE)
+- (I10) unit covariance            -> test_spatial_similarity_covariance,
+                                      test_spatial_kernel_family_is_real_unit_not_internal (HERE)
 - (I11) conservation E[n] = E[Lam] -> test_simulated_count_matches_compensator (HERE)
 
 These are behavior pins for the architecture rewrite: they test the mathematical
@@ -29,10 +30,13 @@ Scoping notes (deliberate, documented restrictions):
   pretrained decoders (n_t=50, n_s=24, 25x25), so refinement is only exercisable
   on the covariate partition {A_m}, which is data-given.
 - (I10): the data contract fixes time in days (seasonal period 365 is not a
-  parameter), so time-unit rescaling is not a supported input transformation;
-  the test covers affine rescaling of the spatial coordinates, under which the
-  internal representation -- and hence the internal-unit log-likelihood --
-  must be exactly invariant.
+  parameter), so time-unit rescaling is not a supported input transformation.
+  Spatially the identity is now COVARIANCE, not invariance: the trigger is a
+  real-unit object, so the loglik is preserved under similarity transformations
+  with sigmax_2 -> c^2 sigmax_2, while the internal REPRESENTATION stays
+  invariant under any axis-wise affine map. Fixed-parameter invariance under
+  NON-uniform rescaling -- the old identity -- is now asserted to FAIL: that
+  invariance was the aspect-ratio kernel defect.
 - (I11): the compensator's spatial excitation mass is exact only over a
   rectangular domain (guide eq. 27), so the test uses the unit-box GeoDataFrame;
   a non-rectangular domain would make this a bounded approximation, not an
@@ -84,6 +88,13 @@ DATA = pd.DataFrame({
 })
 A_RECT = np.array([[0.0, 1.0], [0.0, 1.0]])
 A_GDF = gpd.GeoDataFrame({"geometry": [box(0, 0, 1, 1)]})
+# non-square domain for the real-unit trigger contract tests: 4:1 aspect
+_ns_rng = np.random.RandomState(9)
+DATA_NS = pd.DataFrame({
+    "X": _ns_rng.uniform(10.2, 13.8, _N),
+    "Y": _ns_rng.uniform(20.05, 20.95, _N),
+    "T": np.sort(_ns_rng.uniform(0, T_DAYS, _N)),
+})
 PRIORS = dict(a_0=dist.Normal(0, 5), alpha=dist.Beta(2, 2),
               beta=dist.HalfNormal(1.0), sigmax_2=dist.HalfNormal(0.25))
 
@@ -240,19 +251,28 @@ def test_covariate_refinement_invariance(standardize):
 
 
 # =====================================================================
-# (I10) Unit invariance, spatial: an affine change of spatial units in the
-# input data (and domain) must leave the internal representation -- and the
-# internal-unit log-likelihood -- exactly invariant, because _scale_xyt
-# normalizes to the unit square. Any discrepancy is a conversion defect.
+# (I10, restated) Unit COVARIANCE, spatial: the spatial trigger is a REAL-unit
+# object (isotropic Gaussian in the units of the input X/Y columns), so the
+# model is covariant under SIMILARITY transformations of the spatial inputs --
+# uniform scaling c and translation, with sigmax_2 -> c^2 * sigmax_2 -- and
+# deliberately NOT invariant under axis-wise (non-uniform) rescaling at fixed
+# parameter values. The old identity (internal loglik invariant under ANY
+# axis-wise affine map at FIXED sigmax_2) was precisely the anisotropy defect:
+# the kernel family absorbed the bounding-box shape (consolidation doc,
+# Prop. "aniso"). Its replacement here is a signed-off test edit, part of the
+# real-unit trigger contract change.
 # =====================================================================
 
-def test_spatial_affine_unit_invariance():
-    cx, cy, dx, dy = 3.0, 0.5, -1.0, 2.0        # positive scales, arbitrary offsets
+def test_spatial_similarity_covariance():
+    """(I10) Internal representation is invariant under any axis-wise affine
+    map; the LOGLIK is invariant under a similarity transformation with the
+    covariant parameter map sigmax_2 -> c^2 sigmax_2."""
+    c, dx, dy = 3.0, -1.0, 2.0                  # uniform scale, arbitrary offsets
     data2 = DATA.copy()
-    data2["X"] = cx * DATA["X"] + dx
-    data2["Y"] = cy * DATA["Y"] + dy
-    a2 = np.array([[cx * 0.0 + dx, cx * 1.0 + dx],
-                   [cy * 0.0 + dy, cy * 1.0 + dy]])
+    data2["X"] = c * DATA["X"] + dx
+    data2["Y"] = c * DATA["Y"] + dy
+    a2 = np.array([[c * 0.0 + dx, c * 1.0 + dx],
+                   [c * 0.0 + dy, c * 1.0 + dy]])
 
     m1 = Hawkes_Model(DATA, A_RECT, T_DAYS, cox_background=False, **PRIORS)
     m2 = Hawkes_Model(data2, a2, T_DAYS, cox_background=False, **PRIORS)
@@ -266,11 +286,48 @@ def test_spatial_affine_unit_invariance():
     p2 = set(map(tuple, np.asarray(m2.args["coords"]).reshape(-1, 2).tolist()))
     assert p1 == p2
 
+    params1 = {k: np.float32(v) for k, v in
+               dict(a_0=0.5, alpha=0.3, beta=2.0, sigmax_2=0.1).items()}
+    params2 = dict(params1, sigmax_2=np.float32(c * c * 0.1))   # covariant map
+    ll1, _ = _loglik_at(m1, m1.args, params1)
+    ll2, _ = _loglik_at(m2, m2.args, params2)
+    assert ll1 == pytest.approx(ll2, rel=1e-5, abs=1e-4)
+
+
+def test_spatial_kernel_family_is_real_unit_not_internal():
+    """(I10, negative control) Under a NON-uniform axis rescaling at FIXED
+    sigmax_2 the loglik must CHANGE: no single real-unit isotropic kernel can
+    equal itself across differently-shaped bounding boxes. The historical
+    internal-unit kernel made this comparison exactly equal -- that equality
+    WAS the aspect-ratio defect -- so this test is RED on the pre-fix code by
+    construction.
+
+    The internal representation (event coords, pair set) must still be
+    invariant: only the kernel family is unit-bearing, not the ingestion."""
+    cx, cy, dx, dy = 3.0, 0.5, -1.0, 2.0        # non-uniform scales
+    data2 = DATA.copy()
+    data2["X"] = cx * DATA["X"] + dx
+    data2["Y"] = cy * DATA["Y"] + dy
+    a2 = np.array([[cx * 0.0 + dx, cx * 1.0 + dx],
+                   [cy * 0.0 + dy, cy * 1.0 + dy]])
+
+    m1 = Hawkes_Model(DATA, A_RECT, T_DAYS, cox_background=False, **PRIORS)
+    m2 = Hawkes_Model(data2, a2, T_DAYS, cox_background=False, **PRIORS)
+
+    assert np.allclose(np.asarray(m1.args["xy_events"]), np.asarray(m2.args["xy_events"]),
+                       rtol=0, atol=1e-6)
+    p1 = set(map(tuple, np.asarray(m1.args["coords"]).reshape(-1, 2).tolist()))
+    p2 = set(map(tuple, np.asarray(m2.args["coords"]).reshape(-1, 2).tolist()))
+    assert p1 == p2
+
     params = {k: np.float32(v) for k, v in
               dict(a_0=0.5, alpha=0.3, beta=2.0, sigmax_2=0.1).items()}
     ll1, _ = _loglik_at(m1, m1.args, params)
     ll2, _ = _loglik_at(m2, m2.args, params)
-    assert ll1 == pytest.approx(ll2, rel=1e-6, abs=1e-4)
+    assert abs(float(ll1) - float(ll2)) > 1.0, (
+        f"loglik identical across differently-shaped boxes at fixed sigmax_2 "
+        f"({float(ll1):.4f} vs {float(ll2):.4f}): the kernel family is still "
+        "internal-unit (aspect-ratio defect)")
 
 
 # =====================================================================
@@ -291,13 +348,16 @@ def _compensator(model, t_events, xy_events, params):
     args = model.args
     T = args["T"]
     win = args.get("window", T)
-    A_ = args["A_"]
+    # Internal bounds + axis_scales, matching the production call site. (The
+    # pre-change helper passed A_ as the bounds, which only coincided with the
+    # internal rectangle because these tests use the unit box.)
     exc = float(rectangular_excitation_compensator(
         jnp.float32(params["alpha"]), jnp.asarray(t_events), jnp.asarray(xy_events),
-        T, win, (A_[0][0], A_[0][1], A_[1][0], A_[1][1]),
+        T, win, (args["x_min"], args["x_max"], args["y_min"], args["y_max"]),
         {"beta": jnp.float32(params["beta"])},
         {"sigmax_2": jnp.float32(params["sigmax_2"])},
-        args["t_trig"], args["sp_trig"]))
+        args["t_trig"], args["sp_trig"],
+        axis_scales=args["axis_scales"]))
     lam_bg = float(np.exp(params["a_0"])) * T * args["A_area"]
     return lam_bg + exc
 
@@ -367,3 +427,40 @@ def test_offspring_cascade_discards_outside_rectangle_before_parenting():
     assert n_out == 0, (
         f"{n_out}/{len(added)} cascade events lie outside the rectangle -- "
         "out-of-domain offspring are parenting before the clip")
+
+
+def test_offspring_displacements_isotropic_in_real_units():
+    """Real-unit trigger contract at the simulator leg: on a strongly
+    NON-SQUARE box (4:1 aspect) the cascade's per-axis position variances
+    around a center immigrant must be EQUAL -- the offspring displacement is
+    N(0, sigma^2 I) in real coordinates. Pre-fix the internal-isotropic draw
+    was rescaled per axis by the box spans, giving a real-space variance
+    ratio of (Lx/Ly)^2 = 16 here, so this test is RED on the pre-fix code.
+
+    Generation mixing is harmless: every cascade event's position is the
+    immigrant plus an iid sum of displacement vectors, so the per-axis
+    variance ratio equals the per-displacement ratio at every generation.
+    sd = 0.02 real units against a 4 x 1 box keeps boundary clipping
+    negligible, so the rectangle clip (Prop 1.1(ii)) does not distort the
+    ratio."""
+    A_ns = np.array([[10.0, 14.0], [20.0, 21.0]])       # Lx = 4, Ly = 1
+    model = Hawkes_Model(DATA_NS, A_ns, T_DAYS, cox_background=False, **PRIORS)
+    model.set_window(1e9)
+    par = dict(alpha=0.4, beta=2.0, sigmax_2=0.0004)     # sd 0.02 REAL units
+
+    center = np.array([[12.0, 20.5, 0.0]])
+    np.random.seed(53)
+    disp = []
+    for r in range(1200):
+        out = model._sim_offspring(center.copy(), par)
+        d = out[1:, :2] - center[0, :2]
+        if len(d):
+            disp.append(d)
+    disp = np.concatenate(disp)
+    assert len(disp) > 400, "config produced too few offspring to be informative"
+    vx, vy = disp[:, 0].var(ddof=1), disp[:, 1].var(ddof=1)
+    ratio = vx / vy
+    assert 0.6 < ratio < 1.67, (
+        f"per-axis real-space variance ratio {ratio:.2f} (n={len(disp)}) -- "
+        "offspring displacements are not isotropic in real units "
+        "(internal-unit kernel rescaled by the box spans gives ratio ~16 here)")

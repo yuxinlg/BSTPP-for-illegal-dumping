@@ -20,6 +20,7 @@ import jax.numpy as jnp
 
 from bstpp.likelihood import (aggregate_pair_trigger_values,
                               rectangular_excitation_compensator,
+                              real_spatial_trigger_values,
                               seasonal_time_integral,
                               spatial_refinement_integral,
                               spatial_refinement_masses,
@@ -58,13 +59,20 @@ def test_aggregate_pair_trigger_values_matches_numpy_reference():
     assert np.all(np.isfinite(np.asarray(g)))
 
 
-def _reference_compensator(alpha, t, x, y, T, win, bounds, beta, sigmax_2):
-    """Independent NumPy/SciPy implementation of the rectangular compensator."""
+def _reference_compensator(alpha, t, x, y, T, win, bounds, beta, sigmax_2,
+                           scales=(1.0, 1.0)):
+    """Independent NumPy/SciPy implementation of the rectangular compensator.
+
+    Real-unit trigger contract: (x, y) and bounds are INTERNAL; the erf limits
+    are the REAL distances (internal distance * per-axis scale) and sigmax_2
+    is the REAL-unit kernel variance. scales = (1, 1) is the unit box, where
+    internal == real."""
     x_min, x_max, y_min, y_max = bounds
+    sx, sy = scales
     temp = alpha * (1.0 - np.exp(-np.minimum(T - t, win) / beta))
     s = np.sqrt(2.0 * sigmax_2)
-    mass_x = 0.5 * (erf((x_max - x) / s) + erf((x - x_min) / s))
-    mass_y = 0.5 * (erf((y_max - y) / s) + erf((y - y_min) / s))
+    mass_x = 0.5 * (erf((x_max - x) * sx / s) + erf((x - x_min) * sx / s))
+    mass_y = 0.5 * (erf((y_max - y) * sy / s) + erf((y - y_min) * sy / s))
     return float(np.sum(temp * mass_x * mass_y))
 
 
@@ -81,7 +89,8 @@ def test_rectangular_excitation_compensator_matches_reference():
     out = float(rectangular_excitation_compensator(
         jnp.float32(alpha), jnp.asarray(t), jnp.stack([jnp.asarray(x), jnp.asarray(y)]),
         T, win, bounds, {"beta": jnp.float32(beta)}, {"sigmax_2": jnp.float32(sigmax_2)},
-        Temporal_Exponential({}), Spatial_Symmetric_Gaussian({})))
+        Temporal_Exponential({}), Spatial_Symmetric_Gaussian({}),
+        axis_scales=jnp.ones(2)))
     ref = _reference_compensator(alpha, t.astype(np.float64), x.astype(np.float64),
                                  y.astype(np.float64), T, win, bounds, beta, sigmax_2)
     np.testing.assert_allclose(out, ref, rtol=2e-5)
@@ -91,10 +100,71 @@ def test_rectangular_excitation_compensator_matches_reference():
         return rectangular_excitation_compensator(
             a, jnp.asarray(t), jnp.stack([jnp.asarray(x), jnp.asarray(y)]),
             T, win, bounds, {"beta": b}, {"sigmax_2": s2},
-            Temporal_Exponential({}), Spatial_Symmetric_Gaussian({}))
+            Temporal_Exponential({}), Spatial_Symmetric_Gaussian({}),
+            axis_scales=jnp.ones(2))
     grads = jax.grad(f, argnums=(0, 1, 2))(jnp.float32(alpha), jnp.float32(beta),
                                            jnp.float32(sigmax_2))
     assert all(np.isfinite(float(g)) for g in grads)
+
+
+def test_rectangular_excitation_compensator_real_limits_nonsquare():
+    """Real-unit trigger contract at the compensator: on a 4:1 box the erf
+    limits must be the REAL distances to the rectangle edges (internal
+    distance stretched per axis), with sigmax_2 in real units. Pinned against
+    the float64 reference with scales = (4, 1)."""
+    rng = np.random.default_rng(5)
+    n = 40
+    T, win = 50.0, 7.5
+    bounds = (0.0, 1.0, 0.0, 1.0)
+    scales = (4.0, 1.0)
+    t = np.sort(rng.uniform(0, T, n)).astype(np.float32)
+    x = rng.uniform(0, 1, n).astype(np.float32)
+    y = rng.uniform(0, 1, n).astype(np.float32)
+    alpha, beta, sigmax_2 = 0.4, 2.5, 0.02        # sd ~0.14 REAL units
+
+    out = float(rectangular_excitation_compensator(
+        jnp.float32(alpha), jnp.asarray(t), jnp.stack([jnp.asarray(x), jnp.asarray(y)]),
+        T, win, bounds, {"beta": jnp.float32(beta)}, {"sigmax_2": jnp.float32(sigmax_2)},
+        Temporal_Exponential({}), Spatial_Symmetric_Gaussian({}),
+        axis_scales=jnp.asarray(np.array(scales, dtype=np.float32))))
+    ref = _reference_compensator(alpha, t.astype(np.float64), x.astype(np.float64),
+                                 y.astype(np.float64), T, win, bounds, beta,
+                                 sigmax_2, scales=scales)
+    np.testing.assert_allclose(out, ref, rtol=2e-5)
+
+
+def test_real_spatial_trigger_values_matches_reference():
+    """Event-term unit boundary: internal displacements stretched to real
+    units per axis, isotropic real-unit Gaussian density, then the Jacobian
+    sx*sy converting the real-area density to the internal measure. Pinned
+    against a float64 reference; the square-box cancellation (sx = sy = L,
+    sigma_real = sigma_int * L reproduces the historical internal kernel) is
+    asserted as an exact algebraic special case."""
+    rng = np.random.default_rng(6)
+    P = 300
+    coords = jnp.zeros((P, 2), dtype=jnp.int32)   # unused by the Gaussian kernel
+    dx = rng.normal(0, 0.05, P).astype(np.float32)
+    dy = rng.normal(0, 0.05, P).astype(np.float32)
+    sx, sy, sigmax_2 = 4.0, 1.0, 0.02
+
+    out = np.asarray(real_spatial_trigger_values(
+        Spatial_Symmetric_Gaussian({}), {"sigmax_2": jnp.float32(sigmax_2)},
+        coords, jnp.asarray(dx), jnp.asarray(dy),
+        jnp.asarray(np.array([sx, sy], dtype=np.float32))))
+
+    dx64, dy64 = dx.astype(np.float64), dy.astype(np.float64)
+    ref = (sx * sy) * np.exp(-((dx64 * sx) ** 2 + (dy64 * sy) ** 2)
+                             / (2.0 * sigmax_2)) / (2.0 * np.pi * sigmax_2)
+    np.testing.assert_allclose(out, ref, rtol=2e-5, atol=1e-8)
+
+    # square-box cancellation: L^2 / (2 pi (s_int L)^2) == 1 / (2 pi s_int^2)
+    L, s_int = 3.0, 0.1
+    out_sq = np.asarray(real_spatial_trigger_values(
+        Spatial_Symmetric_Gaussian({}), {"sigmax_2": jnp.float32(s_int**2 * L**2)},
+        coords, jnp.asarray(dx), jnp.asarray(dy),
+        jnp.asarray(np.array([L, L], dtype=np.float32))))
+    ref_int = np.exp(-(dx64**2 + dy64**2) / (2.0 * s_int**2)) / (2.0 * np.pi * s_int**2)
+    np.testing.assert_allclose(out_sq, ref_int, rtol=2e-5, atol=1e-8)
 
 
 def test_compensator_window_beyond_horizon_is_untruncated():
@@ -107,7 +177,8 @@ def test_compensator_window_beyond_horizon_is_untruncated():
                   temporal_parameters={"beta": jnp.float32(2.0)},
                   spatial_parameters={"sigmax_2": jnp.float32(0.05)},
                   temporal_trigger=Temporal_Exponential({}),
-                  spatial_trigger=Spatial_Symmetric_Gaussian({}))
+                  spatial_trigger=Spatial_Symmetric_Gaussian({}),
+                  axis_scales=jnp.ones(2))
     a = rectangular_excitation_compensator(jnp.float32(0.3), jnp.asarray(t), xy,
                                            50.0, 50.0, **common)
     b = rectangular_excitation_compensator(jnp.float32(0.3), jnp.asarray(t), xy,

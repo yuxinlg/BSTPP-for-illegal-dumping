@@ -197,6 +197,15 @@ class Point_Process_Model:
             args['A_area'] = 1
             A_ = A
         args['A_'] = A_
+        # Per-axis REAL lengths of the bounding rectangle: the affine ingestion
+        # map is x_int = (x - x_min) / axis_scales[0] (and likewise in y).
+        # The spatial-trigger contract is REAL-unit -- the kernel is isotropic
+        # in the units of the input X/Y columns -- so these scales are the
+        # declared conversion constants at the internal/real unit boundary
+        # (consumed by the event-term atom, the excitation compensator, and
+        # nothing else; the background never needs them).
+        A_np = np.asarray(A_, dtype=float)
+        args['axis_scales'] = jnp.asarray(A_np[:, 1] - A_np[:, 0])
 
         # create computational grids
 
@@ -1469,7 +1478,7 @@ class Hawkes_Model(Point_Process_Model):
 
         $$\mu(s,t) = exp(a_0 + X(s)w)$$
 
-        The data is rescaled to fit in a 1x1 spatial grid and a lenght 50 time window. Posterior samples must be interpreted with this in mind.
+        The data is rescaled to fit in a 1x1 spatial grid and a lenght 50 time window. Posterior samples must be interpreted with this in mind, with ONE deliberate exception: the SPATIAL trigger is a REAL-unit object -- sigmax_2 (and its prior, which the user must supply) is the kernel variance in SQUARED REAL units of the input X/Y columns, and posterior sigmax_2 is directly interpretable (e.g. square meters) and comparable across differently-shaped domains. Temporal trigger parameters (beta, window) remain internal-unit.
 
         Parameters
         ----------
@@ -1839,9 +1848,12 @@ class Hawkes_Model(Point_Process_Model):
         i = 0
         while i < len(bg):
             for j in range(np.random.poisson(lam=par['alpha'])):
-                #simulate trigger and rescale
-                sp_dif = (self.args['A_'][:,1]-self.args['A_'][:,0])*\
-                            self.args['sp_trig'].simulate_trigger(par)
+                #simulate trigger: REAL-unit contract -- the spatial trigger
+                #draws the offspring displacement directly in real coordinate
+                #units, matching the real-unit kernel the likelihood evaluates
+                #(the historical internal draw * per-axis box-span rescale is
+                #gone; that rescale WAS the aspect-ratio anisotropy defect).
+                sp_dif = self.args['sp_trig'].simulate_trigger(par)
                 t_dif = [self.args['t_trig'].simulate_trigger(par)]
                 # window-consistent thinning: match the truncated-kernel likelihood
                 # (Poisson(alpha) parents thinned by F(w) => expected offspring alpha*F(w))
