@@ -1847,7 +1847,18 @@ class Hawkes_Model(Point_Process_Model):
                 # (Poisson(alpha) parents thinned by F(w) => expected offspring alpha*F(w))
                 if t_dif[0] > self.args['window']:
                     continue
-                bg = np.concatenate((bg,[bg[i]+np.append(sp_dif,t_dif)]))
+                cand = bg[i] + np.append(sp_dif, t_dif)
+                # Prop 1.1(ii): offspring outside the bounding rectangle X --
+                # the region the compensator charges (eq. 27) -- are discarded
+                # BEFORE they can parent. Pre-fix they stayed in the cascade
+                # until simulate()'s final sjoin, so hidden out-of-domain
+                # events excited observed ones (second-order count bias; see
+                # test_offspring_cascade_discards_outside_rectangle_before_parenting).
+                A_ = self.args['A_']
+                if not (A_[0, 0] <= cand[0] <= A_[0, 1]
+                        and A_[1, 0] <= cand[1] <= A_[1, 1]):
+                    continue
+                bg = np.concatenate((bg,[cand]))
             i += 1
         return bg
 

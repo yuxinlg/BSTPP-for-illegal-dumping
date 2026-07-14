@@ -119,6 +119,11 @@ def test_offspring_thinning_matches_compensator_mass():
     model = Hawkes_Model(DATA, A_RECT, T_DAYS, cox_background=False, **PRIORS)
     win = 1.5                            # internal units; << typical lags so truncation bites
     model.set_window(win)
+    # NOTE: since the rectangle clip (Prop 1.1(ii)), the per-parent law is
+    # m = alpha * F_beta(w) * Q_rect(parent location); this configuration puts
+    # the immigrant at the center with sd 0.1, so Q_rect = 1 to ~1e-5 and the
+    # temporal-mass identity below is unchanged. The spatial factor is
+    # exercised by test_offspring_cascade_* and the finite-ws I4 test.
     par = dict(alpha=0.6, beta=3.0, sigmax_2=0.01)   # internal units
 
     # The compensator's per-parent mass, via the likelihood's own trigger object:
@@ -329,3 +334,36 @@ def test_simulated_count_matches_compensator():
     assert abs(mean) < 5 * se + 1e-6, (
         f"E[n - Lambda] = {mean:.3f} +/- {se:.3f} over R={R} "
         f"(mean count {counts.mean():.1f}) -- conservation violated")
+
+
+
+def test_offspring_cascade_discards_outside_rectangle_before_parenting():
+    """Prop 1.1(ii) at the cascade level: offspring falling outside the
+    bounding rectangle X (the region the compensator charges, eq. 27) must be
+    discarded BEFORE they can parent -- so _sim_offspring's own output may
+    never contain an out-of-rectangle event. Pre-fix, out-of-rectangle
+    offspring stayed in the cascade (only simulate()'s final sjoin removed
+    them, after parenting), so hidden events excited observed ones.
+    NOTE (honest severity record): the resulting E[n - Lambda] bias is
+    SECOND-ORDER -- a boundary-heavy conservation stress test (sigmax_2=0.09,
+    alpha=0.55, R=40) could NOT detect it, which is why this regression pins
+    the structural property directly rather than a CLT statistic.
+    """
+    model = Hawkes_Model(DATA, A_RECT, T_DAYS, cox_background=False, **PRIORS)
+    model.set_window(1e9)
+    par = dict(alpha=0.7, beta=2.0, sigmax_2=0.09)   # sd 0.3: heavy leakage
+    A_ = np.asarray(model.args["A_"])
+    corners = np.array([[0.03, 0.03, 0.0], [0.97, 0.97, 5.0], [0.02, 0.95, 10.0]])
+    np.random.seed(31)
+    added = []
+    for r in range(200):
+        out = model._sim_offspring(corners.copy(), par)
+        added.append(out[len(corners):])
+    added = np.concatenate(added)
+    assert len(added) > 50, "stress config produced too few offspring to be informative"
+    inside = ((added[:, 0] >= A_[0, 0]) & (added[:, 0] <= A_[0, 1]) &
+              (added[:, 1] >= A_[1, 0]) & (added[:, 1] <= A_[1, 1]))
+    n_out = int((~inside).sum())
+    assert n_out == 0, (
+        f"{n_out}/{len(added)} cascade events lie outside the rectangle -- "
+        "out-of-domain offspring are parenting before the clip")
