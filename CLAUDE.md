@@ -174,3 +174,33 @@ mode, so **validation and testing rank above cleanliness.**
   after a rewrite, inappropriate pattern imitation (e.g. thread-safety code where
   nothing is threaded), and any place your change alters numeric output.
 - Never run in `--dangerously-skip-permissions` mode against this repo.
+
+## Verification environment notes (added Phase 2c)
+
+- Golden pins (`pin_check_v2.py`) and fixed-seed simulations are
+  MACHINE-LOCAL artifacts: always baseline and compare on the same machine.
+  (Empirically, JAX/XLA traced-path values have matched bit-for-bit across
+  machines here, but that is an observation, not a guarantee.)
+- `GeoSeries.sample_points` internals are geopandas-version-sensitive; the
+  geometry stack (geopandas / shapely / GEOS) belongs alongside the jax /
+  numpy pins whenever cross-session simulation reproducibility matters.
+- Dev tooling: `ruff` (linter/formatter) is installed with
+  `pip install --no-deps ruff`; it is not part of the runtime pins.
+- Boundary / bounding-box / window semantics across model cases are
+  inventoried in `docs/boundary_and_window_semantics.md` (Phase 3 inputs).
+
+## Unit contract (added with the real-unit trigger change)
+
+The SPATIAL trigger is a REAL-unit object: `sigmax_2` (squared real units of
+the input X/Y columns; user MUST supply its prior -- there is no default) and
+`spatial_window` (real length; real-space square). Internal/real conversion
+happens at exactly three declared sites -- `real_spatial_trigger_values`
+(event term, includes the sx*sy Jacobian), the compensator's limit stretch,
+and the simulator's direct real-unit draw -- plus the shared window predicate
+`within_real_box_window`. Everything else (background fields, a_0, beta,
+window, cell areas) stays internal-unit. Never mix the two implicitly: any
+new expression crossing the boundary must go through a declared conversion
+(guide rule; this codebase's most productive historical source of defects).
+Input coordinates must be METRIC (a projected CRS): the constructor warns on
+degree-like domains because lon/lat makes the isotropic kernel anisotropic
+on the ground.

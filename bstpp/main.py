@@ -206,6 +206,37 @@ class Point_Process_Model:
         # nothing else; the background never needs them).
         A_np = np.asarray(A_, dtype=float)
         args['axis_scales'] = jnp.asarray(A_np[:, 1] - A_np[:, 0])
+        # Data-contract warning (warns, never blocks): the spatial trigger is
+        # isotropic in the units of the input X/Y columns, so GEOGRAPHIC
+        # coordinates (lon/lat degrees) make the "isotropic" kernel
+        # anisotropic ON THE GROUND -- one degree of longitude shrinks by
+        # cos(latitude) -- silently reintroducing the aspect-ratio defect the
+        # real-unit contract removed. Project to a metric CRS (e.g. a state
+        # plane or UTM zone) before ingestion. A declared CRS on a
+        # GeoDataFrame domain is AUTHORITATIVE (crs.is_geographic decides both
+        # ways); the bounds heuristic is the fallback for array domains and
+        # CRS-less GeoDataFrames only.
+        _geo_warning = (
+            "Spatial domain %s geographic coordinates (lon/lat degrees). "
+            "The spatial trigger is isotropic in COORDINATE units, so in "
+            "degrees it is anisotropic on the ground by cos(latitude), and "
+            "sigmax_2 / spatial_window are in squared degrees / degrees. "
+            "Project X/Y to a metric CRS before ingestion.")
+        _crs = A.crs if type(A) is gpd.GeoDataFrame else None
+        if _crs is not None:
+            if _crs.is_geographic:
+                warnings.warn(_geo_warning % "has a geographic CRS, i.e. uses",
+                              UserWarning, stacklevel=2)
+        else:
+            _x0, _x1 = float(A_np[0, 0]), float(A_np[0, 1])
+            _y0, _y1 = float(A_np[1, 0]), float(A_np[1, 1])
+            if (-180.0 <= _x0 <= 180.0 and -180.0 <= _x1 <= 180.0
+                    and -90.0 <= _y0 <= 90.0 and -90.0 <= _y1 <= 90.0
+                    and (_x1 - _x0) < 2.0 and (_y1 - _y0) < 2.0
+                    and max(abs(_x0), abs(_x1)) > 5.0
+                    and max(abs(_y0), abs(_y1)) > 5.0):
+                warnings.warn(_geo_warning % "looks like",
+                              UserWarning, stacklevel=2)
 
         # create computational grids
 

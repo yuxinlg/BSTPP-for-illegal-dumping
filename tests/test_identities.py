@@ -650,3 +650,40 @@ def test_simulate_fully_reproducible_with_generator(cox):
     b = model.simulate(parameters=dict(truth), rng=np.random.default_rng(17))
     np.testing.assert_array_equal(np.asarray(a[["X", "Y", "T"]], dtype=np.float64),
                                   np.asarray(b[["X", "Y", "T"]], dtype=np.float64))
+
+
+def test_geographic_coordinate_warning():
+    """Data contract warning: a declared CRS is authoritative
+    (crs.is_geographic decides both ways); the bounds heuristic covers array
+    domains and CRS-less GeoDataFrames. Degree-like domains trigger a
+    UserWarning -- in lon/lat the real-unit isotropic kernel is anisotropic
+    on the ground by cos(latitude). Metric-looking domains (unit box, the
+    non-square test boxes) must NOT warn: the test suite itself is the
+    false-positive guard."""
+    import warnings as _w
+    geo_box = np.array([[-75.25, -75.15], [39.90, 40.00]])   # Philadelphia-ish
+    geo_data = pd.DataFrame({
+        "X": np.linspace(-75.24, -75.16, 20),
+        "Y": np.linspace(39.91, 39.99, 20),
+        "T": np.sort(np.linspace(1.0, T_DAYS - 1.0, 20)),
+    })
+    # heuristic path (array domain, no CRS available)
+    with pytest.warns(UserWarning, match="geographic"):
+        Hawkes_Model(geo_data, geo_box, T_DAYS, cox_background=False, **PRIORS)
+    with _w.catch_warnings():
+        _w.simplefilter("error", UserWarning)   # any UserWarning -> failure
+        Hawkes_Model(DATA, A_RECT, T_DAYS, cox_background=False, **PRIORS)
+
+    # CRS path: is_geographic fires regardless of the bounds heuristic
+    # (unit box near the origin would never trip it)
+    geo_gdf = gpd.GeoDataFrame({"geometry": [box(0, 0, 1, 1)]}, crs="EPSG:4326")
+    with pytest.warns(UserWarning, match="geographic"):
+        Hawkes_Model(DATA, geo_gdf, T_DAYS, cox_background=False, **PRIORS)
+
+    # CRS path, negative: a PROJECTED CRS suppresses the warning even on
+    # degree-like bounds (the CRS is authoritative over the heuristic)
+    proj_gdf = gpd.GeoDataFrame(
+        {"geometry": [box(-75.25, 39.90, -75.15, 40.00)]}, crs="EPSG:2272")
+    with _w.catch_warnings():
+        _w.simplefilter("error", UserWarning)
+        Hawkes_Model(geo_data, proj_gdf, T_DAYS, cox_background=False, **PRIORS)
