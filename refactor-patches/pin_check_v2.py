@@ -56,4 +56,20 @@ lg = LGCP_Model(DATA, A, T_DAYS, a_0=dist.Normal(0,5))
 t3 = handlers.trace(handlers.seed(lg.model, jax.random.PRNGKey(3))).get_trace(lg.args)
 lat = {k: t3[k]["value"] for k in ("a_0","z_temporal","z_seasonal","z_spatial")}
 out["lgcp"] = pin(lg, lat)
+
+# --- NON-SQUARE (4:1) config: the discriminating pin for the real-unit
+# spatial-trigger contract. On the unit box the old (internal-isotropic) and
+# new (real-isotropic) kernels coincide algebraically, so the three configs
+# above CANNOT distinguish them; this one can, because the per-axis affine
+# ingestion scales differ (sx=4, sy=1). Same 60-point cloud, stretched 4x in
+# X only, so every pair has nonzero displacement on BOTH axes and grad_sigmax_2
+# is informative. sigmax_2=0.1 is read in the units the code under test
+# defines: internal-square units before the contract, squared REAL units
+# after -- the pin MOVING at exactly the contract commit is the fix's
+# signature; moving anywhere else is a defect.
+A_NS = np.array([[0.,4.],[0.,1.]])
+DATA_NS = pd.DataFrame({"X": 4.0*DATA["X"].values, "Y": DATA["Y"].values,
+                        "T": DATA["T"].values})
+hn = Hawkes_Model(DATA_NS, A_NS, T_DAYS, cox_background=False, **PRIORS)
+out["hawkes_nonsquare_4to1"] = pin(hn, dict(p))
 print(json.dumps(out, indent=0, sort_keys=True))
