@@ -1,0 +1,56 @@
+From 5961527b711312ab1d0f64259e2f4595ddb455fd Mon Sep 17 00:00:00 2001
+From: Terhi <terhi@local>
+Date: Thu, 16 Jul 2026 18:13:34 +0000
+Subject: [PATCH 1/4] test-infra(pins): add the non-square 4:1 golden-pin
+ config -- the discriminating pin for the real-unit spatial-trigger contract.
+ The three unit-box configs (hawkes, cox_hawkes, lgcp) CANNOT distinguish the
+ internal-isotropic kernel from the real-isotropic one (on the unit box the
+ two coincide algebraically, exact multiplication by 1.0f), so the shipped pin
+ bundle could not reproduce the contract commit's claimed pin movement -- the
+ audit-flagged gap. New config hawkes_nonsquare_4to1: A_ = [[0,4],[0,1]], the
+ same 60-point cloud stretched 4x in X only (every pair has nonzero
+ displacement on BOTH axes; grad_sigmax_2 informative), plain hawkes, value +
+ full gradient pins. RETROACTIVE MOVEMENT DEMONSTRATION, observed via git
+ worktrees with THIS script (it takes the repo path as argv, so one script
+ version pins any checkout): 2b tip -> 2c patch 1: ALL FOUR configs
+ bit-identical; patch 1 -> patch 2 (the real-unit contract): the three
+ unit-box configs bit-identical, hawkes_nonsquare_4to1 moved in all 5 entries
+ (worst rel: grad_beta 0.706, grad_sigmax_2 0.574, grad_alpha 0.247, grad_a_0
+ 0.056, loglik 0.0023); patch 2 -> 2c tip: all four bit-identical. The
+ movement is bracketed to exactly the contract commit -- the fix's signature,
+ now reproducible from the repo instead of asserted from the drafting machine.
+ Going forward the four-config output at the current tip is the Phase 3 pin
+ baseline.
+
+---
+ refactor-patches/pin_check_v2.py | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/refactor-patches/pin_check_v2.py b/refactor-patches/pin_check_v2.py
+index 314b990..9ea8694 100644
+--- a/refactor-patches/pin_check_v2.py
++++ b/refactor-patches/pin_check_v2.py
+@@ -56,4 +56,20 @@ lg = LGCP_Model(DATA, A, T_DAYS, a_0=dist.Normal(0,5))
+ t3 = handlers.trace(handlers.seed(lg.model, jax.random.PRNGKey(3))).get_trace(lg.args)
+ lat = {k: t3[k]["value"] for k in ("a_0","z_temporal","z_seasonal","z_spatial")}
+ out["lgcp"] = pin(lg, lat)
++
++# --- NON-SQUARE (4:1) config: the discriminating pin for the real-unit
++# spatial-trigger contract. On the unit box the old (internal-isotropic) and
++# new (real-isotropic) kernels coincide algebraically, so the three configs
++# above CANNOT distinguish them; this one can, because the per-axis affine
++# ingestion scales differ (sx=4, sy=1). Same 60-point cloud, stretched 4x in
++# X only, so every pair has nonzero displacement on BOTH axes and grad_sigmax_2
++# is informative. sigmax_2=0.1 is read in the units the code under test
++# defines: internal-square units before the contract, squared REAL units
++# after -- the pin MOVING at exactly the contract commit is the fix's
++# signature; moving anywhere else is a defect.
++A_NS = np.array([[0.,4.],[0.,1.]])
++DATA_NS = pd.DataFrame({"X": 4.0*DATA["X"].values, "Y": DATA["Y"].values,
++                        "T": DATA["T"].values})
++hn = Hawkes_Model(DATA_NS, A_NS, T_DAYS, cox_background=False, **PRIORS)
++out["hawkes_nonsquare_4to1"] = pin(hn, dict(p))
+ print(json.dumps(out, indent=0, sort_keys=True))
+-- 
+2.43.0
+
