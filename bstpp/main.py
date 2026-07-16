@@ -24,7 +24,8 @@ from numpyro.infer import log_likelihood
 import jax
 import numpyro
 
-from .utils import aligned_difference_pairs, exp_sq_kernel, within_real_box_window
+from .utils import (aligned_difference_pairs, exp_sq_kernel,
+                    within_real_box_window, accepts_rng_kwarg)
 from .inference_functions import (spatiotemporal_hawkes_model, spatiotemporal_LGCP_model,
                                   run_mcmc, run_SVI, get_samples)
 from .trigger import Temporal_Exponential, Spatial_Symmetric_Gaussian
@@ -1929,16 +1930,27 @@ class Hawkes_Model(Point_Process_Model):
     def _sim_offspring(self, bg, par, rng=None):
         # One Generator drives every draw when provided (offspring counts and
         # both trigger simulations); rng=None falls back to np.random so
-        # legacy call sites and user-defined triggers keep working. User
-        # triggers with the old simulate_trigger(pars) signature are called
-        # without rng (TypeError fallback) and stay on np.random.
+        # legacy call sites and user-defined triggers keep working. Legacy
+        # THIRD-PARTY triggers with the old simulate_trigger(pars) signature
+        # are called without rng (detected by signature inspection) and stay
+        # on np.random; both in-repo trigger classes are new-style.
         gen = rng if rng is not None else np.random
 
-        def _trig_draw(trig):
-            try:
+        # New-style vs old-style triggers are told apart by SIGNATURE
+        # inspection, once per call -- not by a per-draw ``except TypeError``
+        # fallback, which misclassified any TypeError raised INSIDE a
+        # new-style trigger as an old signature and silently re-executed it
+        # without rng (masked user bug + quietly abandoned reproducibility).
+        sp_trig, t_trig = self.args['sp_trig'], self.args['t_trig']
+        sp_accepts = accepts_rng_kwarg(sp_trig.simulate_trigger)
+        t_accepts = accepts_rng_kwarg(t_trig.simulate_trigger)
+
+        def _trig_draw(trig, accepts):
+            if accepts:
                 return trig.simulate_trigger(par, rng=rng)
-            except TypeError:
-                return trig.simulate_trigger(par)
+            # Old simulate_trigger(pars) signature (legacy third-party
+            # triggers): stays on np.random, the documented legacy behavior.
+            return trig.simulate_trigger(par)
 
         i = 0
         while i < len(bg):
@@ -1948,8 +1960,8 @@ class Hawkes_Model(Point_Process_Model):
                 #units, matching the real-unit kernel the likelihood evaluates
                 #(the historical internal draw * per-axis box-span rescale is
                 #gone; that rescale WAS the aspect-ratio anisotropy defect).
-                sp_dif = _trig_draw(self.args['sp_trig'])
-                t_dif = [_trig_draw(self.args['t_trig'])]
+                sp_dif = _trig_draw(sp_trig, sp_accepts)
+                t_dif = [_trig_draw(t_trig, t_accepts)]
                 # window-consistent thinning: match the truncated-kernel likelihood
                 # (Poisson(alpha) parents thinned by F(w) => expected offspring alpha*F(w))
                 if t_dif[0] > self.args['window']:

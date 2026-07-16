@@ -35,6 +35,39 @@ def exp_sq_kernel(x, z, var, length, noise, jitter=1.0e-6):
     return k
 
     
+def accepts_rng_kwarg(fn):
+    """True iff calling fn(..., rng=...) is signature-valid: fn declares a
+    parameter named 'rng' that is KEYWORD-passable (POSITIONAL_OR_KEYWORD or
+    KEYWORD_ONLY), or **kwargs.
+
+    Kind matters, not just the name: a POSITIONAL_ONLY 'rng'
+    (``def f(pars, rng, /)``) and a VAR_POSITIONAL ``*rng`` both make
+    ``rng=...`` a TypeError, so they classify as old-style.
+
+    Used to route Generator-driven simulation to new-style triggers by
+    inspecting the bound simulate_trigger signature ONCE, instead of a broad
+    per-draw ``except TypeError`` fallback. The fallback misclassified any
+    TypeError raised INSIDE a new-style trigger as an old signature and
+    silently re-executed the trigger without rng -- masking user bugs
+    (Generator/RandomState API differences are a realistic source: Generator
+    has no .randn, RandomState no .integers) and quietly abandoning
+    reproducibility. Returns False when the signature cannot be introspected
+    (C-implemented callables), which falls back to the legacy call form.
+    """
+    import inspect
+    try:
+        sig = inspect.signature(fn)
+    except (TypeError, ValueError):
+        return False
+    return any(
+        (p.name == "rng"
+         and p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                        inspect.Parameter.KEYWORD_ONLY))
+        or p.kind is inspect.Parameter.VAR_KEYWORD
+        for p in sig.parameters.values()
+    )
+
+
 def within_real_box_window(dx_real, dy_real, spatial_window):
     """Shared spatial-window predicate: max(|dx|, |dy|) <= w_s in REAL units.
 
