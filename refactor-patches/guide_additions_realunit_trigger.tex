@@ -1,0 +1,114 @@
+% =====================================================================
+% Guide additions accompanying the real-unit spatial trigger contract
+% (Phase 2c revised). Two pieces: (A) a subsection for the units/precision
+% discussion (Sec. "Finite precision and units") declaring the spatial
+% trigger's real-unit contract and the resulting asymmetry; (B) a subsection
+% flagging the background prior's geometry, per Terhi's request -- the
+% likelihood-level invariance argument plus the prior-side caveat.
+% Merge points are suggested in comments; adjust \label names to taste.
+% =====================================================================
+
+% ---------------------------------------------------------------------
+% (A) Insert into / after the internal-units paragraph of \S precision.
+% ---------------------------------------------------------------------
+\subsection{The real-unit trigger contract}\label{sec:realunit-trigger}
+
+The internal rescaling of \S\ref{sec:precision} is a per-axis affine map,
+and a per-axis map does not commute with isotropy: a kernel declared
+isotropic in internal coordinates is anisotropic in real coordinates with
+axis ratio $L_x/L_y$, the aspect ratio of the bounding rectangle. For the
+spatial trigger this elevated a numerical convention into a modelling
+commitment --- the fitted kernel \emph{family} depended on a preprocessing
+choice --- which is category~(c) behaviour smuggled in through a
+category~(a) device.
+
+The specification therefore fixes the contract at the model level: the
+spatial trigger is a \emph{real-unit object}. Offspring displacements are
+$N(0,\sigma_x^2 I_2)$ in the units of the input coordinates; $\sigma_x^2$
+and its prior are real-unit quantities (there is no default prior --- the
+user must supply one, now stateable in physical units); the spatial window
+$w_s$ is a real length, and the truncation region is a square \emph{in real
+space}. Internally the likelihood still integrates against the internal
+measure, so the unit boundary consists of exactly three declared
+conversions, single-sourced in the implementation:
+\begin{enumerate}[label=(\roman*)]
+  \item the event term stretches internal pair displacements per axis and
+        converts the real-area density to the internal measure by the
+        Jacobian $L_x L_y$ of the affine map,
+        $\varphi_{\mathrm{int}} = L_x L_y\, \varphi_{\mathrm{real}}$;
+  \item the compensator stretches its per-axis rectangle limits to real
+        units (its spatial factor is a probability, hence dimensionless ---
+        no Jacobian);
+  \item the simulator draws the displacement directly in real units.
+\end{enumerate}
+On a square box of side $L$ the Jacobian cancels the density normalization
+exactly, so $\sigma_{\mathrm{real}} = \sigma_{\mathrm{int}} L$ reproduces
+the historical kernel --- the backward-equivalence pin. The temporal trigger
+($\beta$, $w$) deliberately remains internal-unit: its conversion is a pure
+relabel (category~(a) with no family content), deferred to the conversion
+layer, and the asymmetry is declared rather than hidden.
+
+Two identities pin the contract. The unit-invariance identity (I10) is
+\emph{restated as covariance}: the log-likelihood is preserved under
+similarity transformations of the spatial inputs with
+$\sigma_x^2 \mapsto c^2 \sigma_x^2$, while the internal representation
+remains invariant under any axis-wise affine map; the old identity ---
+fixed-parameter invariance under \emph{non-uniform} rescaling --- is now
+asserted to \emph{fail}, since that invariance was precisely the defect. A
+new identity (I12, box invariance) states the operational content: one
+real-coordinate dataset ingested under two differently shaped bounding
+rectangles must agree on the excitation pair set (under a real-unit $w_s$),
+the real-unit displacements and kernel densities, the truncated compensator
+(when the $w_s$-square around every event is interior to both rectangles),
+and, under a shared seed, the offspring cascades byte-for-byte.
+
+One boundary condition survives at the data contract: the input coordinates
+must be metric. In geographic coordinates one degree of longitude is
+$\cos(\mathrm{lat})$ degrees of latitude on the ground, so a
+degree-isotropic kernel is ground-anisotropic --- the defect re-entering
+through the front door. Ingestion warns heuristically on degree-like
+domains.
+
+% ---------------------------------------------------------------------
+% (B) Insert near the background / PriorVAE discussion.
+% ---------------------------------------------------------------------
+\subsection{Stretching and the background: likelihood-exact, prior-inexact}
+\label{sec:background-stretch}
+
+It is worth recording why the background needed no analogous correction.
+The distortion of \S\ref{sec:realunit-trigger} attaches to \emph{metric}
+objects --- quantities defined through distances or densities in space. The
+background's likelihood legs contain none: the fields are piecewise constant
+on their partitions, the event term is a cell-membership lookup (invariant
+under any affine reparametrization applied consistently to events and
+grid), and each compensator is a sum of cell values against cell measures.
+Stretch the bounding rectangle however one likes and the discrete model's
+background likelihood is literally the same function of the same field
+values --- the category~(a) claim holds exactly here.
+
+The caveat sits entirely on the \emph{prior} side. The spatial PriorVAE
+decoder was trained to emulate a GP with an \emph{isotropic}
+squared-exponential kernel on the \emph{internal} unit square
+($\ell \sim \mathrm{InvGamma}(15,1)$). Under the affine map the prior's
+real-space correlation structure is therefore anisotropic in exactly the way
+the trigger's kernel was: correlation length $\ell L_x$ east--west against
+$\ell L_y$ north--south, and cell resolution $L_x/25 \times L_y/25$ per
+axis. The geometry did not disappear; it was baked in at decoder-training
+time and now lives wholly in the prior.
+
+The reason this is a flag rather than a defect is \emph{where} the geometry
+binds. For the trigger the anisotropy was structural in the likelihood: one
+shape parameter, a fixed imposed ratio, no amount of data able to undo it.
+For the background the field carries hundreds of effective degrees of
+freedom and the anisotropic prior acts only as a regularizer: the data
+overwhelm it wherever events are dense, its influence vanishes
+asymptotically at fixed grid, and its visible effect is directionally uneven
+smoothing in sparse regions. It is distinct from --- though compounding ---
+the PriorVAE oversmoothing already documented (prior-side variance
+shrinkage, a property of the surrogate rather than of any geometry). The
+one-dimensional temporal and seasonal fields rescale by a single factor each
+and raise no shape question. Repairing the spatial prior's geometry would
+require retraining the decoder against the real-space aspect ratio of each
+domain --- coupling the pretrained artifact to the data --- and is therefore
+documented rather than patched; if per-park fits ever show boundary-region
+artifacts aligned with the box axes, this is the first place to look.

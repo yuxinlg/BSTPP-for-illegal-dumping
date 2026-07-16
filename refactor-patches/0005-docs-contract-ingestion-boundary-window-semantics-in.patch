@@ -1,0 +1,235 @@
+From 0787434eb9b982d093570602b9058d00eb793b75 Mon Sep 17 00:00:00 2001
+From: "Phase1 Draft (Claude, for Terhi review)" <draft@local>
+Date: Tue, 14 Jul 2026 05:06:16 +0000
+Subject: [PATCH 5/5] docs+contract(ingestion): boundary/window semantics
+ inventory REWORKED for the real-unit trigger contract, plus the D4
+ geographic-coordinate data-contract warning. The inventory
+ (docs/boundary_and_window_semantics.md, superseding the withdrawn 2c draft)
+ updates row 8 -- kernel geometry RESOLVED: real-space isotropic by contract,
+ pinned by (I12) and the (I10) negative control, no longer a function of the
+ bounding rectangle -- and row 9 (spatial_window: REAL length, three-leg
+ symmetric), and ADDS row 10: the background PRIOR geometry caveat Terhi asked
+ to have flagged -- the PriorVAE spatial decoder was trained against an
+ isotropic SE kernel on the INTERNAL unit square, so the prior's real-space
+ correlation lengths stretch per axis (l*sx vs l*sy) and cell resolution is
+ sx/25 x sy/25; prior-side ONLY, because the background LIKELIHOOD is exactly
+ affine-invariant (piecewise-constant fields, cell lookups, area-weighted
+ sums: no metric object anywhere), making this a soft, data-dominated
+ regularization asymmetry, distinct from and compounding the documented
+ PriorVAE oversmoothing, and not fixable without retraining decoders. Phase 3
+ candidate list updated: the spatial half of the old units candidate is DONE;
+ remaining conversion layer is temporal (beta, window in days) plus reporting;
+ optional (sigma_x, sigma_y) extension listed as a deliberate decision, not a
+ default. NEW ingestion warning (heuristic, warns never blocks): degree-like
+ domains (bounds within lon/lat ranges, spans < 2, far from origin) get a
+ UserWarning -- in geographic coordinates the real-unit isotropic kernel is
+ anisotropic ON THE GROUND by cos(latitude), reintroducing the defect through
+ the front door; project to a metric CRS. Test pins both directions: fires on
+ a Philadelphia-like degree box, and the metric unit box constructs
+ warning-free (the suite itself is the false-positive guard). CLAUDE.md gains
+ the 2c verification-environment notes plus a Unit Contract section naming the
+ three declared conversion sites and the no-implicit-mixing rule. Verified:
+ 49/49; pins untouched (docs + constructor warning only); ruff clean.
+
+---
+ CLAUDE.md                             | 30 +++++++++
+ bstpp/main.py                         | 21 +++++++
+ docs/boundary_and_window_semantics.md | 87 +++++++++++++++++++++++++++
+ tests/test_identities.py              | 20 ++++++
+ 4 files changed, 158 insertions(+)
+ create mode 100644 docs/boundary_and_window_semantics.md
+
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 929ca0c..cadd304 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -174,3 +174,33 @@ mode, so **validation and testing rank above cleanliness.**
+   after a rewrite, inappropriate pattern imitation (e.g. thread-safety code where
+   nothing is threaded), and any place your change alters numeric output.
+ - Never run in `--dangerously-skip-permissions` mode against this repo.
++
++## Verification environment notes (added Phase 2c)
++
++- Golden pins (`pin_check_v2.py`) and fixed-seed simulations are
++  MACHINE-LOCAL artifacts: always baseline and compare on the same machine.
++  (Empirically, JAX/XLA traced-path values have matched bit-for-bit across
++  machines here, but that is an observation, not a guarantee.)
++- `GeoSeries.sample_points` internals are geopandas-version-sensitive; the
++  geometry stack (geopandas / shapely / GEOS) belongs alongside the jax /
++  numpy pins whenever cross-session simulation reproducibility matters.
++- Dev tooling: `ruff` (linter/formatter) is installed with
++  `pip install --no-deps ruff`; it is not part of the runtime pins.
++- Boundary / bounding-box / window semantics across model cases are
++  inventoried in `docs/boundary_and_window_semantics.md` (Phase 3 inputs).
++
++## Unit contract (added with the real-unit trigger change)
++
++The SPATIAL trigger is a REAL-unit object: `sigmax_2` (squared real units of
++the input X/Y columns; user MUST supply its prior -- there is no default) and
++`spatial_window` (real length; real-space square). Internal/real conversion
++happens at exactly three declared sites -- `real_spatial_trigger_values`
++(event term, includes the sx*sy Jacobian), the compensator's limit stretch,
++and the simulator's direct real-unit draw -- plus the shared window predicate
++`within_real_box_window`. Everything else (background fields, a_0, beta,
++window, cell areas) stays internal-unit. Never mix the two implicitly: any
++new expression crossing the boundary must go through a declared conversion
++(guide rule; this codebase's most productive historical source of defects).
++Input coordinates must be METRIC (a projected CRS): the constructor warns on
++degree-like domains because lon/lat makes the isotropic kernel anisotropic
++on the ground.
+diff --git a/bstpp/main.py b/bstpp/main.py
+index 0c55ace..69a9fd5 100644
+--- a/bstpp/main.py
++++ b/bstpp/main.py
+@@ -206,6 +206,27 @@ class Point_Process_Model:
+         # nothing else; the background never needs them).
+         A_np = np.asarray(A_, dtype=float)
+         args['axis_scales'] = jnp.asarray(A_np[:, 1] - A_np[:, 0])
++        # Data-contract warning (heuristic; warns, never blocks): the spatial
++        # trigger is isotropic in the units of the input X/Y columns, so
++        # GEOGRAPHIC coordinates (lon/lat degrees) make the "isotropic" kernel
++        # anisotropic ON THE GROUND -- one degree of longitude shrinks by
++        # cos(latitude) -- silently reintroducing the aspect-ratio defect the
++        # real-unit contract removed. Project to a metric CRS (e.g. a state
++        # plane or UTM zone) before ingestion.
++        _x0, _x1 = float(A_np[0, 0]), float(A_np[0, 1])
++        _y0, _y1 = float(A_np[1, 0]), float(A_np[1, 1])
++        if (-180.0 <= _x0 <= 180.0 and -180.0 <= _x1 <= 180.0
++                and -90.0 <= _y0 <= 90.0 and -90.0 <= _y1 <= 90.0
++                and (_x1 - _x0) < 2.0 and (_y1 - _y0) < 2.0
++                and max(abs(_x0), abs(_x1)) > 5.0
++                and max(abs(_y0), abs(_y1)) > 5.0):
++            warnings.warn(
++                "Spatial domain looks like geographic coordinates (lon/lat "
++                "degrees). The spatial trigger is isotropic in COORDINATE "
++                "units, so in degrees it is anisotropic on the ground by "
++                "cos(latitude), and sigmax_2 / spatial_window are in squared "
++                "degrees / degrees. Project X/Y to a metric CRS before "
++                "ingestion.", UserWarning, stacklevel=2)
+ 
+         # create computational grids
+ 
+diff --git a/docs/boundary_and_window_semantics.md b/docs/boundary_and_window_semantics.md
+new file mode 100644
+index 0000000..cf77ace
+--- /dev/null
++++ b/docs/boundary_and_window_semantics.md
+@@ -0,0 +1,87 @@
++# Boundary, bounding-box, and window semantics: an inventory
++
++Status: verified against the code at the revised Phase 2c tip (real-unit
++trigger contract). Purpose: Terhi's request to have the between-case
++differences in bounding-box handling "clearly listed" ahead of Phase 3. Each
++row states what the code does NOW; the final section lists the Phase 3
++candidates. Nothing here is hidden in the likelihood: every approximation
++below is either exact, or declared.
++
++## Conventions
++
++Internal coordinates: the domain's bounding rectangle A_ is affinely mapped
++to the unit square (per-axis; the real spans are `args['axis_scales']`); the
++computational grid (25 x 25) tiles the RECTANGLE, not the domain polygon.
++Background quantities (fields, cell areas, a_0, window) live in internal
++units. THE SPATIAL TRIGGER IS THE DELIBERATE EXCEPTION: sigmax_2 and
++spatial_window are REAL-unit quantities (units of the input X/Y columns) --
++the kernel is isotropic in real space, offspring displacements are
++N(0, sigmax_2 * I) in real coordinates, and the truncation window is a
++real-space square. The internal/real conversion happens at exactly three
++declared sites: the event-term atom `real_spatial_trigger_values`
++(displacements stretched per axis, density converted to the internal measure
++by the Jacobian sx*sy), the compensator's limit stretch (mass is
++dimensionless, no Jacobian), and the simulator's direct real-unit draw. The
++temporal trigger (beta, window) remains internal-unit: a declared asymmetry,
++Phase 3 conversion-layer work, and a pure relabel rather than a family
++change.
++
++## Inventory: how each integral treats the domain boundary
++
++| # | Quantity | Support used | Boundary treatment | Status |
++|---|---|---|---|---|
++| 1 | Constant background compensator (plain Hawkes, gdf domain) | exact polygon A | `A_area` = polygon area / rectangle area | EXACT |
++| 2 | Cox background spatial integral, no covariates (`Itot_xy`) | grid cells intersecting A | every intersecting cell charged FULL internal area 1/n_xy^2 | OVERCHARGE on boundary cells of non-rectangular gdf domains; exact for rectangles/arrays |
++| 3 | Cox background spatial integral, with covariates | common refinement of grid x covariate polygons | EXACT intersection areas from `int_df` | exact w.r.t. the COVARIATE support -- which is not necessarily A (see #4) |
++| 4 | Covariate support vs domain | covariate polygons as given | no intersection with A is taken; `cov_area` = covariate polygon areas | if cov support != A: under-/over-coverage (the known multi-support issue) |
++| 5 | Excitation compensator (eq. 27) | bounding RECTANGLE A_, all domain types | per-axis erf mass at REAL-unit limits; scalar clip at the real-unit spatial_window | OVERCHARGE for non-rectangular domains (declared approximation); exact for rectangles |
++| 6 | Simulator: background locations | grid cells (Cox) / domain rows (plain) | full-cell sampling, then final sjoin clips to the true polygon | realizes the TRUE polygon; mismatches #2/#5's charges for non-rect domains -- consistent with their declared status |
++| 7 | Simulator: offspring cascade | bounding rectangle, in-loop (Prop 1.1(ii)) + final polygon sjoin | discarded before parenting w.r.t. the rectangle -- matching #5's charge exactly | EXACT vs the compensator on rectangles |
++| 8 | Kernel geometry | -- | ISOTROPIC IN REAL COORDINATES (real-unit contract): the kernel family no longer depends on the bounding rectangle's shape; sigmax_2 is a real-unit parameter, directly interpretable and comparable across domains | RESOLVED (was: internal-isotropic => real-space anisotropy ratio = box aspect ratio); pinned by identity I12 (box invariance) and the I10 negative control |
++| 9 | spatial_window | -- | REAL length; per-axis box max(dx,dy) <= ws in REAL units, identical in pair set (within_real_box_window), compensator (real limits clipped at scalar ws), and offspring thinning | EXACT and symmetric on rectangles; semantics changed from internal-unit Euclidean disc (no closed-form disc-rectangle mass exists; an internal-unit box would have made the truncation region box-shape-dependent in real space) |
++| 10 | Background PRIOR geometry (Cox) | -- | the PriorVAE spatial decoder was trained against an ISOTROPIC SE kernel on the INTERNAL unit square, so the prior's real-space correlation lengths are l*sx vs l*sy and cell resolution is sx/25 x sy/25 per axis | DECLARED, prior-side only: the background LIKELIHOOD is exactly affine-invariant (piecewise-constant fields, cell lookups, area-weighted sums -- no metric object), so this is a soft, data-dominated regularization asymmetry, distinct from and compounding the documented PriorVAE oversmoothing; not fixable without retraining decoders |
++
++## Consequences worth remembering
++
++- For RECTANGULAR domains (array or box gdf), every likelihood/simulator row
++  above is exact: simulator, compensator, and event term agree by
++  construction. This is the SBC-supported regime -- spatial_window now
++  allowed, AND the trigger legs are invariant to the choice of bounding
++  rectangle (I12), so per-domain sigmax_2 posteriors are directly comparable
++  in real units.
++- The trigger's unit contract is REAL; the background's is INTERNAL. That is
++  a deliberate split: the trigger is a metric object in the likelihood (a
++  family choice the data cannot undo), the background is not (row #10 is a
++  prior-side echo only). Any new metric object added to the likelihood must
++  declare its units the same way.
++- For non-rectangular gdf domains, #2 and #5 overcharge in DIFFERENT ways
++  (full boundary cells vs full rectangle) while the simulator realizes the
++  true polygon: simulate-and-recover on such domains conflates these three
++  conventions and is not currently a clean identity regime.
++- #3 vs #2 is an internal inconsistency: the covariate path already owns the
++  exact-intersection machinery that #2 lacks.
++- Geographic (lon/lat) input coordinates would reintroduce ground-truth
++  anisotropy through the front door (1 deg lon = cos(lat) * 111 km); the
++  constructor warns heuristically. Use a metric CRS.
++
++## Phase 3 candidates (in suggested order)
++
++1. Unify #2 with #3's exact treatment: intersect the grid with A itself
++   (same `int_df` machinery), giving exact boundary-cell areas for the
++   no-covariate Cox background. Declared-rebaseline commit (Itot_xy moves
++   for non-rect gdf fits).
++2. Support intersection for covariates (#4): integrate over cov-support
++   INTERSECT A, with the multi-support geometric intersection evaluated in
++   the pre-refactor analysis (exact under piecewise-constant covariates).
++3. Excitation beyond the rectangle (#5) for non-rect domains: either keep
++   the declared approximation (cheap, current), or charge polygon-clipped
++   mass numerically. Decide only if a non-rectangular domain becomes a
++   research target.
++4. Conversion layer for the remaining internal-unit interface: beta and
++   window (temporal) accepted/reported in days; report axis_scales-derived
++   quantities alongside posteriors. (The spatial half of the old candidate
++   is DONE: sigmax_2 / spatial_window are real-unit by contract.)
++5. Optional trigger extension: two sampled real-unit scales (sigma_x,
++   sigma_y) if corridor-aligned spreading becomes a modeling question --
++   the compensator stays closed-form since everything factorizes per axis.
++   A deliberate decision, not a default.
+diff --git a/tests/test_identities.py b/tests/test_identities.py
+index 55fbac1..1b1decd 100644
+--- a/tests/test_identities.py
++++ b/tests/test_identities.py
+@@ -650,3 +650,23 @@ def test_simulate_fully_reproducible_with_generator(cox):
+     b = model.simulate(parameters=dict(truth), rng=np.random.default_rng(17))
+     np.testing.assert_array_equal(np.asarray(a[["X", "Y", "T"]], dtype=np.float64),
+                                   np.asarray(b[["X", "Y", "T"]], dtype=np.float64))
++
++
++def test_geographic_coordinate_warning():
++    """Data contract (heuristic warning): degree-like domains trigger a
++    UserWarning -- in lon/lat the real-unit isotropic kernel is anisotropic
++    on the ground by cos(latitude). Metric-looking domains (unit box, the
++    non-square test boxes) must NOT warn: the test suite itself is the
++    false-positive guard."""
++    import warnings as _w
++    geo_box = np.array([[-75.25, -75.15], [39.90, 40.00]])   # Philadelphia-ish
++    geo_data = pd.DataFrame({
++        "X": np.linspace(-75.24, -75.16, 20),
++        "Y": np.linspace(39.91, 39.99, 20),
++        "T": np.sort(np.linspace(1.0, T_DAYS - 1.0, 20)),
++    })
++    with pytest.warns(UserWarning, match="geographic"):
++        Hawkes_Model(geo_data, geo_box, T_DAYS, cox_background=False, **PRIORS)
++    with _w.catch_warnings():
++        _w.simplefilter("error", UserWarning)   # any UserWarning -> failure
++        Hawkes_Model(DATA, A_RECT, T_DAYS, cox_background=False, **PRIORS)
+-- 
+2.43.0
+

@@ -1,0 +1,506 @@
+From 5c067c245a5b537f9f38ed565081686437e6bb1c Mon Sep 17 00:00:00 2001
+From: "Phase1 Draft (Claude, for Terhi review)" <draft@local>
+Date: Tue, 14 Jul 2026 05:06:16 +0000
+Subject: [PATCH 3/5] fix(model+sim): MODEL SEMANTICS CHANGE, gated on sign-off
+ -- spatial_window is now a REAL length, symmetric across all three legs.
+ Pairs are kept iff max(|dx|, |dy|) <= ws in REAL coordinates (a real-space
+ square; previously Euclidean in INTERNAL units, so the truncation region was
+ a preprocessing-dependent ellipse in real space and applied on the EVENT side
+ only). The compensator charges the truncation EXACTLY: with the kernel
+ already real-unit (previous commit) its limits are real distances, so the ws
+ clip is a SCALAR jnp.minimum -- the perfect per-axis mirror of min(T - t, w)
+ temporally, and the reason this patch lands AFTER the kernel realification
+ rather than before it (an internal-unit ws clip would have been a per-axis
+ vector rewritten one commit later). Offspring thinning applies the identical
+ rule on the real-unit draw. The predicate is SINGLE-SOURCED
+ (utils.within_real_box_window, shared by the pair mask and the thinning; the
+ compensator clip is its exact integral) so the three legs cannot drift -- the
+ Phase 2b lesson. Box (not disc) semantics retained from the withdrawn 2c
+ draft: disc-intersect-rectangle has no closed-form Gaussian mass, so disc
+ truncation can never be charged exactly. test_pairs' dense reference oracle
+ updated to the same semantics with unequal-scale coverage (test edit, part of
+ the signed-off change). THREE identities land: (I4-ws) per-parent cascade
+ mean m/(1-m) with m = alpha*F_beta(w)*BoxMass(ws) through the production
+ atom, and (I11-ws) conservation with spatial_window=0.2 -- both IMPOSSIBLE
+ before the symmetry (event-side-only truncation); and NEW identity (I12, box
+ invariance): one real dataset ingested under two differently-shaped
+ rectangles must agree on the pair set, the real-unit displacements and kernel
+ densities, the ws-clipped compensator, and byte-identical seeded offspring
+ cascades. (I12) is the operational statement that the trigger no longer
+ depends on the bounding-box preprocessing choice; verified RED on the pre-fix
+ code at its first clause (33 vs 68 pairs across a 4:1 and a 3:1 box at
+ ws=0.15). Requires ws to exceed the kernel scale in REAL units (docstring
+ rule of thumb: ws >= 4*sqrt(sigmax_2)); user-facing docstrings updated
+ (spatial_window is exact likelihood now, safe for calibration/SBC). Verified:
+ 46/46; value+gradient pins BIT-IDENTICAL across all four pin configs
+ (spatial_window=None in every pinned config; the ws=None paths are
+ op-identical); ruff clean.
+
+---
+ bstpp/inference_functions.py |   3 +-
+ bstpp/likelihood.py          |  22 ++++-
+ bstpp/main.py                |  37 +++++---
+ bstpp/utils.py               |  39 +++++++--
+ tests/test_identities.py     | 164 ++++++++++++++++++++++++++++++++++-
+ tests/test_pairs.py          |  19 ++--
+ 6 files changed, 259 insertions(+), 25 deletions(-)
+
+diff --git a/bstpp/inference_functions.py b/bstpp/inference_functions.py
+index 3e54e6c..16a975b 100644
+--- a/bstpp/inference_functions.py
++++ b/bstpp/inference_functions.py
+@@ -184,7 +184,8 @@ def spatiotemporal_hawkes_model(args):
+                                            (x_min, x_max, y_min, y_max),
+                                            t_pars, sp_pars,
+                                            args['t_trig'], args['sp_trig'],
+-                                           axis_scales=args['axis_scales']))
++                                           axis_scales=args['axis_scales'],
++                                           spatial_window=args.get('spatial_window')))
+     ## total integral
+     Itot_txy = numpyro.deterministic("Itot_txy",Itot_excite + Itot_txy_back)
+     loglik=numpyro.deterministic('loglik',ell_1-Itot_txy)
+diff --git a/bstpp/likelihood.py b/bstpp/likelihood.py
+index 5f5ff58..9f53714 100644
+--- a/bstpp/likelihood.py
++++ b/bstpp/likelihood.py
+@@ -53,8 +53,11 @@ Equation concordance (guide numbering):
+   probability, so no Jacobian appears here, unlike the event term). HONEST
+   SCOPE: this is NOT the general-domain compensator -- for non-rectangular
+   domains X the rectangle mass overcharges (declared approximation, guide
+-  Sec. 2.5), and a finite spatial_window is applied on the EVENT side only
+-  (pair construction), not here (known, documented discrepancy).
++  Sec. 2.5). A finite spatial_window (REAL length) is charged EXACTLY: the
++  real-unit limits are clipped at the scalar ws -- the same per-axis box the
++  pair set and the offspring thinning use (within_real_box_window), so all
++  three legs agree on rectangles and the historical event-side-only
++  discrepancy is closed.
+ 
+ Unit contract (real-unit spatial trigger). The spatial trigger is a density
+ per REAL area, isotropic in the units of the input X/Y columns; sigmax_2 and
+@@ -118,7 +121,7 @@ def rectangular_excitation_compensator(alpha, t_events, xy_events, horizon,
+                                        temporal_window, rectangular_bounds,
+                                        temporal_parameters, spatial_parameters,
+                                        temporal_trigger, spatial_trigger, *,
+-                                       axis_scales):
++                                       axis_scales, spatial_window=None):
+     """Total excitation compensator over [0, horizon] x rectangle.
+ 
+     Sum over parents j of
+@@ -136,6 +139,16 @@ def rectangular_excitation_compensator(alpha, t_events, xy_events, horizon,
+     stretched per axis -- matching the real-unit kernel the event term
+     evaluates. The spatial mass is a probability (dimensionless), so unlike
+     the event term no Jacobian factor appears here.
++
++    spatial_window: optional REAL length. When given, each real-unit limit is
++    clipped at the SCALAR spatial_window -- charging the Gaussian mass of
++    (real-space square of half-width ws at s_j) INTERSECT rectangle, the
++    exact integral of the event-side pair predicate (within_real_box_window)
++    and the offspring thinning, and a perfect per-axis mirror of
++    min(horizon - t, temporal_window) on the time axis. The clip lands AFTER
++    the real-unit stretch, which is what makes it a scalar; per-axis box
++    semantics are the only choice with a closed-form mass (disc-intersect-
++    rectangle has none).
+     See module docstring for the honest scope of this specialization.
+     Returns a scalar.
+     """
+@@ -147,6 +160,9 @@ def rectangular_excitation_compensator(alpha, t_events, xy_events, horizon,
+                           ).reshape(2, 2, -1)
+     # real-unit trigger contract: stretch internal edge distances per axis
+     sp_limits = sp_limits * axis_scales[:, None, None]
++    if spatial_window is not None:
++        # real-unit box window: all three legs share these semantics exactly
++        sp_limits = jnp.minimum(sp_limits, spatial_window)
+     sp_part = spatial_trigger.compute_integral(spatial_parameters, sp_limits)
+     return jnp.sum(temp_part * sp_part)
+ 
+diff --git a/bstpp/main.py b/bstpp/main.py
+index 95f47eb..59599e4 100644
+--- a/bstpp/main.py
++++ b/bstpp/main.py
+@@ -24,7 +24,7 @@ from numpyro.infer import log_likelihood
+ import jax
+ import numpyro
+ 
+-from .utils import aligned_difference_pairs, exp_sq_kernel
++from .utils import aligned_difference_pairs, exp_sq_kernel, within_real_box_window
+ from .inference_functions import (spatiotemporal_hawkes_model, spatiotemporal_LGCP_model,
+                                   run_mcmc, run_SVI, get_samples)
+ from .trigger import Temporal_Exponential, Spatial_Symmetric_Gaussian
+@@ -588,6 +588,7 @@ class Point_Process_Model:
+                 test_args['xy_events'][1],
+                 self.args['window'],
+                 spatial_window=self.args.get('spatial_window'),
++                axis_scales=np.asarray(self.args['axis_scales']),
+             )
+             test_args['coords'] = coords
+             test_args['t_vals'] = t_vals
+@@ -1339,9 +1340,9 @@ class Point_Process_Model:
+ 
+         Known approximations (all vanish for a rectangle domain -- use a rectangle A for
+         simulate-and-recover / SBC):
+-          - spatial_window truncation is intentionally NOT mirrored in offspring thinning;
+-            the spatial excitation integral is left untruncated by design, so keep
+-            spatial_window=None for calibration work.
++          - a finite spatial_window IS mirrored in the offspring thinning (real-unit
++            box, within_real_box_window), matching the clipped compensator exactly, so
++            finite-ws configurations are inside the calibration-supported regime.
+           - For a GeoDataFrame domain, boundary cells are sampled over the FULL cell and then
+             clipped by simulate()'s A-filter, and the excitation compensator integrates over
+             the bounding rectangle A_ rather than the polygon.
+@@ -1414,19 +1415,23 @@ class Point_Process_Model:
+ 
+ 
+     def set_window(self, window, spatial_window=None):
++        """window: temporal truncation, INTERNAL units. spatial_window:
++        spatial truncation, REAL length (real-space square of half-width ws;
++        see aligned_difference_pairs / within_real_box_window)."""
+         window = float(window)
+         if spatial_window is not None:
+             spatial_window = float(spatial_window)
+         self.args['window'] = window
+         self.args['spatial_window'] = spatial_window
+ 
+-        # Recompute pairs with both windows
++        # Recompute pairs with both windows (spatial one in REAL units)
+         coords, t_vals, x_vals, y_vals = aligned_difference_pairs(
+             self.args['t_events'],
+             self.args['xy_events'][0],
+             self.args['xy_events'][1],
+             window=window,
+-            spatial_window=spatial_window
++            spatial_window=spatial_window,
++            axis_scales=np.asarray(self.args['axis_scales'])
+         )
+ 
+         self.args['coords'] = coords
+@@ -1503,10 +1508,15 @@ class Hawkes_Model(Point_Process_Model):
+             window >= 5*beta) or be left at the default. Defaults to T, i.e. the full
+             window / no truncation, which exactly reproduces the previous likelihood.
+         spatial_window: float, optional
+-            Spatial truncation radius for excitation pairs, in the rescaled spatial units
+-            (the [0, 1] square). KNOWN APPROXIMATION: this truncates pairs spatially WITHOUT
+-            a matching truncation of the spatial integral, so it does not yield an exact
+-            likelihood; leave it None for calibration/SBC work. Defaults to None.
++            Spatial truncation half-width for excitation pairs, a REAL length in the units
++            of the input X/Y columns: pairs are kept iff max(|dx|, |dy|) <= spatial_window
++            in real coordinates (a real-space square; per-axis box semantics -- the only
++            shape the compensator can charge in closed form). The excitation integral and
++            the offspring thinning apply the SAME truncation, so this is the exact
++            likelihood of the truncated-kernel model and finite values are safe for
++            calibration/SBC. Must comfortably exceed the posterior real-unit kernel scale
++            (rule of thumb: spatial_window >= 4 * sqrt(sigmax_2)). Defaults to None (no
++            spatial truncation).
+         sp_var_mu: float
+             Fixed log-amplitude multiplier applied to the spatial VAE decoder output; see
+             Point_Process_Model for calibration guidance. Default 2.0.
+@@ -1859,6 +1869,13 @@ class Hawkes_Model(Point_Process_Model):
+                 # (Poisson(alpha) parents thinned by F(w) => expected offspring alpha*F(w))
+                 if t_dif[0] > self.args['window']:
+                     continue
++                # spatial window: the SAME real-unit box predicate the pair set
++                # uses and the compensator integrates (single-sourced; the
++                # spatial draw is already in real units under the contract)
++                sw = self.args.get('spatial_window')
++                if sw is not None and not within_real_box_window(
++                        sp_dif[0], sp_dif[1], sw):
++                    continue
+                 cand = bg[i] + np.append(sp_dif, t_dif)
+                 # Prop 1.1(ii): offspring outside the bounding rectangle X --
+                 # the region the compensator charges (eq. 27) -- are discarded
+diff --git a/bstpp/utils.py b/bstpp/utils.py
+index 1b2c291..1083fa8 100644
+--- a/bstpp/utils.py
++++ b/bstpp/utils.py
+@@ -35,7 +35,26 @@ def exp_sq_kernel(x, z, var, length, noise, jitter=1.0e-6):
+     return k
+ 
+     
+-def aligned_difference_pairs(t, x, y, window, spatial_window=None):
++def within_real_box_window(dx_real, dy_real, spatial_window):
++    """Shared spatial-window predicate: max(|dx|, |dy|) <= w_s in REAL units.
++
++    spatial_window is a REAL length; the kept region is a SQUARE in real
++    space (a rectangle in internal coordinates). Per-axis box semantics are
++    the only choice the excitation compensator can charge exactly (per-axis
++    erf limits clipped at w_s -- the Gaussian mass of disc-intersect-rectangle
++    has no closed form), exactly mirroring min(T - t, w) temporally.
++
++    SINGLE SOURCE for all three legs -- the event-side pair mask
++    (aligned_difference_pairs) and the offspring thinning (_sim_offspring)
++    both call this, and the compensator's scalar clip at w_s on its real-unit
++    limits is the integral of the same predicate -- so the legs cannot drift
++    apart (the Phase 2b lesson: one expression, not three copies).
++    """
++    return np.maximum(np.abs(dx_real), np.abs(dy_real)) <= spatial_window
++
++
++def aligned_difference_pairs(t, x, y, window, spatial_window=None,
++                             axis_scales=(1.0, 1.0)):
+     """Emit the (receiver i, source j) excitation pairs with 0 < t[i]-t[j] <= window.
+ 
+     Contract (identical to the former dense n x n implementation):
+@@ -43,9 +62,17 @@ def aligned_difference_pairs(t, x, y, window, spatial_window=None):
+       - coords is (P, 2) with coords[:, 0] = i (receiver / later event) and
+         coords[:, 1] = j (source / earlier event), in the ORIGINAL event order;
+       - t_vals = t[i] - t[j], strictly > 0 and <= window (equal times excluded);
+-      - x_vals = x[i] - x[j], y_vals = y[i] - y[j];
+-      - if spatial_window is not None, only pairs with
+-        sqrt(x_vals**2 + y_vals**2) <= spatial_window are kept.
++      - x_vals = x[i] - x[j], y_vals = y[i] - y[j], in INTERNAL units;
++      - if spatial_window is not None, only pairs within the REAL-unit box
++        window are kept: max(|x_vals| * axis_scales[0],
++        |y_vals| * axis_scales[1]) <= spatial_window (within_real_box_window,
++        the single-sourced predicate shared with the offspring thinning).
++        SEMANTICS CHANGE, signed off: previously Euclidean in INTERNAL units
++        (sqrt(x**2 + y**2) <= ws). spatial_window is now a REAL length and
++        the kept region is a real-space square -- matching the real-unit
++        trigger contract, exactly integrable by the compensator (per-axis
++        real-unit erf limits clipped at ws), and invariant to the choice of
++        bounding rectangle (identity I12).
+ 
+     The pair ORDERING within the returned arrays is NOT part of the contract:
+     the likelihood aggregates them with segment_sum on coords[:, 0], which is
+@@ -98,7 +125,9 @@ def aligned_difference_pairs(t, x, y, window, spatial_window=None):
+     y_vals = y[i_idx] - y[j_idx]
+ 
+     if spatial_window is not None:
+-        keep = np.sqrt(x_vals**2 + y_vals**2) <= spatial_window
++        keep = within_real_box_window(x_vals * float(axis_scales[0]),
++                                      y_vals * float(axis_scales[1]),
++                                      spatial_window)
+         i_idx, j_idx = i_idx[keep], j_idx[keep]
+         t_vals, x_vals, y_vals = t_vals[keep], x_vals[keep], y_vals[keep]
+ 
+diff --git a/tests/test_identities.py b/tests/test_identities.py
+index 8428a4e..733535e 100644
+--- a/tests/test_identities.py
++++ b/tests/test_identities.py
+@@ -15,6 +15,9 @@ Coverage map (guide identity -> test / existing test):
+ - (I10) unit covariance            -> test_spatial_similarity_covariance,
+                                       test_spatial_kernel_family_is_real_unit_not_internal (HERE)
+ - (I11) conservation E[n] = E[Lam] -> test_simulated_count_matches_compensator (HERE)
++- (I4-ws)/(I11-ws) finite spatial_window variants -> (HERE); impossible before
++  the three-leg real-unit box symmetry (event-side-only truncation)
++- (I12) box invariance             -> test_trigger_legs_invariant_to_bounding_rectangle (HERE)
+ 
+ These are behavior pins for the architecture rewrite: they test the mathematical
+ contract (what any correct implementation must output), not internals, so they
+@@ -357,7 +360,8 @@ def _compensator(model, t_events, xy_events, params):
+         {"beta": jnp.float32(params["beta"])},
+         {"sigmax_2": jnp.float32(params["sigmax_2"])},
+         args["t_trig"], args["sp_trig"],
+-        axis_scales=args["axis_scales"]))
++        axis_scales=args["axis_scales"],
++        spatial_window=args.get("spatial_window")))
+     lam_bg = float(np.exp(params["a_0"])) * T * args["A_area"]
+     return lam_bg + exc
+ 
+@@ -464,3 +468,161 @@ def test_offspring_displacements_isotropic_in_real_units():
+         f"per-axis real-space variance ratio {ratio:.2f} (n={len(disp)}) -- "
+         "offspring displacements are not isotropic in real units "
+         "(internal-unit kernel rescaled by the box spans gives ratio ~16 here)")
++
++
++def test_offspring_thinning_matches_compensator_mass_finite_spatial_window():
++    """(I4-ws) With a finite REAL-unit spatial_window the per-parent cascade
++    mean must be m/(1-m) with m = alpha * F_beta(w) * BoxMass(ws), computed
++    through the PRODUCTION compensator atom on a single center event. The
++    center immigrant with ws << distance-to-boundary keeps every retained
++    cascade member deep in the interior, so m is location-constant to ~1e-6
++    and the geometric cascade law applies. This identity was IMPOSSIBLE
++    before the three-leg symmetry: the event side truncated at ws while the
++    compensator charged the full rectangle mass and the simulator never
++    thinned spatially."""
++    from bstpp.likelihood import rectangular_excitation_compensator
++    model = Hawkes_Model(DATA, A_RECT, T_DAYS, cox_background=False, **PRIORS)
++    win, sw = 1.5, 0.15                       # sw REAL units (== internal on the unit box)
++    model.set_window(win, spatial_window=sw)
++    par = dict(alpha=0.5, beta=3.0, sigmax_2=0.01)   # sd 0.1 real: BoxMass(ws) ~ 0.75
++
++    m = float(rectangular_excitation_compensator(
++        jnp.float32(par["alpha"]), jnp.float32([0.0]),
++        jnp.float32([[0.5], [0.5]]), 1e9, win, (0.0, 1.0, 0.0, 1.0),
++        {"beta": jnp.float32(par["beta"])},
++        {"sigmax_2": jnp.float32(par["sigmax_2"])},
++        model.args["t_trig"], model.args["sp_trig"],
++        axis_scales=model.args["axis_scales"], spatial_window=sw))
++    assert 0.0 < m < 1.0
++    expected = m / (1.0 - m)
++
++    np.random.seed(41)
++    R = 4000
++    totals = np.empty(R)
++    immigrant = np.array([[0.5, 0.5, 0.0]])
++    for r in range(R):
++        totals[r] = len(model._sim_offspring(immigrant.copy(), par)) - 1
++    mean, se = totals.mean(), totals.std(ddof=1) / np.sqrt(R)
++    assert abs(mean - expected) < 5 * se, (
++        f"E[descendants] = {mean:.4f} +/- {se:.4f} vs m/(1-m) = {expected:.4f} "
++        f"with m = alpha*F_beta(w)*BoxMass(ws) = {m:.4f}")
++
++
++def test_simulated_count_matches_compensator_finite_spatial_window():
++    """(I11-ws) Conservation on the unit box with spatial_window = 0.2 (real
++    units): holds only because all three legs -- pair set, compensator, and
++    offspring thinning -- share the real-unit box semantics. IMPOSSIBLE
++    before the symmetry fix."""
++    model = Hawkes_Model(DATA, A_GDF, T_DAYS, cox_background=False, **PRIORS)
++    model.set_window(float(model.args["T"]), spatial_window=0.2)
++    truth = dict(a_0=0.4, alpha=0.3, beta=2.0, sigmax_2=0.01)
++
++    _, tr = _loglik_at(model, model.args, {k: np.float32(v) for k, v in truth.items()})
++    lam_train = _compensator(model, np.asarray(model.args["t_events"]),
++                             np.asarray(model.args["xy_events"]), truth)
++    assert lam_train == pytest.approx(float(np.asarray(tr["Itot_txy"]["value"])),
++                                      rel=2e-5)
++
++    np.random.seed(43)
++    rng = np.random.default_rng(47)
++    R = 30
++    diffs = np.empty(R)
++    counts = np.empty(R)
++    for r in range(R):
++        sim = model.simulate(parameters=dict(truth), rng=rng)
++        counts[r] = len(sim)
++        ta, _ = model._scale_xyt(pd.DataFrame(sim[["X", "Y", "T"]]),
++                                 model.args.copy(), model.comp_grid)
++        diffs[r] = counts[r] - _compensator(model, np.asarray(ta["t_events"]),
++                                            np.asarray(ta["xy_events"]), truth)
++    mean = diffs.mean()
++    se = diffs.std(ddof=1) / np.sqrt(R)
++    assert counts.mean() > 20
++    assert abs(mean) < 5 * se + 1e-6, (
++        f"E[n - Lambda] = {mean:.3f} +/- {se:.3f} with spatial_window=0.2 -- "
++        "the three-leg real-unit box symmetry is violated")
++
++
++# =====================================================================
++# (I12) Box invariance: the TRIGGER legs of the model are invariant to the
++# choice of bounding rectangle. The same real-coordinate dataset ingested
++# under two differently-shaped rectangles must yield (a) the same excitation
++# pair set under a real-unit spatial_window, with the same real-unit
++# displacements; (b) the same real-unit kernel densities at the pairs (the
++# internal-measure atom values divided by the per-box Jacobian); (c) the same
++# excitation compensator when the ws-square around every event is interior to
++# both rectangles (all limits clip to the scalar ws); (d) byte-identical
++# offspring cascades in real coordinates under a shared seed. Pre-fix this
++# identity FAILS at (a) already: the internal-Euclidean window kept different
++# pair sets in differently-shaped boxes. The background legs are exactly
++# affine-invariant by construction (piecewise-constant fields; no metric
++# object), so the trigger legs are the entire content of box invariance.
++# =====================================================================
++
++def test_trigger_legs_invariant_to_bounding_rectangle():
++    from bstpp.likelihood import (real_spatial_trigger_values,
++                                  rectangular_excitation_compensator)
++    rng = np.random.RandomState(17)
++    n = 50
++    data = pd.DataFrame({
++        "X": rng.uniform(10.3, 13.7, n),
++        "Y": rng.uniform(20.2, 20.8, n),          # margin >= 0.2 to box1 edges
++        "T": np.sort(rng.uniform(0, T_DAYS, n)),
++    })
++    box1 = np.array([[10.0, 14.0], [20.0, 21.0]])      # 4:1 aspect
++    box2 = np.array([[9.0, 15.0], [19.5, 21.5]])       # 3:1 aspect, padded
++    win, sw = 5.0, 0.15                                 # ws < every edge margin
++    par = dict(alpha=0.4, beta=2.0, sigmax_2=0.02)      # sd ~0.14: BoxMass(ws) ~ 0.5
++
++    models = [Hawkes_Model(data, A, T_DAYS, cox_background=False,
++                           window=win, spatial_window=sw, **PRIORS)
++              for A in (box1, box2)]
++
++    # (a) same pair set, same REAL displacements
++    reals = []
++    for m in models:
++        sx, sy = np.asarray(m.args["axis_scales"])
++        c = np.asarray(m.args["coords"]).reshape(-1, 2)
++        order = np.lexsort((c[:, 1], c[:, 0]))
++        reals.append((c[order],
++                      np.asarray(m.args["x_vals"])[order] * sx,
++                      np.asarray(m.args["y_vals"])[order] * sy,
++                      order))
++    assert reals[0][0].shape == reals[1][0].shape and np.array_equal(reals[0][0], reals[1][0]), \
++        "pair sets differ across bounding rectangles"
++    np.testing.assert_allclose(reals[0][1], reals[1][1], rtol=2e-5, atol=1e-6)
++    np.testing.assert_allclose(reals[0][2], reals[1][2], rtol=2e-5, atol=1e-6)
++
++    # (b) same real-unit kernel densities: atom values / per-box Jacobian
++    dens = []
++    for m, (c, _, _, order) in zip(models, reals):
++        sx, sy = np.asarray(m.args["axis_scales"])
++        v = np.asarray(real_spatial_trigger_values(
++            m.args["sp_trig"], {"sigmax_2": jnp.float32(par["sigmax_2"])},
++            m.args["coords"], m.args["x_vals"], m.args["y_vals"],
++            m.args["axis_scales"]))
++        dens.append(v[order] / (sx * sy))
++    np.testing.assert_allclose(dens[0], dens[1], rtol=2e-5)
++
++    # (c) same excitation compensator (every limit clips to the scalar ws)
++    comps = []
++    for m in models:
++        comps.append(float(rectangular_excitation_compensator(
++            jnp.float32(par["alpha"]), jnp.asarray(m.args["t_events"]),
++            jnp.asarray(m.args["xy_events"]), m.args["T"], win,
++            (m.args["x_min"], m.args["x_max"], m.args["y_min"], m.args["y_max"]),
++            {"beta": jnp.float32(par["beta"])},
++            {"sigmax_2": jnp.float32(par["sigmax_2"])},
++            m.args["t_trig"], m.args["sp_trig"],
++            axis_scales=m.args["axis_scales"], spatial_window=sw)))
++    assert comps[0] == pytest.approx(comps[1], rel=1e-6)
++
++    # (d) byte-identical offspring cascades in real coordinates, shared seed
++    immigrant = np.array([[12.0, 20.5, 0.0]])
++    outs = []
++    for m in models:
++        np.random.seed(97)
++        outs.append(m._sim_offspring(immigrant.copy(), par))
++    assert np.array_equal(outs[0], outs[1]), \
++        "offspring cascades differ across bounding rectangles under a shared seed"
++    assert len(outs[0]) > 1, "cascade produced no offspring; seed/config uninformative"
+diff --git a/tests/test_pairs.py b/tests/test_pairs.py
+index d390b9d..3ef2e1e 100644
+--- a/tests/test_pairs.py
++++ b/tests/test_pairs.py
+@@ -30,7 +30,7 @@ from bstpp.main import Hawkes_Model
+ 
+ 
+ # --- private copy of the ORIGINAL dense implementation, as the reference oracle ---
+-def _dense_pairs(t, x, y, window, spatial_window=None):
++def _dense_pairs(t, x, y, window, spatial_window=None, axis_scales=(1.0, 1.0)):
+     window = float(window)
+     if spatial_window is not None:
+         spatial_window = float(spatial_window)
+@@ -45,7 +45,11 @@ def _dense_pairs(t, x, y, window, spatial_window=None):
+ 
+     t_mask = (t_diff > 0) & (t_diff <= window)
+     if spatial_window is not None:
+-        spatial_dist = jnp.sqrt(x_diff**2 + y_diff**2)
++        # REAL-unit per-axis box truncation (semantics change from internal
++        # Euclidean, signed off with the real-unit trigger contract -- see
++        # aligned_difference_pairs / within_real_box_window)
++        spatial_dist = jnp.maximum(jnp.abs(x_diff) * float(axis_scales[0]),
++                                   jnp.abs(y_diff) * float(axis_scales[1]))
+         mask = t_mask & (spatial_dist <= spatial_window)
+     else:
+         mask = t_mask
+@@ -95,9 +99,14 @@ def test_equivalence_vs_dense():
+         y = rng.uniform(0, 1, n)
+         trange = float(t.max() - t.min()) if n else 0.0
+         for window in (max(trange * 0.3, 0.5), trange + 5.0):   # smaller & larger than range
+-            for spatial_window in (None, 0.2):
+-                new = aligned_difference_pairs(t, x, y, window, spatial_window=spatial_window)
+-                old = _dense_pairs(t, x, y, window, spatial_window=spatial_window)
++            # exercise the real-unit box mask with non-trivial, UNEQUAL scales
++            for spatial_window, scales in ((None, (1.0, 1.0)), (0.2, (1.0, 1.0)),
++                                           (0.5, (4.0, 1.0))):
++                new = aligned_difference_pairs(t, x, y, window,
++                                               spatial_window=spatial_window,
++                                               axis_scales=scales)
++                old = _dense_pairs(t, x, y, window, spatial_window=spatial_window,
++                                   axis_scales=scales)
+                 _assert_same(new, old)
+                 n_checks += 1
+     assert n_checks >= 10   # >= 10 random datasets/config combinations compared
+-- 
+2.43.0
+

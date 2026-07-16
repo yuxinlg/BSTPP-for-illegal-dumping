@@ -1,0 +1,173 @@
+From 8b9b4b3bd54fca71e55575a3e03e1b68d51f973f Mon Sep 17 00:00:00 2001
+From: "Phase1 Draft (Claude, for Terhi review)" <draft@local>
+Date: Sun, 12 Jul 2026 22:38:31 +0000
+Subject: [PATCH 4/4] refactor(sim): _sim_hawkes_bg cell rates are
+ background_masses(...) -- a new likelihood.py atom, the integrand of the
+ background compensators -- so simulator and likelihood share ONE
+ background-mass expression. Per review: NO runtime cross-check (it would be
+ tautological now that both sides derive from the shared atom); enforcement
+ lives in unit tests pinning sum(background_masses) against
+ constant/covariate_background_integral. Per-cell Poisson superposition
+ retained (distributionally identical to Poisson(total) + multinomial);
+ locations drawn through the shared, length-guarded _sample_cells primitive;
+ _sim_spatial retired (single caller, absorbed). Legacy quirk preserved and
+ documented in the docstring: the pure-Hawkes sample_points draw is UNSEEDED
+ (ignores np.random and the rng argument) -- RECORDED FOLLOW-UP: thread one
+ numpy Generator through Poisson counts, inverse-CDF uniforms, cell choices,
+ sample_points, offspring counts, and trigger simulation; until then
+ simulate() is not fully seed-reproducible on this path. Verified: 38/38;
+ inference value+gradient pins bit-identical.
+
+---
+ bstpp/likelihood.py            | 21 +++++++++++++--
+ bstpp/main.py                  | 47 +++++++++++++++++++++-------------
+ tests/test_likelihood_atoms.py | 18 +++++++++++++
+ 3 files changed, 66 insertions(+), 20 deletions(-)
+
+diff --git a/bstpp/likelihood.py b/bstpp/likelihood.py
+index 980f6ab..f079a9a 100644
+--- a/bstpp/likelihood.py
++++ b/bstpp/likelihood.py
+@@ -30,9 +30,13 @@ Equation concordance (guide numbering):
+   integrand. The no-covariate grid is the special case of uniform areas
+   1/n_xy^2 and no b_0. Refinement invariance (I9) is a property of this
+   expression.
++- background_masses ..................... per-cell masses of the plain-Hawkes
++  background compensator, mu * |cell| * T (mu scalar for the constant
++  background, vector over the covariate partition): the simulator's per-cell
++  Poisson rates. Unit tests pin sum(background_masses) against the two
++  integral atoms below.
+ - constant_background_integral .......... plain-Hawkes background compensator
+-  mu * T * |X| (reused by _sim_hawkes_bg in Phase 2b, making the background
+-  half of (I11) structural).
++  mu * T * |X|.
+ - covariate_background_integral ......... plain-Hawkes covariate background
+   compensator (mu_cells @ cell_areas) * T over the covariate partition.
+ - rectangular_excitation_compensator .... truncated excitation compensator,
+@@ -156,3 +160,16 @@ def covariate_background_integral(mu_cells, cell_areas, horizon):
+     cell_areas are |A_m| in internal measure (args['cov_area']).
+     """
+     return mu_cells @ cell_areas * horizon
++
++
++def background_masses(mu, cell_areas, horizon):
++    """Per-cell masses of the plain-Hawkes background compensator.
++
++    mu * cell_areas * horizon, broadcasting: mu is a scalar for the constant
++    background (cells = domain rows) or a vector over the covariate partition.
++    The simulator superposes per-cell Poisson draws on these rates, which is
++    distributionally identical to Poisson(total) + multinomial; unit tests
++    (not runtime asserts) pin sum(background_masses) against
++    constant_background_integral / covariate_background_integral.
++    """
++    return mu * cell_areas * horizon
+diff --git a/bstpp/main.py b/bstpp/main.py
+index 45a0dff..909647a 100644
+--- a/bstpp/main.py
++++ b/bstpp/main.py
+@@ -30,7 +30,8 @@ from .inference_functions import (spatiotemporal_hawkes_model, spatiotemporal_LG
+ from .trigger import Temporal_Exponential, Spatial_Symmetric_Gaussian
+ from .decode_fields import (decode_temporal_field, decode_seasonal_field,
+                         decode_spatial_field)
+-from .likelihood import (seasonal_time_integral, spatial_refinement_masses)
++from .likelihood import (seasonal_time_integral, spatial_refinement_masses,
++                         background_masses)
+ 
+ 
+ def _load_decoder(name):
+@@ -1308,13 +1309,6 @@ class Point_Process_Model:
+         self.points.plot(ax=ax[1],color='red',marker='x',**kwargs)
+         ax[1].set_title('Mean Posterior $f_s + X(s)w$ With Events')
+ 
+-    def _sim_spatial(self, geo_df):
+-        lam = geo_df['area']*np.exp(geo_df['log_intensity'])
+-        num_samp = np.random.poisson(lam)
+-        mask_zero = num_samp!=0
+-        samples = geo_df[mask_zero].sample_points(size=num_samp[mask_zero])
+-        return samples.explode(index_parts=False)
+-
+     def _sim_cox(self, parameters, rng=None):
+         """Exact sampler for the factorized Cox background, in internal units.
+ 
+@@ -1811,18 +1805,35 @@ class Hawkes_Model(Point_Process_Model):
+                                f"{counts.sum()} requested; refusing to truncate")
+         return np.stack((pts.x.values, pts.y.values), axis=1)
+ 
+-    def _sim_hawkes_bg(self,parameters):
+-        a_0 = parameters['a_0']
++    def _sim_hawkes_bg(self, parameters):
++        """Constant / covariate background via per-cell Poisson superposition.
++
++        Cell rates are background_masses(...) -- the integrand of the
++        background compensator atoms, whose sum the unit tests pin against
++        constant/covariate_background_integral -- so the simulator and
++        likelihood share one background-mass expression (no runtime assert:
++        one shared computation plus tests, per review). Superposing per-cell
++        Poisson draws is distributionally identical to Poisson(total) +
++        multinomial. Legacy quirk preserved and documented: the sample_points
++        draw here is UNSEEDED (ignores np.random and the rng argument);
++        unifying all draws under one Generator is a recorded follow-up, and
++        until then simulate() is not fully seed-reproducible on this path.
++        """
++        a_0 = float(parameters['a_0'])
++        T_int = self.args['T']
+         if 'spatial_cov' in self.args:
+-            geo_df = self.spatial_cov.copy()
+-            geo_df['log_intensity'] = a_0 + np.log(self.args['T']) + parameters['b_0']
++            geo_df = self.spatial_cov
++            mu = np.exp(a_0 + np.asarray(parameters['b_0']))
++            areas = np.asarray(self.args['cov_area'])
+         else:
+-            geo_df = self.A.copy()
+-            geo_df['log_intensity'] = a_0 + np.log(self.args['T'])
+-        A_ = self.args['A_']
+-        geo_df['area'] = geo_df.area/((A_[0,1]-A_[0,0])*(A_[1,1]-A_[1,0]))
+-        sp = self._sim_spatial(geo_df)
+-        return np.stack((sp.x,sp.y,np.random.uniform(0, self.args['T'],size=len(sp)))).T
++            geo_df = self.A
++            A_ = self.args['A_']
++            mu = np.exp(a_0)
++            areas = (geo_df.area / ((A_[0, 1]-A_[0, 0]) * (A_[1, 1]-A_[1, 0]))).values
++        cell_rates = np.asarray(background_masses(mu, areas, T_int))
++        num = np.random.poisson(cell_rates)
++        xy = self._sample_cells(geo_df, num, rng=None)
++        return np.column_stack((xy, np.random.uniform(0, T_int, size=len(xy))))
+ 
+     def _sim_offspring(self,bg,par):
+         i = 0
+diff --git a/tests/test_likelihood_atoms.py b/tests/test_likelihood_atoms.py
+index da0675b..9ff227c 100644
+--- a/tests/test_likelihood_atoms.py
++++ b/tests/test_likelihood_atoms.py
+@@ -23,6 +23,7 @@ from bstpp.likelihood import (aggregate_pair_trigger_values,
+                               seasonal_time_integral,
+                               spatial_refinement_integral,
+                               spatial_refinement_masses,
++                              background_masses,
+                               constant_background_integral,
+                               covariate_background_integral)
+ from bstpp.trigger import Temporal_Exponential, Spatial_Symmetric_Gaussian
+@@ -211,3 +212,20 @@ def test_spatial_refinement_masses_and_integral_share_one_integrand():
+         jnp.asarray(b_0), jnp.asarray(ci)))
+     # integral IS sum(masses) by construction -- exact, not tolerance-based
+     assert total == float(np.float32(np.asarray(jnp.sum(jnp.asarray(masses)))))
++
++
++def test_background_masses_sum_to_the_integral_atoms():
++    rng = np.random.default_rng(9)
++    T = 50.0
++    mu_cells = rng.uniform(0.5, 2.0, 4).astype(np.float32)
++    areas = rng.uniform(0.1, 0.4, 4).astype(np.float32)
++    mc = np.asarray(background_masses(jnp.asarray(mu_cells), jnp.asarray(areas), T))
++    np.testing.assert_allclose(
++        float(mc.sum()),
++        float(covariate_background_integral(jnp.asarray(mu_cells),
++                                            jnp.asarray(areas), T)), rtol=2e-6)
++    dom_areas = np.array([0.6, 0.4], np.float32)   # multi-row domain, |X| = 1
++    m0 = np.asarray(background_masses(jnp.float32(1.3), jnp.asarray(dom_areas), T))
++    np.testing.assert_allclose(
++        float(m0.sum()),
++        float(constant_background_integral(jnp.float32(1.3), T, 1.0)), rtol=2e-6)
+-- 
+2.43.0
+

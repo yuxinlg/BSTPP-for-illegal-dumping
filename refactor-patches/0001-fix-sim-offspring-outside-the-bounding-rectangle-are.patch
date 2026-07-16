@@ -1,0 +1,105 @@
+From 45194ce52b9a25f34722ae7ac291d64747dc46e1 Mon Sep 17 00:00:00 2001
+From: "Phase1 Draft (Claude, for Terhi review)" <draft@local>
+Date: Tue, 14 Jul 2026 05:06:16 +0000
+Subject: [PATCH 1/5] fix(sim): offspring outside the bounding rectangle are
+ discarded BEFORE parenting (Prop 1.1(ii)) -- the cascade loop now clips
+ candidates against A_ (the region the eq. 27 compensator charges) instead of
+ leaving out-of-domain events to parent until simulate()'s final sjoin.
+ Regression test verified RED pre-fix: 1130/1491 cascade events outside the
+ rectangle under a boundary-heavy config (informativeness guard tuned to the
+ post-fix regime: corner immigrants correctly lose ~75% of candidates to the
+ clip). HONEST SEVERITY RECORD, in the test docstring: the induced E[n -
+ Lambda] bias is SECOND-ORDER -- a deliberate boundary-heavy conservation
+ stress test (sigmax_2=0.09, alpha=0.55, R=40) could NOT detect it, which both
+ downgrades the practical severity of the historical behavior and is why the
+ regression pins the structural property, not a CLT statistic. I4's docstring
+ updated: the per-parent cascade law is now m =
+ alpha*F_beta(w)*Q_rect(location), with Q_rect = 1 to ~1e-5 in its
+ center-immigrant configuration. Distribution intentionally corrected (2b
+ contract); inference pins bit-identical; 39/39.
+
+---
+ bstpp/main.py            | 13 ++++++++++++-
+ tests/test_identities.py | 38 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 50 insertions(+), 1 deletion(-)
+
+diff --git a/bstpp/main.py b/bstpp/main.py
+index 909647a..614441d 100644
+--- a/bstpp/main.py
++++ b/bstpp/main.py
+@@ -1847,7 +1847,18 @@ class Hawkes_Model(Point_Process_Model):
+                 # (Poisson(alpha) parents thinned by F(w) => expected offspring alpha*F(w))
+                 if t_dif[0] > self.args['window']:
+                     continue
+-                bg = np.concatenate((bg,[bg[i]+np.append(sp_dif,t_dif)]))
++                cand = bg[i] + np.append(sp_dif, t_dif)
++                # Prop 1.1(ii): offspring outside the bounding rectangle X --
++                # the region the compensator charges (eq. 27) -- are discarded
++                # BEFORE they can parent. Pre-fix they stayed in the cascade
++                # until simulate()'s final sjoin, so hidden out-of-domain
++                # events excited observed ones (second-order count bias; see
++                # test_offspring_cascade_discards_outside_rectangle_before_parenting).
++                A_ = self.args['A_']
++                if not (A_[0, 0] <= cand[0] <= A_[0, 1]
++                        and A_[1, 0] <= cand[1] <= A_[1, 1]):
++                    continue
++                bg = np.concatenate((bg,[cand]))
+             i += 1
+         return bg
+ 
+diff --git a/tests/test_identities.py b/tests/test_identities.py
+index e9a0e16..8960200 100644
+--- a/tests/test_identities.py
++++ b/tests/test_identities.py
+@@ -119,6 +119,11 @@ def test_offspring_thinning_matches_compensator_mass():
+     model = Hawkes_Model(DATA, A_RECT, T_DAYS, cox_background=False, **PRIORS)
+     win = 1.5                            # internal units; << typical lags so truncation bites
+     model.set_window(win)
++    # NOTE: since the rectangle clip (Prop 1.1(ii)), the per-parent law is
++    # m = alpha * F_beta(w) * Q_rect(parent location); this configuration puts
++    # the immigrant at the center with sd 0.1, so Q_rect = 1 to ~1e-5 and the
++    # temporal-mass identity below is unchanged. The spatial factor is
++    # exercised by test_offspring_cascade_* and the finite-ws I4 test.
+     par = dict(alpha=0.6, beta=3.0, sigmax_2=0.01)   # internal units
+ 
+     # The compensator's per-parent mass, via the likelihood's own trigger object:
+@@ -329,3 +334,36 @@ def test_simulated_count_matches_compensator():
+     assert abs(mean) < 5 * se + 1e-6, (
+         f"E[n - Lambda] = {mean:.3f} +/- {se:.3f} over R={R} "
+         f"(mean count {counts.mean():.1f}) -- conservation violated")
++
++
++
++def test_offspring_cascade_discards_outside_rectangle_before_parenting():
++    """Prop 1.1(ii) at the cascade level: offspring falling outside the
++    bounding rectangle X (the region the compensator charges, eq. 27) must be
++    discarded BEFORE they can parent -- so _sim_offspring's own output may
++    never contain an out-of-rectangle event. Pre-fix, out-of-rectangle
++    offspring stayed in the cascade (only simulate()'s final sjoin removed
++    them, after parenting), so hidden events excited observed ones.
++    NOTE (honest severity record): the resulting E[n - Lambda] bias is
++    SECOND-ORDER -- a boundary-heavy conservation stress test (sigmax_2=0.09,
++    alpha=0.55, R=40) could NOT detect it, which is why this regression pins
++    the structural property directly rather than a CLT statistic.
++    """
++    model = Hawkes_Model(DATA, A_RECT, T_DAYS, cox_background=False, **PRIORS)
++    model.set_window(1e9)
++    par = dict(alpha=0.7, beta=2.0, sigmax_2=0.09)   # sd 0.3: heavy leakage
++    A_ = np.asarray(model.args["A_"])
++    corners = np.array([[0.03, 0.03, 0.0], [0.97, 0.97, 5.0], [0.02, 0.95, 10.0]])
++    np.random.seed(31)
++    added = []
++    for r in range(200):
++        out = model._sim_offspring(corners.copy(), par)
++        added.append(out[len(corners):])
++    added = np.concatenate(added)
++    assert len(added) > 50, "stress config produced too few offspring to be informative"
++    inside = ((added[:, 0] >= A_[0, 0]) & (added[:, 0] <= A_[0, 1]) &
++              (added[:, 1] >= A_[1, 0]) & (added[:, 1] <= A_[1, 1]))
++    n_out = int((~inside).sum())
++    assert n_out == 0, (
++        f"{n_out}/{len(added)} cascade events lie outside the rectangle -- "
++        "out-of-domain offspring are parenting before the clip")
+-- 
+2.43.0
+

@@ -1,0 +1,135 @@
+From dd212398059ebf47d85869e74726cab8523e609d Mon Sep 17 00:00:00 2001
+From: "Phase1 Draft (Claude, for Terhi review)" <draft@local>
+Date: Sun, 12 Jul 2026 22:37:19 +0000
+Subject: [PATCH 3/4] refactor(sim): _sim_cox rates from the likelihood's
+ atoms; conditional draws unchanged. N ~ Poisson(Ig * Ih) with Ig =
+ seasonal_time_integral total and Ih = sum of the eq. 24 mass vector -- i.e.
+ the Poisson mean is the likelihood's Itot_time times its Itot_xy BY
+ CONSTRUCTION (spatial_refinement_integral is literally that sum since the
+ previous commit): (I1) and the background count normalizer of (I11) are
+ structural. SCOPE, stated precisely per review: this makes the count
+ NORMALIZER shared; full conservation remains structural only for rectangular
+ or exact-refinement domains -- non-rectangular GeoDataFrame boundary cells
+ are sampled over the full cell then clipped, out-of-domain offspring can
+ parent before clipping, and finite spatial_window is event-side only (all
+ documented in the I11 test and the _sim_cox docstring); SBC stays restricted
+ to rectangular domains with spatial_window=None. One mass vector drives BOTH
+ the count rate and the conditional cell draw (self-normalized); breakpoint
+ masses still drive the conditional time draw (self-normalized, normalization
+ == Ig to float precision, tested). New shared _sample_cells primitive
+ (length-guarded) used here and, next commit, by the pure-Hawkes background.
+ Covariate branch's inline log_h/area deleted (the atom supplies masses for
+ both branches). Verified: 37/37; inference value+gradient pins bit-identical.
+
+---
+ bstpp/main.py | 66 ++++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 42 insertions(+), 24 deletions(-)
+
+diff --git a/bstpp/main.py b/bstpp/main.py
+index 4937fae..45a0dff 100644
+--- a/bstpp/main.py
++++ b/bstpp/main.py
+@@ -30,6 +30,7 @@ from .inference_functions import (spatiotemporal_hawkes_model, spatiotemporal_LG
+ from .trigger import Temporal_Exponential, Spatial_Symmetric_Gaussian
+ from .decode_fields import (decode_temporal_field, decode_seasonal_field,
+                         decode_spatial_field)
++from .likelihood import (seasonal_time_integral, spatial_refinement_masses)
+ 
+ 
+ def _load_decoder(name):
+@@ -1364,28 +1365,34 @@ class Point_Process_Model:
+                          0, n_s - 1)
+         g = np.exp(float(parameters['a_0']) + np.asarray(parameters['f_t'])[t_cell]
+                    + np.asarray(parameters['f_a'])[s_cell])
+-        Ig = float((g * seg_len).sum())
++        # COUNT rate from the likelihood's own atom: the Poisson mean below is
++        # literally Itot_time * (sum of the eq. 24 masses). The breakpoint
++        # masses w = g*seg_len still drive the CONDITIONAL time draw (self-
++        # normalized; its normalization equals Ig to float precision, tested
++        # by test_sim_likelihood_integral_identity).
++        _, Ig = seasonal_time_integral(parameters['a_0'], parameters['f_t'],
++                                       parameters['f_a'], self.args['season_overlap'])
++        Ig = float(Ig)
+         # --- spatial profile on the model's own grid (copy: no shared-state mutation)
+         if 'spatial_cov' in self.args:
+-            geo_df = self.args['int_df'].copy()
+-            log_h = (np.asarray(parameters['b_0'])[geo_df['cov_ind'].values]
+-                     + np.asarray(parameters['f_xy'])[geo_df['comp_grid_id'].values])
+-            area = geo_df['area'].values
++            geo_df = self.args['int_df']   # rows 1:1 with the integration arrays
+         else:
+-            # Support and areas come from the constructor's integration arrays,
+-            # via an INDEXED lookup by comp_grid_id -- NEVER a geometric
+-            # self-join. History: comp_grid.sjoin(self.A) duplicated cells for
+-            # array domains (self.A IS the comp grid there); exact geometry
+-            # predicts 5329 rows, the float-built grid gave 4761 (degree
+-            # histogram {4:36, 6:228, 9:361}; ~11% of adjacencies fail at the
+-            # ulp level), so sampling weights were float-noise-dependent and
+-            # the Poisson mean was inflated 7.62x for a flat field. See
+-            # test_sim_cox_array_domain_support_regression.
++            # Support geometries via INDEXED lookup by comp_grid_id -- never a
++            # geometric self-join (see the array-domain fix commit and
++            # test_sim_cox_array_domain_support_regression).
+             fi = np.asarray(self.args['integration_field_indices'])
+             geo_df = self.comp_grid.set_index('comp_grid_id').loc[fi]
+-            log_h = np.asarray(parameters['f_xy'])[fi]
+-            area = np.asarray(self.args['integration_areas'])
+-        h_mass = np.exp(log_h) * area
++        # One mass vector for BOTH the count rate and the conditional cell
++        # draw: the eq. 24 masses atom (spatial_refinement_integral is its
++        # sum, so Ih is the likelihood's own integral by construction).
++        b_0 = parameters['b_0'] if 'spatial_cov' in self.args else None
++        h_mass = np.asarray(spatial_refinement_masses(
++            parameters['f_xy'], self.args['integration_field_indices'],
++            self.args['integration_areas'], b_0,
++            self.args['integration_cov_indices']))
++        if len(geo_df) != len(h_mass):
++            raise RuntimeError(f"geometry rows ({len(geo_df)}) misaligned with "
++                               f"integration arrays ({len(h_mass)})")
+         Ih = h_mass.sum()
+         # --- exact two-step draw
+         N = np.random.poisson(Ig * Ih)
+@@ -1396,15 +1403,10 @@ class Point_Process_Model:
+         cdf = np.cumsum(w) / w.sum()
+         bins = np.searchsorted(cdf, np.random.uniform(size=N), side='right')
+         times = seg_lo[bins] + np.random.uniform(size=N) * seg_len[bins]
+-        cells = np.random.choice(len(h_mass), size=N, p=h_mass / Ih)
++        cells = np.random.choice(len(h_mass), size=N, p=h_mass / h_mass.sum())
+         counts = np.bincount(cells, minlength=len(h_mass))
+-        nz = counts > 0
+-        pts = geo_df[nz].sample_points(size=counts[nz], rng=rng).explode(index_parts=False)
+-        xy = np.stack((pts.x.values, pts.y.values), axis=1)
++        xy = self._sample_cells(geo_df, counts, rng=rng)
+         # times and locations are independent given the factorization: pairing is arbitrary
+-        if len(xy) != len(times):
+-            raise RuntimeError(f"sample_points returned {len(xy)} points for "
+-                               f"{len(times)} requested; refusing to truncate")
+         return np.column_stack((xy, times))
+ 
+ 
+@@ -1793,6 +1795,22 @@ class Hawkes_Model(Point_Process_Model):
+ #------------------------------------------------
+ 
+ 
++    def _sample_cells(self, geo_df, counts, rng=None):
++        """Uniform points within cells: counts[k] points in geo_df row k.
++
++        Shared by the Cox and pure-Hawkes background samplers so both paths
++        draw locations from one tested primitive. rng=None means geopandas'
++        own nondeterministic default -- the pure-Hawkes caller deliberately
++        passes None to preserve its documented legacy behavior.
++        """
++        counts = np.asarray(counts)
++        nz = counts > 0
++        pts = geo_df[nz].sample_points(size=counts[nz], rng=rng).explode(index_parts=False)
++        if len(pts) != counts.sum():
++            raise RuntimeError(f"sample_points returned {len(pts)} points for "
++                               f"{counts.sum()} requested; refusing to truncate")
++        return np.stack((pts.x.values, pts.y.values), axis=1)
++
+     def _sim_hawkes_bg(self,parameters):
+         a_0 = parameters['a_0']
+         if 'spatial_cov' in self.args:
+-- 
+2.43.0
+

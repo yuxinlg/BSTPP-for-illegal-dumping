@@ -1,0 +1,299 @@
+From 77809e628411ce80c92ea5f3e471e49259de7bee Mon Sep 17 00:00:00 2001
+From: "Phase1 Draft (Claude, for Terhi review)" <draft@local>
+Date: Tue, 14 Jul 2026 05:06:16 +0000
+Subject: [PATCH 4/5] refactor(sim): RNG unification, rebased across the
+ real-unit trigger contract -- one numpy Generator drives EVERY simulation
+ draw when passed (Poisson counts, inverse-CDF uniforms, cell multinomial,
+ sample_points, offspring counts, both trigger simulations), giving fully
+ seed-reproducible simulate() for the first time, INCLUDING the pure-Hawkes
+ background path whose sample_points draw was historically unseeded. Content
+ is the withdrawn 2c patch 3 adapted to the real-unit _sim_offspring: the
+ Generator now draws the REAL-unit spatial displacement directly (no internal
+ draw, no box-span rescale) and the thinning goes through
+ within_real_box_window -- the rebase conflicts were exactly the two prior
+ semantics commits' regions (_sim_offspring body,
+ Spatial_Symmetric_Gaussian.simulate_trigger) and were resolved by taking BOTH
+ changes. Backward compatibility preserved: rng=None falls back to np.random
+ (plus geopandas' unseeded sample_points) so legacy call sites keep working;
+ user-defined triggers with the old simulate_trigger(pars) signature are
+ detected by TypeError fallback and stay on np.random (Temporal_Exponential /
+ Spatial_Symmetric_Gaussian gain an rng kwarg). Capture-based tests adapted
+ via a Generator-subclass spy (a duck-typed wrapper fails inside geopandas'
+ default_rng). New parametrized test: identically seeded fresh Generators
+ produce byte-identical simulations for plain hawkes AND cox. Distribution
+ preserved per config where rng semantics are unchanged; streams intentionally
+ differ where draws moved onto the Generator (2b contract). Verified: 48/48
+ (reproducibility test repeated, green twice); inference value+gradient pins
+ bit-identical across all four pin configs; ruff clean.
+
+---
+ bstpp/main.py                   | 57 ++++++++++++++++++++------------
+ bstpp/trigger.py                | 10 +++---
+ tests/test_identities.py        | 24 ++++++++++++++
+ tests/test_seasonal_integral.py | 58 +++++++++++++++------------------
+ 4 files changed, 94 insertions(+), 55 deletions(-)
+
+diff --git a/bstpp/main.py b/bstpp/main.py
+index 59599e4..0c55ace 100644
+--- a/bstpp/main.py
++++ b/bstpp/main.py
+@@ -1335,8 +1335,10 @@ class Point_Process_Model:
+ 
+         rng: numpy.random.Generator, optional
+             Used for the spatial GeoSeries.sample_points draw, which ignores numpy's legacy
+-            global seed; the Poisson / inverse-CDF / multinomial draws use np.random, so seed
+-            those with np.random.seed(...). Provide both for a fully reproducible draw.
++            When provided, rng drives EVERY draw (Poisson count, inverse-CDF
++            uniforms, cell multinomial, sample_points): one Generator gives a
++            fully reproducible draw. rng=None falls back to np.random (plus
++            geopandas' own unseeded sample_points), preserving legacy behavior.
+ 
+         Known approximations (all vanish for a rectangle domain -- use a rectangle A for
+         simulate-and-recover / SBC):
+@@ -1399,15 +1401,16 @@ class Point_Process_Model:
+                                f"integration arrays ({len(h_mass)})")
+         Ih = h_mass.sum()
+         # --- exact two-step draw
+-        N = np.random.poisson(Ig * Ih)
++        gen = rng if rng is not None else np.random
++        N = gen.poisson(Ig * Ih)
+         if N == 0:
+             return np.empty((0, 3))
+         # inverse-CDF on segment MASS (g_j * len_j), then uniform within the chosen segment
+         w = g * seg_len
+         cdf = np.cumsum(w) / w.sum()
+-        bins = np.searchsorted(cdf, np.random.uniform(size=N), side='right')
+-        times = seg_lo[bins] + np.random.uniform(size=N) * seg_len[bins]
+-        cells = np.random.choice(len(h_mass), size=N, p=h_mass / h_mass.sum())
++        bins = np.searchsorted(cdf, gen.uniform(size=N), side='right')
++        times = seg_lo[bins] + gen.uniform(size=N) * seg_len[bins]
++        cells = gen.choice(len(h_mass), size=N, p=h_mass / h_mass.sum())
+         counts = np.bincount(cells, minlength=len(h_mass))
+         xy = self._sample_cells(geo_df, counts, rng=rng)
+         # times and locations are independent given the factorization: pairing is arbitrary
+@@ -1824,7 +1827,7 @@ class Hawkes_Model(Point_Process_Model):
+                                f"{counts.sum()} requested; refusing to truncate")
+         return np.stack((pts.x.values, pts.y.values), axis=1)
+ 
+-    def _sim_hawkes_bg(self, parameters):
++    def _sim_hawkes_bg(self, parameters, rng=None):
+         """Constant / covariate background via per-cell Poisson superposition.
+ 
+         Cell rates are background_masses(...) -- the integrand of the
+@@ -1833,11 +1836,12 @@ class Hawkes_Model(Point_Process_Model):
+         likelihood share one background-mass expression (no runtime assert:
+         one shared computation plus tests, per review). Superposing per-cell
+         Poisson draws is distributionally identical to Poisson(total) +
+-        multinomial. Legacy quirk preserved and documented: the sample_points
+-        draw here is UNSEEDED (ignores np.random and the rng argument);
+-        unifying all draws under one Generator is a recorded follow-up, and
+-        until then simulate() is not fully seed-reproducible on this path.
++        multinomial. RNG: when rng is provided it drives EVERY draw here
++        (Poisson counts, sample_points, uniform times) -- the historical
++        unseeded-sample_points quirk is resolved; rng=None preserves the old
++        np.random + unseeded behavior for legacy callers.
+         """
++        gen = rng if rng is not None else np.random
+         a_0 = float(parameters['a_0'])
+         T_int = self.args['T']
+         if 'spatial_cov' in self.args:
+@@ -1850,21 +1854,34 @@ class Hawkes_Model(Point_Process_Model):
+             mu = np.exp(a_0)
+             areas = (geo_df.area / ((A_[0, 1]-A_[0, 0]) * (A_[1, 1]-A_[1, 0]))).values
+         cell_rates = np.asarray(background_masses(mu, areas, T_int))
+-        num = np.random.poisson(cell_rates)
+-        xy = self._sample_cells(geo_df, num, rng=None)
+-        return np.column_stack((xy, np.random.uniform(0, T_int, size=len(xy))))
++        num = gen.poisson(cell_rates)
++        xy = self._sample_cells(geo_df, num, rng=rng)
++        return np.column_stack((xy, gen.uniform(0, T_int, size=len(xy))))
++
++    def _sim_offspring(self, bg, par, rng=None):
++        # One Generator drives every draw when provided (offspring counts and
++        # both trigger simulations); rng=None falls back to np.random so
++        # legacy call sites and user-defined triggers keep working. User
++        # triggers with the old simulate_trigger(pars) signature are called
++        # without rng (TypeError fallback) and stay on np.random.
++        gen = rng if rng is not None else np.random
++
++        def _trig_draw(trig):
++            try:
++                return trig.simulate_trigger(par, rng=rng)
++            except TypeError:
++                return trig.simulate_trigger(par)
+ 
+-    def _sim_offspring(self,bg,par):
+         i = 0
+         while i < len(bg):
+-            for j in range(np.random.poisson(lam=par['alpha'])):
++            for j in range(gen.poisson(lam=par['alpha'])):
+                 #simulate trigger: REAL-unit contract -- the spatial trigger
+                 #draws the offspring displacement directly in real coordinate
+                 #units, matching the real-unit kernel the likelihood evaluates
+                 #(the historical internal draw * per-axis box-span rescale is
+                 #gone; that rescale WAS the aspect-ratio anisotropy defect).
+-                sp_dif = self.args['sp_trig'].simulate_trigger(par)
+-                t_dif = [self.args['t_trig'].simulate_trigger(par)]
++                sp_dif = _trig_draw(self.args['sp_trig'])
++                t_dif = [_trig_draw(self.args['t_trig'])]
+                 # window-consistent thinning: match the truncated-kernel likelihood
+                 # (Poisson(alpha) parents thinned by F(w) => expected offspring alpha*F(w))
+                 if t_dif[0] > self.args['window']:
+@@ -1933,8 +1950,8 @@ class Hawkes_Model(Point_Process_Model):
+         if self.args['model'] == 'cox_hawkes':
+             bg = self._sim_cox(parameters, rng=rng)
+         else:
+-            bg = self._sim_hawkes_bg(parameters)
+-        sample = self._sim_offspring(bg,parameters)
++            bg = self._sim_hawkes_bg(parameters, rng=rng)
++        sample = self._sim_offspring(bg, parameters, rng=rng)
+         #filter out offspring after cutoff
+         sample = sample[sample.T[2]<self.args['T']]
+         geometry = gpd.points_from_xy(sample.T[0], sample.T[1],crs=self.A.crs)
+diff --git a/bstpp/trigger.py b/bstpp/trigger.py
+index 7c35b8f..e3a9d7c 100644
+--- a/bstpp/trigger.py
++++ b/bstpp/trigger.py
+@@ -232,8 +232,9 @@ class Temporal_Exponential(Trigger):
+     
+     """
+     
+-    def simulate_trigger(self, pars):
+-        return np.random.exponential(pars['beta'])
++    def simulate_trigger(self, pars, rng=None):
++        gen = rng if rng is not None else np.random
++        return gen.exponential(pars['beta'])
+     
+     def compute_trigger(self, pars, pairs_and_values):
+         coords, values = pairs_and_values
+@@ -264,8 +265,9 @@ class Spatial_Symmetric_Gaussian(Trigger):
+     the bounding rectangle's shape.
+     """
+ 
+-    def simulate_trigger(self, pars):
+-        return np.random.normal(scale=pars['sigmax_2']**0.5,size=2)
++    def simulate_trigger(self, pars, rng=None):
++        gen = rng if rng is not None else np.random
++        return gen.normal(scale=pars['sigmax_2']**0.5,size=2)
+     
+     def compute_trigger(self, pars, pairs_and_dxdy):
+         coords, dx_vals, dy_vals = pairs_and_dxdy
+diff --git a/tests/test_identities.py b/tests/test_identities.py
+index 733535e..55fbac1 100644
+--- a/tests/test_identities.py
++++ b/tests/test_identities.py
+@@ -626,3 +626,27 @@ def test_trigger_legs_invariant_to_bounding_rectangle():
+     assert np.array_equal(outs[0], outs[1]), \
+         "offspring cascades differ across bounding rectangles under a shared seed"
+     assert len(outs[0]) > 1, "cascade produced no offspring; seed/config uninformative"
++
++
++@pytest.mark.parametrize("cox", [False, "cox"])
++def test_simulate_fully_reproducible_with_generator(cox):
++    """RNG unification: one Generator drives every draw, so two simulate()
++    calls with identically seeded fresh Generators are byte-identical --
++    including the pure-Hawkes background path, whose sample_points draw was
++    historically unseeded. (rng=None preserves the legacy behavior.)"""
++    if cox == "cox" and not os.path.isfile(_SEASONAL_DECODER):
++        pytest.skip("seasonal decoder artifact absent")
++    model = Hawkes_Model(DATA, A_GDF, T_DAYS, cox_background=cox, **PRIORS)
++    if cox == "cox":
++        tr = handlers.trace(handlers.seed(model.model,
++                                          jax.random.PRNGKey(3))).get_trace(model.args)
++        truth = {k: np.asarray(tr[k]["value"]) for k in
++                 ("a_0", "z_temporal", "z_seasonal", "z_spatial")}
++        truth.update(alpha=np.float32(0.25), beta=np.float32(2.0),
++                     sigmax_2=np.float32(0.02))
++    else:
++        truth = dict(a_0=0.4, alpha=0.3, beta=2.0, sigmax_2=0.02)
++    a = model.simulate(parameters=dict(truth), rng=np.random.default_rng(17))
++    b = model.simulate(parameters=dict(truth), rng=np.random.default_rng(17))
++    np.testing.assert_array_equal(np.asarray(a[["X", "Y", "T"]], dtype=np.float64),
++                                  np.asarray(b[["X", "Y", "T"]], dtype=np.float64))
+diff --git a/tests/test_seasonal_integral.py b/tests/test_seasonal_integral.py
+index 199fa82..b5856f9 100644
+--- a/tests/test_seasonal_integral.py
++++ b/tests/test_seasonal_integral.py
+@@ -49,6 +49,27 @@ PRIORS = dict(a_0=dist.Normal(0, 5), alpha=dist.Beta(2, 2),
+               beta=dist.HalfNormal(1.0), sigmax_2=dist.HalfNormal(0.25))
+ 
+ 
++
++class _SpyGen(np.random.Generator):
++    """A real numpy Generator (subclass, so geopandas' default_rng(rng)
++    passes it through) that records the Poisson mean and the multinomial p
++    vector _sim_cox uses. Needed since the RNG unification: all draws go
++    through the passed Generator, so module-level np.random spies no longer
++    see them (test-capture adaptation to the signed-off API change)."""
++
++    def __init__(self, seed):
++        super().__init__(np.random.PCG64(seed))
++        self.captured = {}
++
++    def poisson(self, lam, *a, **k):
++        self.captured.setdefault("lam", float(np.asarray(lam)))
++        return super().poisson(lam, *a, **k)
++
++    def choice(self, n, *a, **k):
++        self.captured["p"] = np.asarray(k["p"])
++        self.captured["support"] = n
++        return super().choice(n, *a, **k)
++
+ def _model(offset_seasonal=0):
+     # season_overlap is built for every model in __init__, so a plain (decoder-free)
+     # Hawkes model is enough to exercise the overlap matrix and the integral formulas.
+@@ -168,20 +189,10 @@ def test_real_sim_cox_uses_exact_integral():
+ 
+     # capture the real Poisson mean (Ig * Ih) from inside _sim_cox
+     captured = {}
+-    real_poisson = np.random.poisson
+-
+-    def spy(lam, *a, **k):
+-        captured["lam"] = float(lam)
+-        return real_poisson(lam, *a, **k)
+-
+     params = {"a_0": a_0, "f_t": f_t, "f_a": f_a, "f_xy": f_xy}
+-    np.random.seed(0)
+-    orig = np.random.poisson
+-    try:
+-        np.random.poisson = spy
+-        bg = model._sim_cox(params)
+-    finally:
+-        np.random.poisson = orig
++    spy = _SpyGen(0)
++    bg = model._sim_cox(params, rng=spy)
++    captured.update(spy.captured)
+     assert bg.ndim == 2 and bg.shape[1] == 3
+     # STRUCTURAL COUNT TARGET: the Poisson mean must equal the likelihood's own
+     # compensator, Itot_time * Itot_xy, both read from the trace. This test
+@@ -236,24 +247,9 @@ def test_sim_cox_array_domain_support_regression():
+               "f_t": np.zeros(model.args["n_t"], np.float32),
+               "f_a": np.zeros(model.args["n_s"], np.float32),
+               "f_xy": np.zeros(n_cells, np.float32)}
+-    captured = {}
+-    real_poisson, real_choice = np.random.poisson, np.random.choice
+-
+-    def spy_poisson(lam, *a, **k):
+-        captured["lam"] = float(lam)
+-        return real_poisson(lam, *a, **k)
+-
+-    def spy_choice(n, *a, **k):
+-        captured["p"] = np.asarray(k["p"])
+-        captured["support"] = n
+-        return real_choice(n, *a, **k)
+-
+-    np.random.seed(3)
+-    try:
+-        np.random.poisson, np.random.choice = spy_poisson, spy_choice
+-        bg = model._sim_cox(params, rng=np.random.default_rng(3))
+-    finally:
+-        np.random.poisson, np.random.choice = real_poisson, real_choice
++    spy = _SpyGen(3)
++    bg = model._sim_cox(params, rng=spy)
++    captured = spy.captured
+ 
+     assert bg.ndim == 2 and bg.shape[1] == 3
+     # support: exactly one row per cell
+-- 
+2.43.0
+
