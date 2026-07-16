@@ -1350,6 +1350,59 @@ class Point_Process_Model:
         self.points.plot(ax=ax[1],color='red',marker='x',**kwargs)
         ax[1].set_title('Mean Posterior $f_s + X(s)w$ With Events')
 
+    def _sample_cells(self, geo_df, counts, rng=None):
+        """Uniform points within cells: counts[k] points in geo_df row k.
+
+        Shared by the Cox and pure-Hawkes background samplers so both paths
+        draw locations from one tested primitive. rng=None means geopandas'
+        own nondeterministic default -- the pure-Hawkes caller deliberately
+        passes None to preserve its documented legacy behavior.
+
+        Defined on Point_Process_Model because _sim_cox (also on this class)
+        calls it: base-class code must not depend on child-only methods.
+        LGCP_Model.simulate() reaches this through _sim_cox.
+        """
+        counts = np.asarray(counts)
+        nz = counts > 0
+        pts = geo_df[nz].sample_points(size=counts[nz], rng=rng).explode(index_parts=False)
+        if len(pts) != counts.sum():
+            raise RuntimeError(f"sample_points returned {len(pts)} points for "
+                               f"{counts.sum()} requested; refusing to truncate")
+        return np.stack((pts.x.values, pts.y.values), axis=1)
+
+    def _decode_field_parameters(self, parameters):
+        """Decode VAE latents to fields in a simulation parameter dict, in place.
+
+        Same decode functions as the model layer (decode_fields.py). Fills
+        f_t / f_a / f_xy from z_temporal / z_seasonal / z_spatial when the
+        decoded field is absent (posterior sample dicts from mcmc.get_samples()
+        carry only sample sites, not deterministics), and b_0 from w for
+        covariate models. Shared by Hawkes_Model.simulate() and
+        LGCP_Model.simulate() so there is exactly one copy of this logic --
+        it was previously inlined in Hawkes_Model.simulate() only, leaving
+        the LGCP path unable to consume z-only parameter dicts.
+        """
+        if 'f_t' not in parameters and 'z_temporal' in parameters:
+            v_t = decode_temporal_field(parameters['z_temporal'],
+                                        self.args["decoder_params_temporal"],
+                                        self.args["hidden_dim_temporal"], self.args["n_t"])
+            parameters['f_t'] = v_t[0:self.args["n_t"]]
+        if 'f_a' not in parameters and 'z_seasonal' in parameters:
+            v_a = decode_seasonal_field(parameters['z_seasonal'],
+                                        self.args["decoder_params_seasonal"],
+                                        self.args["hidden_dim1_seasonal"],
+                                        self.args["hidden_dim2_seasonal"], self.args["n_s"])
+            parameters['f_a'] = v_a[0:self.args["n_s"]]
+        if 'f_xy' not in parameters and 'z_spatial' in parameters:
+            # exp(sp_var_mu) calibration applied INSIDE decode_spatial_field
+            parameters['f_xy'] = decode_spatial_field(
+                parameters['z_spatial'], self.args["decoder_params_spatial"],
+                self.args["hidden_dim1_spatial"], self.args["hidden_dim2_spatial"],
+                self.args["n_xy"], self.args['sp_var_mu'])
+        if 'w' in parameters and 'b_0' not in parameters:
+            parameters['b_0'] = self.args['spatial_cov'] @ parameters['w']
+        return parameters
+
     def _sim_cox(self, parameters, rng=None):
         """Exact sampler for the factorized Cox background, in internal units.
 
@@ -1842,22 +1895,6 @@ class Hawkes_Model(Point_Process_Model):
 #------------------------------------------------
 
 
-    def _sample_cells(self, geo_df, counts, rng=None):
-        """Uniform points within cells: counts[k] points in geo_df row k.
-
-        Shared by the Cox and pure-Hawkes background samplers so both paths
-        draw locations from one tested primitive. rng=None means geopandas'
-        own nondeterministic default -- the pure-Hawkes caller deliberately
-        passes None to preserve its documented legacy behavior.
-        """
-        counts = np.asarray(counts)
-        nz = counts > 0
-        pts = geo_df[nz].sample_points(size=counts[nz], rng=rng).explode(index_parts=False)
-        if len(pts) != counts.sum():
-            raise RuntimeError(f"sample_points returned {len(pts)} points for "
-                               f"{counts.sum()} requested; refusing to truncate")
-        return np.stack((pts.x.values, pts.y.values), axis=1)
-
     def _sim_hawkes_bg(self, parameters, rng=None):
         """Constant / covariate background via per-cell Poisson superposition.
 
@@ -1956,27 +1993,8 @@ class Hawkes_Model(Point_Process_Model):
         """
         if parameters is None:
             parameters = {k:np.array(v).mean(axis=0) for k,v in self.samples.items()}
-        # Same decode functions as the model layer (decoders.py): before
-        # extraction this was the THIRD independent copy of the decoder logic.
-        if 'f_t' not in parameters and 'z_temporal' in parameters:
-            v_t = decode_temporal_field(parameters['z_temporal'],
-                                        self.args["decoder_params_temporal"],
-                                        self.args["hidden_dim_temporal"], self.args["n_t"])
-            parameters['f_t'] = v_t[0:self.args["n_t"]]
-        if 'f_a' not in parameters and 'z_seasonal' in parameters:
-            v_a = decode_seasonal_field(parameters['z_seasonal'],
-                                        self.args["decoder_params_seasonal"],
-                                        self.args["hidden_dim1_seasonal"],
-                                        self.args["hidden_dim2_seasonal"], self.args["n_s"])
-            parameters['f_a'] = v_a[0:self.args["n_s"]]
-        if 'f_xy' not in parameters and 'z_spatial' in parameters:
-            # exp(sp_var_mu) calibration applied INSIDE decode_spatial_field
-            parameters['f_xy'] = decode_spatial_field(
-                parameters['z_spatial'], self.args["decoder_params_spatial"],
-                self.args["hidden_dim1_spatial"], self.args["hidden_dim2_spatial"],
-                self.args["n_xy"], self.args['sp_var_mu'])
-        if 'w' in parameters and 'b_0' not in parameters:
-            parameters['b_0'] = self.args['spatial_cov'] @ parameters['w']
+        # Shared decode of z latents -> fields (one copy, on the base class).
+        parameters = self._decode_field_parameters(parameters)
 
         if self.args['model'] == 'cox_hawkes':
             bg = self._sim_cox(parameters, rng=rng)
@@ -2056,18 +2074,25 @@ class LGCP_Model(Point_Process_Model):
         parameters: dict
             Parameters to simulate from. If parameters is None, use mean of posterior samples. keys are string parameter names. values are np.array or float. Names must be same as those that appear in the sample from the model.
         rng: numpy.random.Generator, optional
-            Reproducible spatial sampling; passed through to _sim_cox.sample_points. Seed the
-            Poisson/CDF draws separately with np.random.seed(...). See _sim_cox.
+            One Generator drives every draw when provided (see _sim_cox); identically
+            seeded fresh Generators give byte-identical simulations.
         Returns
         -------
             geopandas DataFrame: ['X','Y','T'] columns (real units)
-                simulated data
+                simulated data, clipped to the domain A
         """
         if parameters is None:
             parameters = {k:np.array(v).mean(axis=0) for k,v in self.samples.items()}
+        # Shared decode of z latents -> fields (one copy, on the base class);
+        # mcmc.get_samples() dicts carry z sites only, so without this the
+        # LGCP path raised KeyError('f_t') on any z-only parameter dict.
+        parameters = self._decode_field_parameters(parameters)
         sample = self._sim_cox(parameters, rng=rng)
         geometry = gpd.points_from_xy(sample.T[0], sample.T[1],crs=self.A.crs)
         points = gpd.GeoDataFrame(data=sample,geometry=geometry,columns=['X','Y','T'])
         points['T'] = (points['T']*self.T/self.args['T'])
-
-        return points
+        # Clip to the true domain polygon, mirroring Hawkes_Model.simulate():
+        # _sim_cox samples boundary cells over the FULL cell and documents that
+        # "simulate()'s A-filter" clips them -- a promise this method previously
+        # did not keep (returned points could fall outside a non-rectangular A).
+        return points.sjoin(self.A[['geometry']])[['X','Y','T','geometry']]
