@@ -1,0 +1,4 @@
+PASS [cox/gdf-box] mean 200.0 vs lam 200.0 (z=+0.04); var/mean 0.929 (z=-0.71); seg max-z 2.90 min-p 1; cell max-z 2.37 min-p 0.00939
+PASS [cox/ARRAY-domain (the intentionally changed case)] mean 200.0 vs lam 200.0 (z=+0.04); var/mean 0.929 (z=-0.71); seg max-z 2.90 min-p 1; cell max-z 2.37 min-p 0.00939
+PASS [hawkes-bg/cov] per-cell mean [21.17, 12.19, 25.21, 10.18] vs rates [20.61, 12.5, 25.17, 10.23]; z [2.07, -1.7, 0.13, -0.33]
+VERIFY_SIM: ALL PASS
