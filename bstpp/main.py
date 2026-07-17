@@ -519,7 +519,7 @@ class Point_Process_Model:
 
 
     def run_mcmc(self,batch_size=1,num_warmup=500,num_samples=1000,
-                 num_chains=1,thinning=1):
+                 num_chains=1,thinning=1,rng_key=None):
         """
         Run MCMC posterior sampling on model.
 
@@ -531,14 +531,22 @@ class Point_Process_Model:
         num_samples: int
         num_chains: int
         thinning: int
+        rng_key: jax PRNGKey, optional
+            Key used for NUTS initialization and transitions. When omitted,
+            preserve the package's historical fixed-key behavior. Supplying a
+            key lets replicated workflows such as SBC use an independent,
+            reproducible MCMC stream for each fit.
         """
         self.args["batch_size"]= batch_size
         self.args["num_warmup"]= num_warmup
         self.args["num_samples"] = num_samples
         self.args["num_chains"] = num_chains
         self.args["thinning"] = thinning
-        rng_key, rng_key_predict = random.split(random.PRNGKey(10))
-        rng_key, rng_key_post, rng_key_pred = random.split(rng_key, 3)
+        if rng_key is None:
+            rng_key, rng_key_predict = random.split(random.PRNGKey(10))
+            rng_key, rng_key_post, rng_key_pred = random.split(rng_key, 3)
+        else:
+            rng_key_post = rng_key
 
         self.mcmc = run_mcmc(rng_key_post, self.model, self.args)
         self.samples=self.mcmc.get_samples()

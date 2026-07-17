@@ -40,11 +40,18 @@ PRE-REGISTERED (restated from the runbook; do not re-litigate mid-run):
   divergence counts are recorded (collectable since the extra_fields change)
   and summarized in the report; a material divergence rate is itself a
   finding to investigate before trusting the ranks.
-* NUTS rng: the fit path seeds NUTS from a fixed PRNGKey(10)
-  (bstpp.main.run_mcmc). This is deliberately left untouched: SBC replicate
-  independence comes from the (theta, y) draws, and conditional on y the
-  MCMC approximation error is what it is regardless of key; a per-replicate
-  key would require a fit-path change for no validity gain.
+* NUTS rng: every replicate receives an independent, reproducible MCMC key
+  from the same SeedSequence tree as its prior and simulation streams. Reusing
+  one fixed posterior-sampling stream across replicates would condition the
+  rank ensemble on one set of Monte Carlo randomness and invalidate the iid
+  discrete-uniform reference used by the report.
+* MCMC dependence: NUTS returns an unthinned chain (`num_samples` raw draws).
+  For every ranked functional the harness estimates the minimum ESS across 19
+  empirical-quantile indicator functions, following Talts et al. Algorithm 2.
+  The replicate aborts rather than being skipped if any primary ESS is below
+  `min_ess_ratio * rank_draws`; otherwise the raw chain is uniformly thinned
+  to exactly `rank_draws` states. Thus L=127 is earned, not assumed from a
+  fixed thinning factor.
 * Scope: rectangular unit-box domain, spatial_window=None, temporal
   window=None (-> full window T, the exact untruncated likelihood; simulator
   offspring beyond T are filtered, so likelihood and simulator agree exactly
@@ -85,7 +92,7 @@ annotation, and provenance. A resumed run must hash-match the stored config
 depend only on (master_seed, r).
 
 Usage:
-  python scripts/sbc.py check  --draws 200          # prior-predictive event-count check (no fits)
+  python scripts/sbc.py check  --draws 200          # independent prior-predictive budget check
   python scripts/sbc.py run    --replicates 150     # the real run (overnight, resumable)
   python scripts/sbc.py report                      # ranks -> ECDF test + histograms (+ --plot)
 """
@@ -96,6 +103,7 @@ import hashlib
 import io
 import json
 import os
+import platform
 import subprocess
 import sys
 import time
@@ -116,6 +124,7 @@ from bstpp.main import Hawkes_Model
 
 T_DAYS = 2.5 * 365.0
 A_RECT = np.array([[0.0, 1.0], [0.0, 1.0]])
+PRIOR_CHECK_MASTER_SEED = 20260717
 LATENT = ["a_0", "alpha", "beta", "sigmax_2"]
 PRIMARY = ["alpha", "beta", "sigmax_2", "log_background"]
 DETERMINISTIC = ["Itot_txy", "Itot_excite"]
@@ -170,8 +179,9 @@ class SBCConfig:
     replicates: int = 150
     master_seed: int = 0
     num_warmup: int = 300
-    num_samples: int = 508     # 508 post-warmup draws, thinned by 4 -> L = 127
-    thinning: int = 4          # (Talts et al.; L derived from the fit, asserted, not assumed)
+    num_samples: int = 508     # raw post-warmup transitions; MCMC thinning is always 1
+    rank_draws: int = 127      # L after ESS-qualified uniform thinning
+    min_ess_ratio: float = 0.95
     out_dir: str = os.path.join("results", "sbc_stage1")
 
     def identity(self, priors):
@@ -187,8 +197,10 @@ class SBCConfig:
             "master_seed": self.master_seed,
             "num_warmup": self.num_warmup,
             "num_samples": self.num_samples,
-            "thinning": self.thinning,
+            "rank_draws": self.rank_draws,
+            "min_ess_ratio": self.min_ess_ratio,
             "priors": prior_spec(priors),
+            "implementation": implementation_identity(),
         }
 
     def config_hash(self, priors):
@@ -196,21 +208,45 @@ class SBCConfig:
         return hashlib.sha256(blob).hexdigest()
 
 
-def provenance():
-    def _git(*cmd):
-        try:
-            out = subprocess.run(["git", *cmd], capture_output=True, text=True,
-                                 cwd=os.path.dirname(os.path.abspath(__file__)))
-            return out.stdout.strip() if out.returncode == 0 else None
-        except OSError:
-            return None
+def _git(*cmd):
+    try:
+        repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        out = subprocess.run(["git", *cmd], capture_output=True, text=True,
+                             cwd=repo_root)
+        return out.stdout if out.returncode == 0 else None
+    except OSError:
+        return None
+
+
+def _file_sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def implementation_identity():
+    """Implementation/environment fields that must not change on resume."""
     import numpyro
+    diff = _git("diff", "--binary", "HEAD", "--", "bstpp", "scripts/sbc.py")
     return {
-        "commit": _git("rev-parse", "HEAD"),
-        "branch": _git("rev-parse", "--abbrev-ref", "HEAD"),
+        "commit": (_git("rev-parse", "HEAD") or "").strip() or None,
+        "tracked_code_diff_sha256": (
+            hashlib.sha256(diff.encode("utf-8")).hexdigest() if diff is not None else None
+        ),
+        "sbc_script_sha256": _file_sha256(os.path.abspath(__file__)),
         "jax": jax.__version__,
         "numpyro": numpyro.__version__,
         "numpy": np.__version__,
+        "python": platform.python_version(),
+    }
+
+
+def provenance():
+    return {
+        **implementation_identity(),
+        "branch": (_git("rev-parse", "--abbrev-ref", "HEAD") or "").strip() or None,
         "date": time.strftime("%Y-%m-%d %H:%M:%S"),
         "caveat": "MACHINE-LOCAL results; never compare against runs from another machine",
     }
@@ -233,11 +269,12 @@ def replicate_seeds(master_seed, r):
     """Independent, reproducible per-replicate streams via SeedSequence
     spawning (not ad-hoc arithmetic on the master seed)."""
     ss = np.random.SeedSequence([int(master_seed), int(r)])
-    c_prior, c_sim, c_legacy, c_tie = ss.spawn(4)
+    c_prior, c_sim, c_legacy, c_mcmc, c_tie = ss.spawn(5)
     return {
         "prior_key": jax.random.PRNGKey(int(c_prior.generate_state(1)[0]) % (2 ** 31)),
         "sim_rng": np.random.default_rng(c_sim),
         "legacy_seed": int(c_legacy.generate_state(1)[0]) % (2 ** 31),
+        "mcmc_key": jax.random.PRNGKey(int(c_mcmc.generate_state(1)[0]) % (2 ** 31)),
         "tie_rng": np.random.default_rng(c_tie),
     }
 
@@ -289,6 +326,55 @@ def rank_of(truth_val, draws, tie_rng):
     return below, ties
 
 
+def _ess_1d(values):
+    """Single-chain autocorrelation ESS using a positive paired sequence.
+
+    This intentionally caps antithetic estimates at the nominal draw count:
+    SBC needs evidence that dependence is negligible, not credit for negative
+    autocorrelation.
+    """
+    x = np.asarray(values, dtype=float).reshape(-1)
+    n = len(x)
+    if n < 4:
+        return float(n)
+    x = x - x.mean()
+    var = float(np.dot(x, x) / n)
+    if not np.isfinite(var) or var <= 0:
+        return 1.0
+    acov = np.correlate(x, x, mode="full")[n - 1:] / n
+    rho = acov / acov[0]
+    positive_pairs = []
+    for lag in range(1, n - 1, 2):
+        pair = float(rho[lag] + rho[lag + 1])
+        if not np.isfinite(pair) or pair <= 0:
+            break
+        if positive_pairs:
+            pair = min(pair, positive_pairs[-1])
+        positive_pairs.append(pair)
+    tau = max(1.0, 1.0 + 2.0 * sum(positive_pairs))
+    return float(min(n, n / tau))
+
+
+def min_quantile_ess(draws, n_quantiles=19):
+    """Minimum ESS of empirical-CDF indicators across interior quantiles."""
+    x = np.asarray(draws, dtype=float).reshape(-1)
+    if len(x) < 4:
+        return float(len(x))
+    probs = np.linspace(0.05, 0.95, n_quantiles)
+    cuts = np.quantile(x, probs)
+    return float(min(_ess_1d(x <= cut) for cut in cuts))
+
+
+def uniformly_thin(draws, L):
+    """Uniformly thin a raw chain to exactly L states, truncating leftovers."""
+    x = np.asarray(draws)
+    if L < 1 or len(x) < L:
+        raise ValueError(f"cannot thin {len(x)} raw draws to L={L}")
+    stride = len(x) // L
+    indices = np.arange(L) * stride
+    return x[indices], indices, stride
+
+
 def run_replicate(r, gen, priors, cfg):
     seeds = replicate_seeds(cfg.master_seed, r)
     truth = draw_truth(seeds["prior_key"], priors)
@@ -308,10 +394,14 @@ def run_replicate(r, gen, priors, cfg):
     # suppressed via the fit path's own NUMPYRO_SPHINXBUILD switch in main()).
     with contextlib.redirect_stdout(io.StringIO()):
         fit.run_mcmc(num_warmup=cfg.num_warmup, num_samples=cfg.num_samples,
-                     num_chains=1, thinning=cfg.thinning)
+                     num_chains=1, thinning=1, rng_key=seeds["mcmc_key"])
     elapsed = time.time() - t0
 
-    L = int(np.asarray(fit.samples["alpha"]).shape[0])
+    raw_L = int(np.asarray(fit.samples["alpha"]).shape[0])
+    if raw_L != cfg.num_samples:
+        raise SystemExit(
+            f"FATAL: replicate {r} returned {raw_L} raw draws, expected "
+            f"num_samples={cfg.num_samples}; rank-draw contract is ambiguous")
     for name in LATENT:
         vals = np.asarray(fit.samples[name])
         if not np.all(np.isfinite(vals)):
@@ -319,26 +409,67 @@ def run_replicate(r, gen, priors, cfg):
 
     det_true = truth_deterministics(fit, truth)
     det_post = posterior_deterministics(fit)
-    logbg_true = float(np.log(det_true["Itot_txy"] - det_true["Itot_excite"]))
-    logbg_post = np.log(det_post["Itot_txy"] - det_post["Itot_excite"])
+    bg_true = det_true["Itot_txy"] - det_true["Itot_excite"]
+    bg_post = det_post["Itot_txy"] - det_post["Itot_excite"]
+    if bg_true <= 0 or not np.all(np.asarray(bg_post) > 0):
+        raise SystemExit(f"FATAL: non-positive background mass in replicate {r}")
+    logbg_true = float(np.log(bg_true))
+    logbg_post = np.log(bg_post)
     share_true = det_true["Itot_excite"] / det_true["Itot_txy"]
     share_post = np.asarray(det_post["Itot_excite"]) / np.asarray(det_post["Itot_txy"])
 
+    diagnostic_draws = {
+        "alpha": np.asarray(fit.samples["alpha"]),
+        "beta": np.asarray(fit.samples["beta"]),
+        "sigmax_2": np.asarray(fit.samples["sigmax_2"]),
+        "log_background": np.asarray(logbg_post),
+        "exc_share": np.asarray(share_post),
+    }
+    quantile_ess = {name: min_quantile_ess(vals)
+                    for name, vals in diagnostic_draws.items()}
+    ess_threshold = cfg.min_ess_ratio * cfg.rank_draws
+    weak = {name: ess for name, ess in quantile_ess.items()
+            if name in PRIMARY and ess < ess_threshold}
+    if weak:
+        details = ", ".join(f"{name}={ess:.1f}" for name, ess in weak.items())
+        raise SystemExit(
+            f"FATAL: replicate {r} has insufficient minimum quantile ESS for "
+            f"L={cfg.rank_draws} (required >= {ess_threshold:.1f}: {details}). "
+            "Do not skip it; increase num_samples and restart with a fresh out_dir.")
+
+    thinned = {}
+    thin_indices = None
+    thin_stride = None
+    for name, vals in {**diagnostic_draws, "a_0": np.asarray(fit.samples["a_0"])}.items():
+        thinned[name], indices, stride = uniformly_thin(vals, cfg.rank_draws)
+        if thin_indices is None:
+            thin_indices, thin_stride = indices, stride
+        else:
+            assert np.array_equal(indices, thin_indices) and stride == thin_stride
+
+    L = cfg.rank_draws
     ranks, ties = {}, {}
     for name in ["alpha", "beta", "sigmax_2"]:
-        ranks[name], ties[name] = rank_of(truth[name], fit.samples[name], seeds["tie_rng"])
+        ranks[name], ties[name] = rank_of(truth[name], thinned[name], seeds["tie_rng"])
+    ranks["a_0"], ties["a_0"] = rank_of(
+        truth["a_0"], thinned["a_0"], seeds["tie_rng"])
     ranks["log_background"], ties["log_background"] = rank_of(
-        logbg_true, logbg_post, seeds["tie_rng"])
+        logbg_true, thinned["log_background"], seeds["tie_rng"])
     ranks["exc_share"], ties["exc_share"] = rank_of(
-        share_true, share_post, seeds["tie_rng"])
+        share_true, thinned["exc_share"], seeds["tie_rng"])
+    if ranks["a_0"] != ranks["log_background"]:
+        raise AssertionError(
+            "stage-1 identity violated: a_0 and log_background ranks differ")
 
     diverging = int(np.asarray(fit.mcmc.get_extra_fields()["diverging"]).sum())
     return {
-        "r": r, "n_events": n, "L": L,
+        "r": r, "n_events": n, "L": L, "raw_draws": raw_L,
+        "thin_stride": int(thin_stride),
         "truth": truth,
         "truth_log_background": logbg_true,
         "truth_exc_share": float(share_true),
         "ranks": ranks, "ties": ties,
+        "min_quantile_ess": {k: round(v, 3) for k, v in quantile_ess.items()},
         "diverging": diverging,
         "elapsed_s": round(elapsed, 2),
     }
@@ -384,6 +515,9 @@ def run_sbc(cfg, priors=None):
                        "provenance": provenance()}, f, indent=2)
 
     records = _load_records(jsonl_path)
+    record_ids = [rec["r"] for rec in records]
+    if len(record_ids) != len(set(record_ids)):
+        raise RuntimeError(f"duplicate replicate ids in {jsonl_path}; refusing to pool ranks")
     done = {rec["r"] for rec in records}
     gen = build_model(make_placeholder(), priors)
 
@@ -397,8 +531,10 @@ def run_sbc(cfg, priors=None):
             f.flush()
             records.append(rec)
             n_new += 1
+            min_primary_ess = min(rec["min_quantile_ess"][name] for name in PRIMARY)
             print(f"[sbc] r={rec['r']:4d}  n={rec['n_events']:4d}  L={rec['L']}  "
-                  f"div={rec['diverging']}  {rec['elapsed_s']:.1f}s", flush=True)
+                  f"minESS={min_primary_ess:.1f}  div={rec['diverging']}  "
+                  f"{rec['elapsed_s']:.1f}s", flush=True)
     return records, n_new
 
 
@@ -427,6 +563,19 @@ def mc_pvalue(stat_obs, R, L, mc_draws=10000, seed=2026):
     return float(p)
 
 
+def mc_sup_critical(R, L, probability=0.95, mc_draws=10000, seed=2026):
+    """Simulated simultaneous ECDF-difference half-width under uniformity."""
+    rng = np.random.default_rng(seed)
+    sims = rng.integers(0, L + 1, size=(mc_draws, R))
+    flat = sims + (L + 1) * np.arange(mc_draws)[:, None]
+    counts = np.bincount(flat.ravel(), minlength=mc_draws * (L + 1))
+    counts = counts.reshape(mc_draws, L + 1)
+    ecdf = np.cumsum(counts, axis=1) / R
+    uniform = (np.arange(L + 1) + 1) / (L + 1)
+    stats = np.max(np.abs(ecdf - uniform[None, :]), axis=1)
+    return float(np.quantile(stats, probability))
+
+
 def report(out_dir, mc_draws=10000, mc_seed=2026, hist_bins=8, plot=False):
     """Read replicates.jsonl -> per-functional ECDF test + rank histograms.
     Writes report.json beside the replicates; returns the report dict."""
@@ -434,6 +583,9 @@ def report(out_dir, mc_draws=10000, mc_seed=2026, hist_bins=8, plot=False):
     records = _load_records(jsonl_path)
     if not records:
         raise RuntimeError(f"no replicates found in {jsonl_path}")
+    record_ids = [rec["r"] for rec in records]
+    if len(record_ids) != len(set(record_ids)):
+        raise RuntimeError(f"duplicate replicate ids in {jsonl_path}; refusing to pool ranks")
     Ls = {rec["L"] for rec in records}
     if len(Ls) != 1:
         raise RuntimeError(f"mixed L across replicates ({sorted(Ls)}): ranks cannot be pooled")
@@ -446,6 +598,14 @@ def report(out_dir, mc_draws=10000, mc_seed=2026, hist_bins=8, plot=False):
                "replicates_with_divergences": int(sum(rec["diverging"] > 0 for rec in records)),
                "note": "divergent replicates are NOT dropped (pre-registered); "
                        "a material rate is a finding to investigate, not to filter",
+           },
+           "sampling_diagnostics": {
+               "minimum_quantile_ess_by_functional": {
+                   name: round(min(rec["min_quantile_ess"][name] for rec in records), 3)
+                   for name in PRIMARY + ["exc_share"]
+               },
+               "note": "minimum over replicates; each primary replicate passed its "
+                       "pre-registered ESS threshold before ranking",
            }}
     edges = np.linspace(0, L + 1, hist_bins + 1)
     for name in PRIMARY + ["exc_share"]:
@@ -464,16 +624,18 @@ def report(out_dir, mc_draws=10000, mc_seed=2026, hist_bins=8, plot=False):
         "rule": "PASS iff every PRIMARY functional has mc_p_value >= 0.01 "
                 "(pre-registered; family-wise false alarm ~4% over 4 functionals)",
         "primary_pass": all(out["functionals"][n]["mc_p_value"] >= 0.01 for n in PRIMARY),
+        "interpretation": "PASS means no calibration deviation was detected at this "
+                          "resolution; it is not proof that the implementation is correct",
     }
     with open(os.path.join(out_dir, "report.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, indent=2)
 
     if plot:
-        _plot_report(out_dir, records, L, hist_bins)
+        _plot_report(out_dir, records, L, hist_bins, mc_draws, mc_seed)
     return out
 
 
-def _plot_report(out_dir, records, L, hist_bins):
+def _plot_report(out_dir, records, L, hist_bins, mc_draws, mc_seed):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -481,6 +643,8 @@ def _plot_report(out_dir, records, L, hist_bins):
     fig, axes = plt.subplots(2, len(names), figsize=(3.2 * len(names), 6.0))
     uniform = (np.arange(L + 1) + 1) / (L + 1)
     R = len(records)
+    simultaneous_band = mc_sup_critical(
+        R, L, probability=0.95, mc_draws=mc_draws, seed=mc_seed)
     for j, name in enumerate(names):
         ranks = np.array([rec["ranks"][name] for rec in records], dtype=int)
         axes[0, j].hist(ranks, bins=np.linspace(0, L + 1, hist_bins + 1),
@@ -491,10 +655,9 @@ def _plot_report(out_dir, records, L, hist_bins):
         ecdf = np.cumsum(counts) / R
         axes[1, j].step(np.arange(L + 1), ecdf - uniform, where="post")
         axes[1, j].axhline(0.0, lw=1)
-        # pointwise 95% binomial band (visual aid; the FORMAL test is the
-        # sup-stat MC p-value in report.json)
-        band = 1.96 * np.sqrt(uniform * (1 - uniform) / R)
-        axes[1, j].fill_between(np.arange(L + 1), -band, band, alpha=0.2)
+        # Simultaneous 95% band from the same discrete-uniform Monte Carlo
+        # reference family as the formal sup-statistic test.
+        axes[1, j].axhspan(-simultaneous_band, simultaneous_band, alpha=0.2)
         axes[1, j].set_xlabel("rank")
     axes[0, 0].set_ylabel("count")
     axes[1, 0].set_ylabel("ECDF - uniform")
@@ -503,12 +666,14 @@ def _plot_report(out_dir, records, L, hist_bins):
     plt.close(fig)
 
 
-def prior_check(priors=None, draws=200, master_seed=0, lo=50, hi=500):
+def prior_check(priors=None, draws=200, master_seed=PRIOR_CHECK_MASTER_SEED,
+                lo=50, hi=500):
     """Prior-predictive event-count check (no fits): simulate `draws` prior
     replicates and report the count distribution. This is how the 'a_0 in a
     range giving ~50-500 events' claim is VERIFIED rather than trusted --
-    run it before any overnight job. Uses the same per-replicate seed streams
-    as `run`, so draw d here is literally replicate d's simulation."""
+    run it before any overnight job. Its default master seed is deliberately
+    distinct from `run`: inspecting and gating on the exact real-run simulations
+    would select the SBC ensemble by its event counts."""
     priors = stage1_priors() if priors is None else priors
     gen = build_model(make_placeholder(), priors)
     counts = []
@@ -520,11 +685,17 @@ def prior_check(priors=None, draws=200, master_seed=0, lo=50, hi=500):
     q = np.quantile(counts, [0.0, 0.05, 0.25, 0.5, 0.75, 0.95, 1.0]).astype(int)
     summary = {
         "draws": draws,
+        "master_seed": master_seed,
         "quantiles_0_5_25_50_75_95_100": q.tolist(),
         "frac_below_lo": float(np.mean(counts < lo)),
         "frac_above_hi": float(np.mean(counts > hi)),
         "n_zero_event": int(np.sum(counts == 0)),
     }
+    summary["budget_gate_pass"] = (
+        summary["n_zero_event"] == 0
+        and summary["frac_below_lo"] == 0.0
+        and summary["frac_above_hi"] <= 0.03
+    )
     print(json.dumps(summary, indent=2))
     if summary["n_zero_event"]:
         print("WARNING: zero-event prior draws observed -- tighten the prior "
@@ -542,12 +713,13 @@ def main():
     p_run.add_argument("--master-seed", type=int, default=0)
     p_run.add_argument("--num-warmup", type=int, default=300)
     p_run.add_argument("--num-samples", type=int, default=508)
-    p_run.add_argument("--thinning", type=int, default=4)
+    p_run.add_argument("--rank-draws", type=int, default=127)
+    p_run.add_argument("--min-ess-ratio", type=float, default=0.95)
     p_run.add_argument("--out-dir", default=os.path.join("results", "sbc_stage1"))
 
     p_chk = sub.add_parser("check", help="prior-predictive event-count check (no fits)")
     p_chk.add_argument("--draws", type=int, default=200)
-    p_chk.add_argument("--master-seed", type=int, default=0)
+    p_chk.add_argument("--master-seed", type=int, default=PRIOR_CHECK_MASTER_SEED)
 
     p_rep = sub.add_parser("report", help="ranks -> ECDF uniformity report")
     p_rep.add_argument("--out-dir", default=os.path.join("results", "sbc_stage1"))
@@ -555,7 +727,9 @@ def main():
 
     args = ap.parse_args()
     if args.cmd == "check":
-        prior_check(draws=args.draws, master_seed=args.master_seed)
+        summary = prior_check(draws=args.draws, master_seed=args.master_seed)
+        if not summary["budget_gate_pass"]:
+            raise SystemExit("prior-predictive budget gate failed; do not start SBC")
     elif args.cmd == "run":
         if args.stage != 1:
             raise NotImplementedError(
@@ -564,11 +738,12 @@ def main():
         # Suppress per-fit progress bars for the overnight log via the fit
         # path's own existing switch (inference_functions.run_mcmc checks this
         # env var); print_summary is captured per-replicate instead. No fit
-        # path change involved.
+        # path change beyond the optional per-fit RNG key involved.
         os.environ["NUMPYRO_SPHINXBUILD"] = "1"
         cfg = SBCConfig(replicates=args.replicates, master_seed=args.master_seed,
                         num_warmup=args.num_warmup, num_samples=args.num_samples,
-                        thinning=args.thinning, out_dir=args.out_dir)
+                        rank_draws=args.rank_draws,
+                        min_ess_ratio=args.min_ess_ratio, out_dir=args.out_dir)
         records, n_new = run_sbc(cfg)
         print(f"[sbc] complete: {len(records)} replicates on disk ({n_new} new). "
               f"Run `python scripts/sbc.py report --out-dir {args.out_dir}` next.")

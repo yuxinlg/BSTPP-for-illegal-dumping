@@ -60,6 +60,20 @@ introduced it (same logic as the commit discipline):
   NUTS, and read it as a research result about the actual pipeline, not a
   bug hunt.
 
+### Posterior RNG and dependence correction (stage-1 pre-run amendment)
+
+Each SBC fit must receive its own reproducible MCMC key. Reusing the package's
+historical fixed `PRNGKey(10)` across every replicate would condition the rank
+ensemble on one posterior-sampling stream, whereas the discrete-uniform SBC
+reference integrates over independent posterior draws.
+
+Likewise, `L=127` is not obtained by assuming that every fourth NUTS state is
+independent. Each replicate first retains an unthinned raw chain, estimates the
+minimum ESS across empirical-quantile indicator functions for every primary
+rank target (Talts et al., Algorithm 2), and requires minimum ESS >= 0.95 L.
+Only a chain that passes this gate is uniformly thinned to exactly L states.
+An ESS failure aborts the run; the replicate is never skipped.
+
 ## Priors: tight, matched, no rejection -- and their UNITS
 
 SBC's validity requires simulating from exactly the priors the fit uses.
@@ -114,8 +128,12 @@ Two known small effects go on record BEFORE the first run:
 
 ## Mechanics
 
-- R ~ 100-200 replicates; L = 127 posterior draws after thinning (Talts et
-  al.); uniformity judged by ECDF envelope, not eyeballed histograms.
+- R ~ 100-200 replicates; L = 127 posterior draws after ESS-qualified uniform
+  thinning (Talts et al.); uniformity judged by ECDF envelope, not eyeballed
+  histograms.
+- The prior-predictive budget check uses a distinct master seed from the real
+  run. Inspecting and gating on the exact real-run simulations would select
+  the SBC ensemble by event count.
 - Stage-1 fits run a few minutes each on CPU -- an overnight job. The
   harness MUST be resumable: per-replicate results written incrementally,
   restartable mid-run.
