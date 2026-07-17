@@ -287,7 +287,9 @@ def run_mcmc(rng_key, model_mcmc, args):
         thinning=args["thinning"],
         progress_bar=False if "NUMPYRO_SPHINXBUILD" in os.environ else True,
     )
-    mcmc.run(rng_key, args)
+    # collect per-draw divergence flags so fit health is checkable post-hoc
+    # (mcmc.get_extra_fields()["diverging"]); numpyro collects nothing by default
+    mcmc.run(rng_key, args, extra_fields=("diverging",))
     mcmc.print_summary()
     print("\nMCMC elapsed time:", time.time() - start)
     return mcmc
