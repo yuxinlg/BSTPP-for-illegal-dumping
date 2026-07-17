@@ -44,14 +44,20 @@ PRE-REGISTERED (restated from the runbook; do not re-litigate mid-run):
   from the same SeedSequence tree as its prior and simulation streams. Reusing
   one fixed posterior-sampling stream across replicates would condition the
   rank ensemble on one set of Monte Carlo randomness and invalidate the iid
-  discrete-uniform reference used by the report.
-* MCMC dependence: NUTS returns an unthinned chain (`num_samples` raw draws).
-  For every ranked functional the harness estimates the minimum ESS across 19
-  empirical-quantile indicator functions, following Talts et al. Algorithm 2.
-  The replicate aborts rather than being skipped if any primary ESS is below
-  `min_ess_ratio * rank_draws`; otherwise the raw chain is uniformly thinned
-  to exactly `rank_draws` states. Thus L=127 is earned, not assumed from a
-  fixed thinning factor.
+  discrete-uniform reference used by the report. Each fit attempt folds its
+  attempt index into that base key (`jax.random.fold_in`), so retries are
+  independent and reproducible.
+* MCMC dependence: each replicate starts with an unthinned chain of
+  `num_samples` raw draws (default 508). For every ranked functional the
+  harness estimates the minimum ESS across 19 empirical-quantile indicator
+  functions (Talts et al. Algorithm 2). If any primary ESS E is below
+  `min_ess_ratio * rank_draws`, the same (theta, y) is refit with
+  `n_next = n_current * ceil(rank_draws / E)`, capped at `max_num_samples`
+  (default 4064); mixing raw lengths across replicates is valid because every
+  replicate still contributes exactly L near-independent draws under the same
+  ESS criterion. Only the final passing chain is uniformly thinned to
+  `rank_draws` and ranked. Exhausting the cap without passing aborts the run
+  (never skip).
 * Scope: rectangular unit-box domain, spatial_window=None, temporal
   window=None (-> full window T, the exact untruncated likelihood; simulator
   offspring beyond T are filtered, so likelihood and simulator agree exactly
@@ -179,7 +185,8 @@ class SBCConfig:
     replicates: int = 150
     master_seed: int = 0
     num_warmup: int = 300
-    num_samples: int = 508     # raw post-warmup transitions; MCMC thinning is always 1
+    num_samples: int = 508     # initial raw post-warmup draws; MCMC thinning is always 1
+    max_num_samples: int = 4064  # pre-registered adaptive-chain cap
     rank_draws: int = 127      # L after ESS-qualified uniform thinning
     min_ess_ratio: float = 0.95
     out_dir: str = os.path.join("results", "sbc_stage1")
@@ -197,6 +204,7 @@ class SBCConfig:
             "master_seed": self.master_seed,
             "num_warmup": self.num_warmup,
             "num_samples": self.num_samples,
+            "max_num_samples": self.max_num_samples,
             "rank_draws": self.rank_draws,
             "min_ess_ratio": self.min_ess_ratio,
             "priors": prior_spec(priors),
@@ -277,6 +285,19 @@ def replicate_seeds(master_seed, r):
         "mcmc_key": jax.random.PRNGKey(int(c_mcmc.generate_state(1)[0]) % (2 ** 31)),
         "tie_rng": np.random.default_rng(c_tie),
     }
+
+
+def attempt_mcmc_key(base_key, attempt):
+    """Independent, reproducible per-attempt MCMC stream from the replicate key."""
+    return jax.random.fold_in(base_key, int(attempt))
+
+
+def next_num_samples(n_current, min_primary_ess, rank_draws, max_num_samples):
+    """Talts-style ESS scaling: n_next = n_current * ceil(L / E), capped."""
+    if not np.isfinite(min_primary_ess) or min_primary_ess <= 0:
+        return int(max_num_samples)
+    factor = int(np.ceil(float(rank_draws) / float(min_primary_ess)))
+    return int(min(n_current * max(factor, 1), max_num_samples))
 
 
 def draw_truth(key, priors):
@@ -387,55 +408,97 @@ def run_replicate(r, gen, priors, cfg):
             "silently skipping would distort the ranks). Stop and fix the prior, "
             "then restart with a FRESH out_dir.")
 
-    t0 = time.time()
-    fit = build_model(events, priors)
-    # The fit path prints a per-fit summary and progress bar; capture stdout so
-    # an overnight log stays readable (progress bars go to stderr and are
-    # suppressed via the fit path's own NUMPYRO_SPHINXBUILD switch in main()).
-    with contextlib.redirect_stdout(io.StringIO()):
-        fit.run_mcmc(num_warmup=cfg.num_warmup, num_samples=cfg.num_samples,
-                     num_chains=1, thinning=1, rng_key=seeds["mcmc_key"])
-    elapsed = time.time() - t0
-
-    raw_L = int(np.asarray(fit.samples["alpha"]).shape[0])
-    if raw_L != cfg.num_samples:
-        raise SystemExit(
-            f"FATAL: replicate {r} returned {raw_L} raw draws, expected "
-            f"num_samples={cfg.num_samples}; rank-draw contract is ambiguous")
-    for name in LATENT:
-        vals = np.asarray(fit.samples[name])
-        if not np.all(np.isfinite(vals)):
-            raise SystemExit(f"FATAL: non-finite posterior for {name} in replicate {r}")
-
-    det_true = truth_deterministics(fit, truth)
-    det_post = posterior_deterministics(fit)
-    bg_true = det_true["Itot_txy"] - det_true["Itot_excite"]
-    bg_post = det_post["Itot_txy"] - det_post["Itot_excite"]
-    if bg_true <= 0 or not np.all(np.asarray(bg_post) > 0):
-        raise SystemExit(f"FATAL: non-positive background mass in replicate {r}")
-    logbg_true = float(np.log(bg_true))
-    logbg_post = np.log(bg_post)
-    share_true = det_true["Itot_excite"] / det_true["Itot_txy"]
-    share_post = np.asarray(det_post["Itot_excite"]) / np.asarray(det_post["Itot_txy"])
-
-    diagnostic_draws = {
-        "alpha": np.asarray(fit.samples["alpha"]),
-        "beta": np.asarray(fit.samples["beta"]),
-        "sigmax_2": np.asarray(fit.samples["sigmax_2"]),
-        "log_background": np.asarray(logbg_post),
-        "exc_share": np.asarray(share_post),
-    }
-    quantile_ess = {name: min_quantile_ess(vals)
-                    for name, vals in diagnostic_draws.items()}
     ess_threshold = cfg.min_ess_ratio * cfg.rank_draws
-    weak = {name: ess for name, ess in quantile_ess.items()
-            if name in PRIMARY and ess < ess_threshold}
-    if weak:
-        details = ", ".join(f"{name}={ess:.1f}" for name, ess in weak.items())
-        raise SystemExit(
-            f"FATAL: replicate {r} has insufficient minimum quantile ESS for "
-            f"L={cfg.rank_draws} (required >= {ess_threshold:.1f}: {details}). "
-            "Do not skip it; increase num_samples and restart with a fresh out_dir.")
+    num_samples = int(cfg.num_samples)
+    attempts = []
+    t0 = time.time()
+    fit = None
+    diagnostic_draws = None
+    quantile_ess = None
+    logbg_true = None
+    share_true = None
+    attempt = 0
+
+    while True:
+        fit = build_model(events, priors)
+        # The fit path prints a per-fit summary and progress bar; capture stdout so
+        # an overnight log stays readable (progress bars go to stderr and are
+        # suppressed via the fit path's own NUMPYRO_SPHINXBUILD switch in main()).
+        with contextlib.redirect_stdout(io.StringIO()):
+            fit.run_mcmc(num_warmup=cfg.num_warmup, num_samples=num_samples,
+                         num_chains=1, thinning=1,
+                         rng_key=attempt_mcmc_key(seeds["mcmc_key"], attempt))
+
+        raw_L = int(np.asarray(fit.samples["alpha"]).shape[0])
+        if raw_L != num_samples:
+            raise SystemExit(
+                f"FATAL: replicate {r} attempt {attempt} returned {raw_L} raw draws, "
+                f"expected num_samples={num_samples}; rank-draw contract is ambiguous")
+        for name in LATENT:
+            vals = np.asarray(fit.samples[name])
+            if not np.all(np.isfinite(vals)):
+                raise SystemExit(
+                    f"FATAL: non-finite posterior for {name} in replicate {r} "
+                    f"attempt {attempt}")
+
+        det_true = truth_deterministics(fit, truth)
+        det_post = posterior_deterministics(fit)
+        bg_true = det_true["Itot_txy"] - det_true["Itot_excite"]
+        bg_post = det_post["Itot_txy"] - det_post["Itot_excite"]
+        if bg_true <= 0 or not np.all(np.asarray(bg_post) > 0):
+            raise SystemExit(
+                f"FATAL: non-positive background mass in replicate {r} attempt {attempt}")
+        logbg_true = float(np.log(bg_true))
+        logbg_post = np.log(bg_post)
+        share_true = det_true["Itot_excite"] / det_true["Itot_txy"]
+        share_post = np.asarray(det_post["Itot_excite"]) / np.asarray(det_post["Itot_txy"])
+
+        diagnostic_draws = {
+            "alpha": np.asarray(fit.samples["alpha"]),
+            "beta": np.asarray(fit.samples["beta"]),
+            "sigmax_2": np.asarray(fit.samples["sigmax_2"]),
+            "log_background": np.asarray(logbg_post),
+            "exc_share": np.asarray(share_post),
+        }
+        quantile_ess = {name: min_quantile_ess(vals)
+                        for name, vals in diagnostic_draws.items()}
+        min_primary_ess = min(quantile_ess[name] for name in PRIMARY)
+        diverging = int(np.asarray(fit.mcmc.get_extra_fields()["diverging"]).sum())
+        attempts.append({
+            "attempt": attempt,
+            "num_samples": num_samples,
+            "min_primary_ess": round(float(min_primary_ess), 3),
+            "min_quantile_ess": {k: round(v, 3) for k, v in quantile_ess.items()},
+            "diverging": diverging,
+        })
+
+        if min_primary_ess >= ess_threshold:
+            break
+
+        if num_samples >= cfg.max_num_samples:
+            details = ", ".join(
+                f"{name}={quantile_ess[name]:.1f}" for name in PRIMARY
+                if quantile_ess[name] < ess_threshold)
+            raise SystemExit(
+                f"FATAL: replicate {r} still has insufficient minimum quantile ESS "
+                f"after {len(attempts)} attempt(s) at the pre-registered cap "
+                f"max_num_samples={cfg.max_num_samples} "
+                f"(required >= {ess_threshold:.1f}: {details}). "
+                "Do not skip it; raise max_num_samples and restart with a fresh out_dir.")
+
+        n_next = next_num_samples(
+            num_samples, min_primary_ess, cfg.rank_draws, cfg.max_num_samples)
+        if n_next <= num_samples:
+            raise SystemExit(
+                f"FATAL: replicate {r} ESS scaling did not increase num_samples "
+                f"({num_samples} -> {n_next}) with min_primary_ess={min_primary_ess:.1f}")
+        print(f"[sbc] r={r:4d}  ESS retry attempt {attempt}: "
+              f"minESS={min_primary_ess:.1f} < {ess_threshold:.1f}; "
+              f"num_samples {num_samples} -> {n_next}", flush=True)
+        num_samples = n_next
+        attempt += 1
+
+    elapsed = time.time() - t0
 
     thinned = {}
     thin_indices = None
@@ -461,16 +524,17 @@ def run_replicate(r, gen, priors, cfg):
         raise AssertionError(
             "stage-1 identity violated: a_0 and log_background ranks differ")
 
-    diverging = int(np.asarray(fit.mcmc.get_extra_fields()["diverging"]).sum())
     return {
-        "r": r, "n_events": n, "L": L, "raw_draws": raw_L,
+        "r": r, "n_events": n, "L": L, "raw_draws": int(num_samples),
+        "n_fit_attempts": len(attempts),
+        "fit_attempts": attempts,
         "thin_stride": int(thin_stride),
         "truth": truth,
         "truth_log_background": logbg_true,
         "truth_exc_share": float(share_true),
         "ranks": ranks, "ties": ties,
         "min_quantile_ess": {k: round(v, 3) for k, v in quantile_ess.items()},
-        "diverging": diverging,
+        "diverging": attempts[-1]["diverging"],
         "elapsed_s": round(elapsed, 2),
     }
 
@@ -532,9 +596,12 @@ def run_sbc(cfg, priors=None):
             records.append(rec)
             n_new += 1
             min_primary_ess = min(rec["min_quantile_ess"][name] for name in PRIMARY)
+            retry = (f"  attempts={rec['n_fit_attempts']}"
+                     if rec.get("n_fit_attempts", 1) > 1 else "")
             print(f"[sbc] r={rec['r']:4d}  n={rec['n_events']:4d}  L={rec['L']}  "
-                  f"minESS={min_primary_ess:.1f}  div={rec['diverging']}  "
-                  f"{rec['elapsed_s']:.1f}s", flush=True)
+                  f"raw={rec['raw_draws']}  minESS={min_primary_ess:.1f}  "
+                  f"div={rec['diverging']}  {rec['elapsed_s']:.1f}s{retry}",
+                  flush=True)
     return records, n_new
 
 
@@ -604,8 +671,12 @@ def report(out_dir, mc_draws=10000, mc_seed=2026, hist_bins=8, plot=False):
                    name: round(min(rec["min_quantile_ess"][name] for rec in records), 3)
                    for name in PRIMARY + ["exc_share"]
                },
-               "note": "minimum over replicates; each primary replicate passed its "
-                       "pre-registered ESS threshold before ranking",
+               "max_raw_draws": max(rec["raw_draws"] for rec in records),
+               "replicates_with_ess_retry": int(
+                   sum(rec.get("n_fit_attempts", 1) > 1 for rec in records)),
+               "note": "minimum over replicates of FINAL-chain ESS; each primary "
+                       "replicate passed its pre-registered ESS threshold before "
+                       "ranking, possibly after Talts-style adaptive lengthening",
            }}
     edges = np.linspace(0, L + 1, hist_bins + 1)
     for name in PRIMARY + ["exc_share"]:
@@ -716,6 +787,7 @@ def main():
     p_run.add_argument("--master-seed", type=int, default=0)
     p_run.add_argument("--num-warmup", type=int, default=300)
     p_run.add_argument("--num-samples", type=int, default=508)
+    p_run.add_argument("--max-num-samples", type=int, default=4064)
     p_run.add_argument("--rank-draws", type=int, default=127)
     p_run.add_argument("--min-ess-ratio", type=float, default=0.95)
     p_run.add_argument("--out-dir", default=os.path.join("results", "sbc_stage1"))
@@ -745,6 +817,7 @@ def main():
         os.environ["NUMPYRO_SPHINXBUILD"] = "1"
         cfg = SBCConfig(replicates=args.replicates, master_seed=args.master_seed,
                         num_warmup=args.num_warmup, num_samples=args.num_samples,
+                        max_num_samples=args.max_num_samples,
                         rank_draws=args.rank_draws,
                         min_ess_ratio=args.min_ess_ratio, out_dir=args.out_dir)
         records, n_new = run_sbc(cfg)

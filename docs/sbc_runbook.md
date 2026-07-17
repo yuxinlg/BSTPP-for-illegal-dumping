@@ -68,11 +68,17 @@ ensemble on one posterior-sampling stream, whereas the discrete-uniform SBC
 reference integrates over independent posterior draws.
 
 Likewise, `L=127` is not obtained by assuming that every fourth NUTS state is
-independent. Each replicate first retains an unthinned raw chain, estimates the
-minimum ESS across empirical-quantile indicator functions for every primary
-rank target (Talts et al., Algorithm 2), and requires minimum ESS >= 0.95 L.
-Only a chain that passes this gate is uniformly thinned to exactly L states.
-An ESS failure aborts the run; the replicate is never skipped.
+independent. Each replicate starts with an unthinned raw chain (default 508
+draws), estimates the minimum ESS across empirical-quantile indicator functions
+for every primary rank target (Talts et al., Algorithm 2), and requires
+minimum ESS >= 0.95 L. If a replicate fails that gate, the same `(theta, y)` is
+refit with `n_next = n_current * ceil(L / E)` (capped at a pre-registered
+`max_num_samples`, default 4064), using an attempt-folded MCMC key; only the
+final passing chain is uniformly thinned to exactly L states and ranked.
+Mixing raw chain lengths across replicates is valid: every replicate still
+contributes exactly L near-independent posterior draws under the same ESS
+criterion. Exhausting the cap without passing aborts the run; the replicate is
+never skipped.
 
 ## Priors: tight, matched, no rejection -- and their UNITS
 

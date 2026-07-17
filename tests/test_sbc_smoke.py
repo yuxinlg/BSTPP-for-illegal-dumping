@@ -8,7 +8,8 @@ uniformity, deliberately). Priors here are smoke-specific low-count overrides
 for speed; they flow through the same matched-by-construction path as the
 pre-registered stage-1 priors, so nothing config-shaped is stubbed out.
 
-Marked slow: two real NUTS fits (20 warmup / 44 raw draws -> L=11).
+Marked slow: two real NUTS fits (20 warmup / 44 raw draws -> L=11), plus a
+separate adaptive-length smoke that forces one ESS retry.
 Deselect with -m "not slow".
 """
 import os
@@ -55,6 +56,7 @@ def test_sbc_harness_smoke(tmp_path, monkeypatch):
     assert n_new == 2 and len(records) == 2
     for rec in records:
         assert rec["raw_draws"] == 44
+        assert rec["n_fit_attempts"] == 1
         assert rec["L"] == 11 and rec["thin_stride"] == 4
         assert rec["n_events"] >= 2
         assert rec["diverging"] >= 0
@@ -76,6 +78,7 @@ def test_sbc_harness_smoke(tmp_path, monkeypatch):
     stored = json.load(open(cfg_path, encoding="utf-8"))
     assert stored["config_hash"] == cfg.config_hash(priors)
     assert "unit_annotation" in stored and "sigmax_2" in stored["unit_annotation"]
+    assert stored["identity"]["max_num_samples"] == cfg.max_num_samples
 
     # -- resume: identical config performs zero new fits -------------------
     records2, n_new2 = sbc.run_sbc(cfg, priors=priors)
@@ -105,7 +108,57 @@ def test_sbc_harness_smoke(tmp_path, monkeypatch):
         assert sum(entry["rank_hist_bins"]) == 2
     assert "exc_share" in out["supplementary"]
     assert "sampling_diagnostics" in out
+    assert out["sampling_diagnostics"]["replicates_with_ess_retry"] == 0
     assert os.path.exists(os.path.join(out_dir, "report.json"))
+
+
+@pytest.mark.slow
+def test_sbc_adaptive_chain_retries_only_weak_replicate(tmp_path, monkeypatch):
+    """Force the first ESS evaluation to fail; only that replicate is refit."""
+    out_dir = str(tmp_path / "sbc_adaptive")
+    # threshold = 0.95 * 11 = 10.45; fake E=6 => ceil(11/6)=2 => 44->88
+    cfg = sbc.SBCConfig(replicates=2, master_seed=0, num_warmup=20,
+                        num_samples=44, max_num_samples=176, rank_draws=11,
+                        min_ess_ratio=0.95, out_dir=out_dir)
+    priors = smoke_priors()
+
+    real_ess = sbc.min_quantile_ess
+    n_ess_calls = {"n": 0}
+
+    def flaky_ess(draws, n_quantiles=19):
+        # First attempt scores 5 diagnostic functionals; force all below threshold.
+        n_ess_calls["n"] += 1
+        if n_ess_calls["n"] <= 5:
+            return 6.0
+        return real_ess(draws, n_quantiles)
+
+    fit_calls = {"n": 0}
+    real_run_mcmc = sbc.Hawkes_Model.run_mcmc
+
+    def counting_run_mcmc(self, *args, **kwargs):
+        fit_calls["n"] += 1
+        return real_run_mcmc(self, *args, **kwargs)
+
+    monkeypatch.setattr(sbc, "min_quantile_ess", flaky_ess)
+    monkeypatch.setattr(sbc.Hawkes_Model, "run_mcmc", counting_run_mcmc)
+
+    records, n_new = sbc.run_sbc(cfg, priors=priors)
+    assert n_new == 2 and len(records) == 2
+    # Three fits total: r0 attempt0 (fail) + r0 attempt1 (pass) + r1 attempt0
+    assert fit_calls["n"] == 3
+
+    r0, r1 = records[0], records[1]
+    assert r0["r"] == 0 and r1["r"] == 1
+    assert r0["n_fit_attempts"] == 2
+    assert r0["fit_attempts"][0]["num_samples"] == 44
+    assert r0["fit_attempts"][1]["num_samples"] == 88
+    assert r0["raw_draws"] == 88
+    assert r0["fit_attempts"][0]["min_primary_ess"] == 6.0
+    assert min(r0["min_quantile_ess"][name] for name in sbc.PRIMARY) >= 0.95 * 11
+
+    assert r1["n_fit_attempts"] == 1
+    assert r1["raw_draws"] == 44
+    assert len(r1["fit_attempts"]) == 1
 
 
 def test_replicate_mcmc_keys_are_distinct_and_reproducible():
@@ -114,6 +167,12 @@ def test_replicate_mcmc_keys_are_distinct_and_reproducible():
     s1 = sbc.replicate_seeds(0, 1)
     assert np.array_equal(np.asarray(s0a["mcmc_key"]), np.asarray(s0b["mcmc_key"]))
     assert not np.array_equal(np.asarray(s0a["mcmc_key"]), np.asarray(s1["mcmc_key"]))
+    k0 = sbc.attempt_mcmc_key(s0a["mcmc_key"], 0)
+    k1 = sbc.attempt_mcmc_key(s0a["mcmc_key"], 1)
+    assert not np.array_equal(np.asarray(k0), np.asarray(k1))
+    assert np.array_equal(
+        np.asarray(sbc.attempt_mcmc_key(s0a["mcmc_key"], 1)),
+        np.asarray(sbc.attempt_mcmc_key(s0b["mcmc_key"], 1)))
 
 
 def test_uniform_thinning_and_ess_helpers():
@@ -123,3 +182,6 @@ def test_uniform_thinning_and_ess_helpers():
     assert np.array_equal(thinned, indices)
     rng = np.random.default_rng(0)
     assert sbc.min_quantile_ess(rng.normal(size=508)) > 50
+    # Replicate-44 style scaling: 508 * ceil(127/91.7) = 1016
+    assert sbc.next_num_samples(508, 91.7, 127, 4064) == 1016
+    assert sbc.next_num_samples(508, 91.7, 127, 800) == 800
