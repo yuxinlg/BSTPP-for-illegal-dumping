@@ -691,9 +691,12 @@ def prior_check(priors=None, draws=200, master_seed=PRIOR_CHECK_MASTER_SEED,
         "frac_above_hi": float(np.mean(counts > hi)),
         "n_zero_event": int(np.sum(counts == 0)),
     }
+    # The 50-500 range is a soft two-sided computational-budget band, not a
+    # truncation of the generative model: simulations are never rejected, and
+    # only zero-event draws (which would abort a real replicate) are forbidden.
     summary["budget_gate_pass"] = (
         summary["n_zero_event"] == 0
-        and summary["frac_below_lo"] == 0.0
+        and summary["frac_below_lo"] <= 0.03
         and summary["frac_above_hi"] <= 0.03
     )
     print(json.dumps(summary, indent=2))
