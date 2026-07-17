@@ -1,0 +1,105 @@
+{
+  "R": 600,
+  "L": 127,
+  "functionals": {
+    "alpha": {
+      "ecdf_sup_stat": 0.033542,
+      "mc_p_value": 0.432157,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        62,
+        72,
+        86,
+        81,
+        74,
+        63,
+        89,
+        73
+      ]
+    },
+    "beta": {
+      "ecdf_sup_stat": 0.034896,
+      "mc_p_value": 0.386261,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        70,
+        90,
+        72,
+        79,
+        71,
+        66,
+        79,
+        73
+      ]
+    },
+    "sigmax_2": {
+      "ecdf_sup_stat": 0.023333,
+      "mc_p_value": 0.829617,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        67,
+        77,
+        77,
+        83,
+        81,
+        79,
+        61,
+        75
+      ]
+    },
+    "log_background": {
+      "ecdf_sup_stat": 0.028958,
+      "mc_p_value": 0.613839,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        72,
+        65,
+        83,
+        87,
+        79,
+        70,
+        57,
+        87
+      ]
+    }
+  },
+  "supplementary": {
+    "exc_share": {
+      "ecdf_sup_stat": 0.02875,
+      "mc_p_value": 0.622938,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        61,
+        75,
+        80,
+        79,
+        71,
+        74,
+        90,
+        70
+      ]
+    }
+  },
+  "divergences": {
+    "total_divergent_transitions": 0,
+    "replicates_with_divergences": 0,
+    "note": "divergent replicates are NOT dropped (pre-registered); a material rate is a finding to investigate, not to filter"
+  },
+  "sampling_diagnostics": {
+    "minimum_quantile_ess_by_functional": {
+      "alpha": 134.896,
+      "beta": 152.883,
+      "sigmax_2": 125.857,
+      "log_background": 130.103,
+      "exc_share": 134.896
+    },
+    "max_raw_draws": 1016,
+    "replicates_with_ess_retry": 7,
+    "note": "minimum over replicates of FINAL-chain ESS; each primary replicate passed its pre-registered ESS threshold before ranking, possibly after Talts-style adaptive lengthening"
+  },
+  "decision": {
+    "rule": "PASS iff every PRIMARY functional has mc_p_value >= 0.01 (pre-registered; family-wise false alarm ~4% over 4 functionals)",
+    "primary_pass": true,
+    "interpretation": "PASS means no calibration deviation was detected at this resolution; it is not proof that the implementation is correct"
+  }
+}

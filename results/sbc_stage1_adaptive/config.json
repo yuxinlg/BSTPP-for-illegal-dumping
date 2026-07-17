@@ -1,0 +1,73 @@
+{
+  "config_hash": "73cdb7bc5002bdc7e950de8e8cdb09019a6620a12477db7eef4186b385cd6e61",
+  "identity": {
+    "stage": 1,
+    "model": "hawkes",
+    "domain": [
+      [
+        0.0,
+        1.0
+      ],
+      [
+        0.0,
+        1.0
+      ]
+    ],
+    "T_days": 912.5,
+    "master_seed": 0,
+    "num_warmup": 300,
+    "num_samples": 508,
+    "max_num_samples": 4064,
+    "rank_draws": 127,
+    "min_ess_ratio": 0.95,
+    "priors": {
+      "a_0": {
+        "dist": "Normal",
+        "loc": 0.8,
+        "scale": 0.35
+      },
+      "alpha": {
+        "dist": "Beta",
+        "concentration1": 2.0,
+        "concentration0": 6.0
+      },
+      "beta": {
+        "dist": "LogNormal",
+        "loc": 0.0,
+        "scale": 0.5
+      },
+      "sigmax_2": {
+        "dist": "LogNormal",
+        "loc": -5.298317366548036,
+        "scale": 0.5
+      }
+    },
+    "implementation": {
+      "commit": "43556b400c2b9fec2481fb480c209ab17b121bcb",
+      "tracked_code_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sbc_script_sha256": "4e98c38bab0ebae465dcc446ee20b1b47e5154b92d739efb7174e7e9c0e7a695",
+      "jax": "0.4.23",
+      "numpyro": "0.15.0",
+      "numpy": "1.26.4",
+      "python": "3.12.13"
+    }
+  },
+  "unit_annotation": {
+    "sigmax_2": "SQUARED REAL units of the input X/Y columns (real-unit trigger contract)",
+    "beta": "INTERNAL rescaled-time units (data time -> [0, 50]; Phase 3 conversion layer)",
+    "a_0": "internal-unit background intercept (background contract unchanged)",
+    "note": "unit-box domain: real == internal spatially, numbers unit-neutral HERE; the same config on a real domain is NOT"
+  },
+  "provenance": {
+    "commit": "43556b400c2b9fec2481fb480c209ab17b121bcb",
+    "tracked_code_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sbc_script_sha256": "4e98c38bab0ebae465dcc446ee20b1b47e5154b92d739efb7174e7e9c0e7a695",
+    "jax": "0.4.23",
+    "numpyro": "0.15.0",
+    "numpy": "1.26.4",
+    "python": "3.12.13",
+    "branch": "refactor",
+    "date": "2026-07-17 12:53:58",
+    "caveat": "MACHINE-LOCAL results; never compare against runs from another machine"
+  }
+}

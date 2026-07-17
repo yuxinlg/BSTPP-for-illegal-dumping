@@ -1,0 +1,72 @@
+{
+  "config_hash": "7db1af911f73cab224895c47bdebab2a85d569e88f931ec4e3bea735da439a84",
+  "identity": {
+    "stage": 1,
+    "model": "hawkes",
+    "domain": [
+      [
+        0.0,
+        1.0
+      ],
+      [
+        0.0,
+        1.0
+      ]
+    ],
+    "T_days": 912.5,
+    "master_seed": 0,
+    "num_warmup": 300,
+    "num_samples": 508,
+    "rank_draws": 127,
+    "min_ess_ratio": 0.95,
+    "priors": {
+      "a_0": {
+        "dist": "Normal",
+        "loc": 0.8,
+        "scale": 0.35
+      },
+      "alpha": {
+        "dist": "Beta",
+        "concentration1": 2.0,
+        "concentration0": 6.0
+      },
+      "beta": {
+        "dist": "LogNormal",
+        "loc": 0.0,
+        "scale": 0.5
+      },
+      "sigmax_2": {
+        "dist": "LogNormal",
+        "loc": -5.298317366548036,
+        "scale": 0.5
+      }
+    },
+    "implementation": {
+      "commit": "ef5d43895900530b9494d1753a5646d05932cb95",
+      "tracked_code_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sbc_script_sha256": "785df071a8f27dabdb1922d48affa244b05f9f273c712f0a321071f05e39d33a",
+      "jax": "0.4.23",
+      "numpyro": "0.15.0",
+      "numpy": "1.26.4",
+      "python": "3.12.13"
+    }
+  },
+  "unit_annotation": {
+    "sigmax_2": "SQUARED REAL units of the input X/Y columns (real-unit trigger contract)",
+    "beta": "INTERNAL rescaled-time units (data time -> [0, 50]; Phase 3 conversion layer)",
+    "a_0": "internal-unit background intercept (background contract unchanged)",
+    "note": "unit-box domain: real == internal spatially, numbers unit-neutral HERE; the same config on a real domain is NOT"
+  },
+  "provenance": {
+    "commit": "ef5d43895900530b9494d1753a5646d05932cb95",
+    "tracked_code_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sbc_script_sha256": "785df071a8f27dabdb1922d48affa244b05f9f273c712f0a321071f05e39d33a",
+    "jax": "0.4.23",
+    "numpyro": "0.15.0",
+    "numpy": "1.26.4",
+    "python": "3.12.13",
+    "branch": "refactor",
+    "date": "2026-07-17 02:43:45",
+    "caveat": "MACHINE-LOCAL results; never compare against runs from another machine"
+  }
+}

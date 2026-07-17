@@ -25,6 +25,10 @@ values against runs from another machine.
   Caveat (pre-registered in the runbook): verify_sim's configs are all
   unit-box, so it cannot detect a real-unit regression; the 4:1 pin and
   the (I12) byte-identical cascade test cover that axis.
+- `sbc_stage1_adaptive/` -- stage-1 SBC results (harness tip `43556b4`,
+  R=600, `primary_pass`). MACHINE-LOCAL; see that folder's README. The
+  quarantined fixed-length abort that motivated adaptive lengthening lives
+  at `results/sbc_stage1/` (do not pool).
 
 ## Reproduce
 
