@@ -185,3 +185,78 @@ def test_uniform_thinning_and_ess_helpers():
     # Replicate-44 style scaling: 508 * ceil(127/91.7) = 1016
     assert sbc.next_num_samples(508, 91.7, 127, 4064) == 1016
     assert sbc.next_num_samples(508, 91.7, 127, 800) == 800
+
+
+def test_stage2_config_and_truth_plumbing():
+    """Fast stage-2 plumbing: matched truth-draw dimensions, pre-registered
+    grid indices within range, identity fields, jsonable truth."""
+    priors = sbc.stage2_priors()
+    gen = sbc.build_model_stage2(sbc.make_placeholder(), priors)
+    assert gen.args["sp_var_mu"] == sbc.STAGE2_SP_VAR_MU == 0.0
+    seeds = sbc.replicate_seeds(0, 0)
+    truth = sbc.draw_truth_stage2(seeds["prior_key"], priors, gen)
+    assert truth["z_temporal"].shape == (gen.args["z_dim_temporal"],)
+    assert truth["z_seasonal"].shape == (gen.args["z_dim_seasonal"],)
+    assert truth["z_spatial"].shape == (gen.args["z_dim_spatial"],)
+    js = sbc._jsonable_truth(truth)
+    json.dumps(js)  # must serialize
+    assert isinstance(js["a_0"], float) and len(js["z_spatial"]) == 20
+    n_xy = int(gen.args["n_xy"])
+    for t_i, ix, iy in sbc.STAGE2_GRID_POINTS:
+        assert 0 <= t_i < gen.args["n_t"]
+        assert 0 <= iy * n_xy + ix < n_xy ** 2
+    assert sbc.SBCConfig(stage=1).out_dir == os.path.join("results", "sbc_stage1")
+    cfg = sbc.SBCConfig(stage=2)
+    assert cfg.out_dir == os.path.join("results", "sbc_stage2")
+    ident = cfg.identity(priors)
+    assert ident["stage"] == 2 and ident["model"] == "lgcp"
+    assert ident["sp_var_mu"] == sbc.STAGE2_SP_VAR_MU == 0.0
+    assert ident["p_threshold"] == 0.005
+    assert ident["rank_targets"]["primaries"] == sbc.PRIMARY_STAGE2
+    assert len(sbc.PRIMARY_STAGE2) == 9
+
+
+@pytest.mark.slow
+def test_sbc_stage2_harness_smoke(tmp_path):
+    """Stage-2 mechanics end-to-end at the REAL stage-2 priors (already
+    low-count by design): two LGCP NUTS fits, ranks for all 9 primaries plus
+    the a_0 supplementary, stage-aware storage, resume, config-driven report.
+    NOT calibration (R=2, deliberately)."""
+    out_dir = str(tmp_path / "sbc_stage2_smoke")
+    cfg = sbc.SBCConfig(replicates=2, master_seed=0, num_warmup=20,
+                        num_samples=44, rank_draws=11, min_ess_ratio=0.0,
+                        stage=2, out_dir=out_dir)
+    records, n_new = sbc.run_sbc(cfg)
+    assert n_new == 2 and len(records) == 2
+    expected = set(sbc.PRIMARY_STAGE2) | {"a_0"}
+    for rec in records:
+        assert rec["stage"] == 2 and rec["L"] == 11
+        assert set(rec["ranks"]) == expected
+        assert "exc_share" not in rec["ranks"] and "alpha" not in rec["ranks"]
+        for name, rank in rec["ranks"].items():
+            assert 0 <= rank <= rec["L"], f"rank out of range for {name}"
+        assert set(rec["min_quantile_ess"]) == expected
+        assert len(rec["truth"]["z_spatial"]) == 20
+        vals = list(rec["truth_functionals"].values())
+        assert np.all(np.isfinite(vals))
+
+    stored = json.load(open(sbc._paths(out_dir)[0], encoding="utf-8"))
+    assert stored["identity"]["stage"] == 2
+    assert stored["identity"]["sp_var_mu"] == 0.0
+
+    # resume performs zero new fits; a stage flip must refuse to pool
+    _, n2 = sbc.run_sbc(cfg)
+    assert n2 == 0
+    cfg_flip = sbc.SBCConfig(replicates=2, master_seed=0, num_warmup=20,
+                             num_samples=44, rank_draws=11, min_ess_ratio=0.0,
+                             stage=1, out_dir=out_dir)
+    with pytest.raises(RuntimeError, match="config mismatch"):
+        sbc.run_sbc(cfg_flip, priors=smoke_priors())
+
+    out = sbc.report(out_dir, mc_draws=300)
+    assert set(out["functionals"]) == set(sbc.PRIMARY_STAGE2)
+    assert set(out["supplementary"]) == {"a_0"}
+    assert "0.005" in out["decision"]["rule"]
+    for entry in out["functionals"].values():
+        assert 0.0 <= entry["mc_p_value"] <= 1.0
+        assert sum(entry["rank_hist_bins"]) == 2

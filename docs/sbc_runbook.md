@@ -1,10 +1,11 @@
 # SBC runbook: design, prior units, and pre-registered caveats
 
-Status: written at the pre-SBC tip (post Phase 2d), before the stage-1
-harness exists. This document is the single reference the harness author
-works from: it records the accepted SBC design, restates the prior units
-under the real-unit trigger contract, and pre-registers the known small
-effects so they cannot be "discovered" as anomalies mid-run.
+Status: living SBC design record. Stage 1 is complete; the Stage 2 design
+below was frozen from prior-predictive measurements before the first Stage 2
+rank run. This document is the single reference the harness author works
+from: it records the accepted SBC design, restates the prior units under the
+real-unit trigger contract, and pre-registers known effects so they cannot be
+"discovered" as anomalies mid-run.
 
 ## Why SBC, and why now
 
@@ -48,6 +49,76 @@ introduced it (same logic as the commit discipline):
   is pre-registered here precisely so it is not re-litigated mid-run.
 - Optional supplementary diagnostics: a few `z` components and derived
   totals (`Itot_txy`).
+
+## Stage 2 pre-registration: LGCP
+
+Stage 2 adds the temporal, seasonal, and spatial PriorVAE fields but no
+self-excitation. Its latent truth is `a_0` plus the model's three standard-
+normal decoder vectors (`z_temporal`, `z_seasonal`, and `z_spatial`), drawn at
+the dimensions declared by the constructed model. The same `a_0` distribution
+object is sampled for truth and passed to the fitting model; the `z` priors
+are hardcoded standard normals on both sides.
+
+### Fixed spatial gain and scope of the result
+
+The spatial field is
+
+```
+f_xy = exp(sp_var_mu) * decode_spatial(z_spatial).
+```
+
+Thus `sp_var_mu = 0.0` means **unit gain**, not a disabled spatial field: the
+raw decoder output remains random and enters the log-intensity unchanged.
+The package default `sp_var_mu = 2.0` multiplies the spatial log-field by
+`exp(2)`, making the induced prior on event counts computationally unusable
+for unrejected SBC. In 60 measured prior draws, counts ranged from 114 to
+approximately 6.7 million; changing the center of an independent `a_0` prior
+shifts this distribution but does not narrow its roughly seven-order spread.
+
+Stage 2 is therefore fixed at `sp_var_mu = 0.0`, recorded in the config
+identity. This validates end-to-end LGCP composition and NUTS inversion in a
+computationally feasible unit-gain regime. It does **not** validate posterior
+geometry, numerical stability, or calibration under the production-gain
+prior at `sp_var_mu = 2.0`. Nonzero-gain algebra and simulator wiring are
+covered separately by `tests/test_decode_fields.py` and
+`tests/test_lgcp_sim.py`; the gain itself lives in the shared
+`decode_fields.decode_spatial_field` atom used by simulation and likelihood.
+The production-gain diffuseness is a modeling finding and motivates the
+planned sampled-amplitude/recalibration follow-up.
+
+### Priors and computational budget
+
+- `a_0 ~ Normal(0.4, 0.3)`.
+- All three `z` vectors use the model's `Normal(0, I)` prior.
+- Prior-predictive budget band: 20--2000 events, with at most 5% below and at
+  most 5% above; zero-event draws are forbidden.
+- At the distinct check seed, 150 measured draws had median 124,
+  5th/95th percentiles 23/687, maximum 1926, 3.3% below 20, 0% above 2000,
+  and no zero-event draws.
+
+The real run is never conditioned on this count check: it uses a distinct
+master seed and never rejects or skips a replicate based on event count.
+
+### Ranked targets and decision rule
+
+Nine targets are **PRIMARY** and therefore enter the per-replicate ESS gate
+and the final acceptance decision:
+
+1. `log_background = log(Itot_txy)`;
+2. pointwise log-intensity at five fixed spacetime grid cells,
+   `a_0 + f_t[i] + f_a[season_idx_of_t[i]] + f_xy[j]`;
+3. the first component of each decoder vector: `z_temporal_0`,
+   `z_seasonal_0`, and `z_spatial_0`.
+
+`a_0` is **SUPPLEMENTARY**: its rank and quantile ESS are recorded and
+reported, but it does not drive ESS retries or the pass/fail decision. Exact
+SBC ranks remain uniform even for weakly identified parameters; the exclusion
+is operational, because the soft intercept/field direction can mix slowly.
+
+Stage 2 passes if every primary Monte Carlo ECDF p-value is at least 0.005.
+The Bonferroni family-wise false-alarm bound is at most 4.5% across nine
+targets; because the targets are correlated, no exact independence-based
+family-wise probability is claimed.
 
 ## Inference: NUTS as the acceptance instrument
 
