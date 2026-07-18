@@ -34,7 +34,8 @@ introduced it (same logic as the commit discipline):
    have crashed on its first replicate before 965f683: the prior-predictive
    loop feeds z-dicts to `simulate()`, the exact path fixed and pinned by
    `tests/test_lgcp_sim.py`.)
-3. **Stage 3: full cox-Hawkes.**
+3. **Stage 3: full cox-Hawkes** -- the composition; pre-registered below
+   from measurement, after green stages 1 and 2.
 
 ## Ranked functionals (pre-registered)
 
@@ -120,6 +121,114 @@ The Bonferroni family-wise false-alarm bound is at most 4.5% across nine
 targets; because the targets are correlated, no exact independence-based
 family-wise probability is claimed.
 
+## Stage 3 pre-registration: full Cox-Hawkes
+
+Stage 3 is the composition test. Stages 1 and 2 each validated a leg in
+isolation at R=600; stage 3 fits `Hawkes_Model(cox_background=True)` --
+the LGCP background plus self-excitation in one likelihood -- so a failure
+localizes to the composition terms: the additivity of the background and
+excitation compensators, the branching simulator over inhomogeneous
+parents, and the joint posterior geometry where background flexibility and
+excitation compete for clustered mass.
+
+### Priors and budget
+
+The stage-3 prior is **stage 2's background prior times stage 1's trigger
+priors**: `a_0 ~ N(0.4, 0.3)` (stage 2) with `alpha ~ Beta(2, 6)`,
+`beta ~ LogNormal(0, 0.5)`, `sigmax_2 ~ LogNormal(log 0.005, 0.5)`
+(stage 1), composed structurally from the two stage prior functions in the
+harness. This is deliberately not described as the product of both complete
+stage priors: stage 1's `a_0` center is unused, and the `z` priors remain
+the model's hardcoded standard normals on both truth and fit sides.
+
+Budget band: unchanged from stage 2 -- 20-2000 events, at most 5% in
+either tail, zero-event draws forbidden. The excitation cascade lifts the
+stage-2 count distribution by roughly its expected multiplier
+`E[1/(1-alpha)] = 1.4`, which the band absorbs without moving `a_0`.
+Measured at a drafting-side seed (150 draws): count quantiles
+(0/5/25/50/75/95/100) = 7/35/88/170/307/931/1642, 2.7% below 20, 0%
+above 2000, no zero-event draws. As always, the pre-registered
+`check --stage 3` at the distinct check seed is the record, and the real
+run is never conditioned on it.
+
+### Unit gain, inherited
+
+Stage 3 runs at the same unit spatial gain as stage 2 (`sp_var_mu = 0.0`,
+recorded in the config identity). The amplitude decision is a property of
+the fields that the cascade only multiplies; the production-gain
+seven-order count spread is unchanged by excitation. The scope statement
+carries over verbatim: stage 3 validates end-to-end **unit-gain
+composition** and NUTS inversion; it does not validate posterior geometry,
+numerical stability, or calibration under the production-gain prior at
+`sp_var_mu = 2.0`. In the harness the shared decision is now named by one
+constant (`UNIT_GAIN_SP_VAR_MU`), replacing the stage-2-scoped name; the
+identity key and value are unchanged, so archived stage-2 results report
+identically.
+
+### Ranked targets and decision rule
+
+Twelve targets are **PRIMARY** -- the union of the stage-1 and stage-2
+primaries:
+
+1. `alpha`, `beta`, `sigmax_2`, ranked directly;
+2. `log_background = log(Itot_txy - Itot_excite)` -- the stage-1 formula,
+   with both terms field-dependent and live for the first time;
+3. pointwise log **background** intensity
+   `a_0 + f_t[i] + f_a[season_idx_of_t[i]] + f_xy[j]` at the **same five
+   pre-registered spacetime grid cells as stage 2** (a functional of the
+   latents alone; identical cells make the pointwise histograms directly
+   comparable across stages);
+4. the first component of each decoder vector.
+
+**SUPPLEMENTARY** (ranked and ESS-reported, never gating): `a_0` -- the
+integral-preserving tilt direction against the fields, hypothetical in
+stage 1, actually exists here -- and `exc_share = Itot_excite/Itot_txy`,
+the decomposition's summary diagnostic, kept supplementary per the stage-1
+precedent.
+
+Design note on pointwise **total** intensity: a functional adding the
+excitation term at a cell would be a valid data-dependent rank target and
+would exercise the composition pointwise. It is omitted as a design
+choice -- its information overlaps substantially with the ranked scalars,
+the background points, and `exc_share` -- not because it would be
+information-free.
+
+Stage 3 passes if every primary Monte Carlo ECDF p-value is at least
+**0.004**. The Bonferroni family-wise false-alarm bound is at most 4.8%
+across twelve targets, continuing the bound invariant across stages (4%,
+4.5%, 4.8%); the per-test threshold has no independent meaning, and the
+correlated targets again do not justify an independence calculation.
+
+### Composition identity (tested, with a float caveat)
+
+The likelihood defines `Itot_txy = Itot_excite + Itot_txy_back` at the
+trace level. The fast test asserts `Itot_txy - Itot_excite ==
+Itot_txy_back` to one-ulp float32 tolerance (rtol 1e-6): `Itot_txy` is
+stored as the *rounded* float32 sum, so bitwise equality of the
+subtraction fails in roughly a quarter of prior draws at ~1e-7 relative
+error. That is a float fact, an order of magnitude below any structural
+composition defect the assertion is there to catch.
+
+### Computational profile and an operational amendment
+
+The pairs term makes per-fit cost roughly quadratic in the event count, so
+unlike stages 1-2 the **tail replicates dominate wall clock**
+(drafting-machine pilots: 21 s at n=288, 226 s at n=850, 967 s at n=1642;
+machine-local, indicative only). Amendment to the watch-the-first-replicates
+advice: early replicates do not bound cost, because cost correlates with
+`n` -- watch the first **tail** replicate (n above ~900) specifically
+before trusting an overnight extrapolation.
+
+### Pilot evidence
+
+Drafting-environment pilots at production chain settings and the real
+stage-3 priors: four warmup-300 fits spanning n in {7, 288, 850, 1642} --
+zero divergences, minimum primary quantile ESS 174-263 against the 120.65
+gate, no retries. A warmup-500 comparison at n=288 was indistinguishable
+(minESS 225 vs 222, zero divergences). Default warmup 300 stands for
+stage 3. The excitation/field confounding concern does not materialize at
+unit gain: `alpha`'s ESS is as healthy as the scalars were in stage 1.
+
 ## Inference: NUTS as the acceptance instrument
 
 - **NUTS-SBC tests whether the implementation is self-consistent.** It is
@@ -187,8 +296,10 @@ If a finite-`spatial_window` stage is included, choose the `sigmax_2` prior
 so that `ws >= 4 * sqrt(sigmax_2)` (both in REAL units; the documented rule
 of thumb in the `Hawkes_Model` docstring) holds across the prior's
 support -- e.g. for an upper prior quantile q of `sigmax_2`, require
-`ws >= 4 * sqrt(q)`. This dovetails with the small-kernel requirement in
-the caveats below: the same concentrated `sigmax_2` prior serves both.
+`ws >= 4 * sqrt(q)`. The concentrated `sigmax_2` prior originally also
+served the out-of-domain-parenting caveat below; that caveat is now
+retired for the rectangular scope, and the prior stands on this rule and
+on NUTS geometry (bounded away from zero).
 
 ## Scope and pre-registered caveats
 
@@ -196,10 +307,19 @@ Scope: **rectangular domain, `spatial_window=None`** -- the regime where
 Phase 2b made conservation structural (every likelihood/simulator row in
 `docs/boundary_and_window_semantics.md` is exact there).
 
-Two known small effects go on record BEFORE the first run:
+Effects on record:
 
-1. **Out-of-domain-parenting second-order gap**: kept negligible by a
-   `sigmax_2` prior concentrated on small kernels.
+1. **RETIRED (stage-3 pre-registration): out-of-domain-parenting
+   second-order gap.** Registered before stage 1 as "kept negligible by a
+   `sigmax_2` prior concentrated on small kernels"; retired for the
+   rectangular `spatial_window=None` scope because the gap does not exist
+   there at all. Per `docs/boundary_and_window_semantics.md` rows 5 and 7,
+   offspring are discarded w.r.t. the bounding rectangle **before
+   parenting** (Prop 1.1(ii)), exactly matching the excitation
+   compensator's per-axis erf charge on rectangles -- no out-of-domain
+   parent is ever created in this regime. The stage-1 registration was
+   conservative; post-Phase-2c the exactness is structural. The
+   registration stays in this list as the record of its own retirement.
 2. **Unseeded background draw**: irrelevant for SBC -- SBC needs no
    per-replicate reproducibility, only correct distributions.
 

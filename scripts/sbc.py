@@ -1,14 +1,19 @@
-"""Staged SBC harness on the unit box: stage 1 (plain Hawkes) and stage 2 (LGCP).
+"""Staged SBC harness on the unit box: stage 1 (plain Hawkes), stage 2 (LGCP),
+stage 3 (full cox-Hawkes).
 
 Design source: docs/sbc_runbook.md (the accepted design; read it first). This
-module implements stages 1 and 2 of the staged plan. Stage 1: plain Hawkes
+module implements the complete staged plan. Stage 1: plain Hawkes
 (cox_background=False) -- four scalar parameters, the fastest NUTS target,
 exercising pairs, the excitation compensator, and the constant background in
 isolation; COMPLETE (R=600 PASS, results archived). Stage 2: LGCP -- fields
 and decoders, no self-excitation; the ~40-dimensional latent (a_0 + z vectors)
-through the PriorVAE decode atoms and the exact seasonal-overlap time integral.
-Stage 3 (cox-Hawkes) is a reserved subcommand value that fails loudly until
-implemented.
+through the PriorVAE decode atoms and the exact seasonal-overlap time integral;
+COMPLETE (R=600 PASS at unit gain, results archived). Stage 3: full
+cox-Hawkes -- the composition. Both legs are individually validated, so a
+stage-3 failure localizes to the composition terms: the additivity of the
+background and excitation compensators in one likelihood, the branching
+simulator over inhomogeneous parents, and the joint posterior geometry where
+background flexibility and excitation compete for clustered mass.
 
 What SBC tests here: prior -> simulate -> NUTS fit -> posterior inverts, i.e.
 the rank of each pre-registered truth functional among L thinned posterior
@@ -136,6 +141,78 @@ stage-2 run -- do not re-litigate mid-run):
   the config-hash + implementation-identity guard, and the sup-ECDF Monte
   Carlo instrument.
 
+STAGE-3 PRE-REGISTRATIONS (full cox-Hawkes; decided from measurement BEFORE
+the first stage-3 run -- do not re-litigate mid-run):
+
+* Priors: stage 2's BACKGROUND prior times stage 1's TRIGGER priors --
+  a_0 ~ N(0.4, 0.3) from stage 2; alpha ~ Beta(2, 6),
+  beta ~ LogNormal(0, 0.5), sigmax_2 ~ LogNormal(log 0.005, 0.5) from
+  stage 1 -- composed structurally from the two stage prior functions in
+  stage3_priors(). This is deliberately NOT described as the product of both
+  complete stage priors: stage 1's a_0 center is unused, and z ~ N(0, I)
+  remains hardcoded in the model on both sides. Budget band unchanged from
+  stage 2 (20-2000, tails <= 5%, zero-event forbidden): the cascade lifts
+  the stage-2 count distribution by roughly E[1/(1-alpha)] = 1.4, measured
+  well inside the band (drafting-side, 150 draws: quantiles
+  (0/5/25/50/75/95/100) = 7/35/88/170/307/931/1642, 2.7% below 20, 0%
+  above 2000, no zero-event draws). `check --stage 3` is the pre-registered
+  verification before any run.
+* Ranked functionals. PRIMARY (12) = the union of the stage primaries:
+  alpha, beta, sigmax_2; log_background = log(Itot_txy - Itot_excite) --
+  the stage-1 formula with BOTH terms field-dependent and live for the
+  first time; pointwise log BACKGROUND intensity a_0 + f_t[i] +
+  f_a[season_idx_of_t[i]] + f_xy[j] at the SAME five pre-registered cells
+  as stage 2 (a functional of the latents alone; directly comparable
+  pointwise histograms across stages); and the first component of each z
+  vector. SUPPLEMENTARY: a_0 (its integral-preserving tilt direction
+  against the fields, hypothetical in stage 1, actually exists here) and
+  exc_share = Itot_excite/Itot_txy (data-dependent, valid, the
+  decomposition's summary diagnostic; per stage-1 precedent it does not
+  gate). Design note: a pointwise TOTAL-intensity functional (background
+  plus excitation at a cell) would be a valid data-dependent rank target
+  and would exercise the composition pointwise; it is omitted as a design
+  choice -- its information overlaps substantially with the ranked scalars,
+  the background points, and exc_share -- not because it would be
+  information-free.
+* Decision rule: PASS iff every one of the 12 primaries has p >= 0.004
+  (Bonferroni family-wise false-alarm bound <= 4.8%, continuing the bound
+  invariant across stages: 4%, 4.5%, 4.8%; the per-test threshold has no
+  independent meaning).
+* Amplitude: unit gain inherited. UNIT_GAIN_SP_VAR_MU = 0.0 names the
+  shared stage-2/3 decision (renamed from STAGE2_SP_VAR_MU; the config
+  identity key and value are unchanged, so archived stage-2 reports are
+  unaffected). Same scope statement as stage 2: this validates the
+  unit-gain composition, not posterior geometry or calibration under the
+  production-gain prior at sp_var_mu = 2.0.
+* Composition identity: the likelihood defines Itot_txy = Itot_excite +
+  Itot_txy_back at the trace level. The fast test asserts
+  Itot_txy - Itot_excite == Itot_txy_back to one-ulp float32 tolerance
+  (rtol 1e-6): Itot_txy is stored as the ROUNDED float32 sum, so bitwise
+  equality of the subtraction fails in ~a quarter of draws at ~1e-7
+  relative error -- a float fact, not a composition defect.
+* RETIRED caveat: the out-of-domain-parenting second-order gap is retired
+  for this scope. Per docs/boundary_and_window_semantics.md rows 5 and 7,
+  offspring are discarded w.r.t. the bounding rectangle BEFORE parenting
+  (Prop 1.1(ii)), exactly matching the compensator's per-axis erf charge on
+  rectangles: no out-of-domain parent exists in the rectangular
+  spatial_window=None regime at all. The stage-1 registration of the caveat
+  was conservative; post-Phase-2c the gap is structurally absent here. The
+  concentrated sigmax_2 prior stays -- motivated by the finite-ws rule and
+  NUTS geometry, no longer by this gap.
+* Computational profile: pairs make per-fit cost roughly quadratic in n, so
+  unlike stages 1-2 the TAIL replicates dominate wall clock (drafting-
+  machine pilots: 21 s at n=288, 226 s at n=850, 967 s at n=1642;
+  MACHINE-LOCAL, indicative only). Operational amendment: watching the
+  first ~10 replicates does not bound cost, because cost correlates with
+  the event count -- watch the first TAIL replicate (n above ~900)
+  specifically.
+* Pilot evidence (drafting environment, production chain settings, real
+  stage-3 priors): four warmup-300 fits spanning n in {7, 288, 850, 1642}
+  -- zero divergences, min primary quantile ESS 174-263 against the 120.65
+  gate, no retries; a warmup-500 comparison at n=288 was indistinguishable
+  (minESS 225 vs 222, zero divergences). Default warmup 300 stands for
+  stage 3.
+
 UNIT ANNOTATION (REQUIRED; runbook "Priors" section). This config knowingly
 mixes two unit systems:
 
@@ -157,9 +234,9 @@ annotation, and provenance. A resumed run must hash-match the stored config
 depend only on (master_seed, r).
 
 Usage:
-  python scripts/sbc.py check  --stage 2 --draws 200   # independent prior-predictive budget check
-  python scripts/sbc.py run    --stage 2 --replicates 200   # resumable; out_dir defaults to results/sbc_stage2
-  python scripts/sbc.py report --out-dir results/sbc_stage2  # ranks -> ECDF test (+ --plot)
+  python scripts/sbc.py check  --stage 3 --draws 200   # independent prior-predictive budget check
+  python scripts/sbc.py run    --stage 3 --replicates 200   # resumable; out_dir defaults to results/sbc_stage3
+  python scripts/sbc.py report --out-dir results/sbc_stage3  # ranks -> ECDF test (+ --plot)
 """
 import argparse
 import contextlib
@@ -195,7 +272,7 @@ PRIMARY = ["alpha", "beta", "sigmax_2", "log_background"]
 DETERMINISTIC = ["Itot_txy", "Itot_excite"]
 
 # ---- stage 2 (LGCP) pre-registered constants --------------------------------
-STAGE2_SP_VAR_MU = 0.0          # amplitude decision; see module docstring
+UNIT_GAIN_SP_VAR_MU = 0.0       # amplitude decision, stages 2 AND 3; see module docstring
 LATENT_STAGE2 = ["a_0", "z_temporal", "z_seasonal", "z_spatial"]
 DETERMINISTIC_STAGE2 = ["Itot_txy", "f_t", "f_a", "f_xy"]
 # (t_cell, ix, iy) on the internal 50 x (25x25) grids; f_xy index is iy*n_xy+ix
@@ -207,14 +284,27 @@ PRIMARY_STAGE2 = (["log_background"]
                   + [f"log_intensity_p{k}" for k in range(len(STAGE2_GRID_POINTS))]
                   + [f"{vec}_{i}" for vec, i in STAGE2_Z_PRIMARY])
 SUPPLEMENTARY_STAGE2 = ["a_0"]
-P_THRESHOLD = {1: 0.01, 2: 0.005}
-BUDGET_BAND = {1: (50, 500, 0.03), 2: (20, 2000, 0.05)}
+
+# ---- stage 3 (cox-Hawkes) pre-registered constants --------------------------
+# The pointwise cells and z components reuse the STAGE2_* constants verbatim:
+# the names record provenance (pre-registered for stage 2); the reuse IS the
+# stage-3 design (identical cells => directly comparable pointwise histograms).
+LATENT_STAGE3 = LATENT + ["z_temporal", "z_seasonal", "z_spatial"]
+DETERMINISTIC_STAGE3 = ["Itot_txy", "Itot_excite", "f_t", "f_a", "f_xy"]
+PRIMARY_STAGE3 = (["alpha", "beta", "sigmax_2", "log_background"]
+                  + [f"log_intensity_p{k}" for k in range(len(STAGE2_GRID_POINTS))]
+                  + [f"{vec}_{i}" for vec, i in STAGE2_Z_PRIMARY])
+SUPPLEMENTARY_STAGE3 = ["a_0", "exc_share"]
+
+P_THRESHOLD = {1: 0.01, 2: 0.005, 3: 0.004}
+BUDGET_BAND = {1: (50, 500, 0.03), 2: (20, 2000, 0.05), 3: (20, 2000, 0.05)}
 RANK_ORDER = {
     1: ["alpha", "beta", "sigmax_2", "a_0", "log_background", "exc_share"],
     2: PRIMARY_STAGE2 + SUPPLEMENTARY_STAGE2,
+    3: PRIMARY_STAGE3 + SUPPLEMENTARY_STAGE3,
 }
-PRIMARIES = {1: PRIMARY, 2: PRIMARY_STAGE2}
-SUPPLEMENTARY = {1: ["exc_share"], 2: SUPPLEMENTARY_STAGE2}
+PRIMARIES = {1: PRIMARY, 2: PRIMARY_STAGE2, 3: PRIMARY_STAGE3}
+SUPPLEMENTARY = {1: ["exc_share"], 2: SUPPLEMENTARY_STAGE2, 3: SUPPLEMENTARY_STAGE3}
 
 UNIT_ANNOTATION = {
     "sigmax_2": "SQUARED REAL units of the input X/Y columns (real-unit trigger contract)",
@@ -258,6 +348,20 @@ def stage2_priors():
     return dict(a_0=dist.Normal(0.4, 0.3))
 
 
+def stage3_priors():
+    """Pre-registered stage-3 priors: stage 2's BACKGROUND prior (a_0) times
+    stage 1's TRIGGER priors (alpha, beta, sigmax_2), composed structurally
+    from the two stage prior functions so the statement cannot drift from the
+    code. Deliberately NOT the product of both complete stage priors: stage
+    1's a_0 center is unused, and z ~ N(0, I) remains hardcoded in the model
+    on both truth and fit sides. The cascade lifts the stage-2 count
+    distribution by roughly E[1/(1-alpha)] = 1.4, staying inside the shared
+    20-2000 band; verify with `check --stage 3` before any run."""
+    trig = stage1_priors()
+    return dict(a_0=stage2_priors()["a_0"], alpha=trig["alpha"],
+                beta=trig["beta"], sigmax_2=trig["sigmax_2"])
+
+
 def prior_spec(priors):
     """Serializable record of the prior family + parameters, derived from the
     distribution objects themselves (no dual maintenance)."""
@@ -289,7 +393,7 @@ class SBCConfig:
         Frozen dataclasses may set derived defaults during __post_init__ via
         object.__setattr__.
         """
-        if self.stage not in (1, 2):
+        if self.stage not in (1, 2, 3):
             raise ValueError(f"stage {self.stage} is not implemented")
         if self.out_dir is None:
             object.__setattr__(
@@ -302,7 +406,7 @@ class SBCConfig:
         (master_seed, r)."""
         ident = {
             "stage": self.stage,
-            "model": {1: "hawkes", 2: "lgcp"}[self.stage],
+            "model": {1: "hawkes", 2: "lgcp", 3: "cox_hawkes"}[self.stage],
             "domain": [[0.0, 1.0], [0.0, 1.0]],
             "T_days": T_DAYS,
             "master_seed": self.master_seed,
@@ -318,8 +422,11 @@ class SBCConfig:
             "budget_band": list(BUDGET_BAND[self.stage]),
             "implementation": implementation_identity(),
         }
-        if self.stage == 2:
-            ident["sp_var_mu"] = STAGE2_SP_VAR_MU
+        if self.stage in (2, 3):
+            # Identical keys for both field stages; for stage 2 this produces
+            # byte-for-byte the pre-rename identity dict (key "sp_var_mu",
+            # value 0.0), so archived stage-2 dirs report unchanged.
+            ident["sp_var_mu"] = UNIT_GAIN_SP_VAR_MU
             ident["grid_points"] = [list(p) for p in STAGE2_GRID_POINTS]
             ident["z_primary_components"] = [list(zc) for zc in STAGE2_Z_PRIMARY]
         return ident
@@ -387,15 +494,20 @@ def build_model(data, priors):
 
 
 def build_model_stage2(data, priors):
-    return LGCP_Model(data, A_RECT, T_DAYS, sp_var_mu=STAGE2_SP_VAR_MU, **priors)
+    return LGCP_Model(data, A_RECT, T_DAYS, sp_var_mu=UNIT_GAIN_SP_VAR_MU, **priors)
+
+
+def build_model_stage3(data, priors):
+    return Hawkes_Model(data, A_RECT, T_DAYS, cox_background=True,
+                        sp_var_mu=UNIT_GAIN_SP_VAR_MU, **priors)
 
 
 def stage_builder(stage):
-    return {1: build_model, 2: build_model_stage2}[stage]
+    return {1: build_model, 2: build_model_stage2, 3: build_model_stage3}[stage]
 
 
 def stage_priors(stage):
-    return {1: stage1_priors, 2: stage2_priors}[stage]()
+    return {1: stage1_priors, 2: stage2_priors, 3: stage3_priors}[stage]()
 
 
 def replicate_seeds(master_seed, r):
@@ -444,6 +556,29 @@ def draw_truth_stage2(key, priors, gen):
         key, sub = jax.random.split(key)
         truth[vec] = np.asarray(jax.random.normal(sub, (gen.args[dim_key],)))
     return truth
+
+
+def draw_truth_stage3(key, priors, gen):
+    """Union truth draw: the four scalars from the shared prior dict and the
+    three z vectors from N(0, I) at the model's own dimensions. Every truth
+    component receives its own subkey from ONE split of the replicate's prior
+    key -- no sequential parent-key reuse."""
+    vecs = [("z_temporal", "z_dim_temporal"), ("z_seasonal", "z_dim_seasonal"),
+            ("z_spatial", "z_dim_spatial")]
+    subkeys = jax.random.split(key, len(LATENT) + len(vecs))
+    truth = {name: float(priors[name].sample(sub))
+             for name, sub in zip(LATENT, subkeys[:len(LATENT)])}
+    for (vec, dim_key), sub in zip(vecs, subkeys[len(LATENT):]):
+        truth[vec] = np.asarray(jax.random.normal(sub, (gen.args[dim_key],)))
+    return truth
+
+
+def _draw_truth_stage1(key, priors, gen):
+    """Signature adapter: the stage-1 truth draw ignores the generator."""
+    return draw_truth(key, priors)
+
+
+STAGE_TRUTH = {1: _draw_truth_stage1, 2: draw_truth_stage2, 3: draw_truth_stage3}
 
 
 def simulate_replicate(gen, truth, seeds):
@@ -569,7 +704,79 @@ def _extract_stage2(fit, truth, r, attempt):
     return truth_vals, gated_draws, all_draws, extras
 
 
-STAGE_EXTRACT = {1: _extract_stage1, 2: _extract_stage2}
+def truth_sites_stage3(fit, truth):
+    """Stage-3 truth-side trace: the union deterministics (both compensator
+    legs plus the fields), the same expressions the posterior replays."""
+    fixed = {k: truth[k] for k in LATENT_STAGE3}
+    tr = handlers.trace(handlers.substitute(
+        handlers.seed(fit.model, jax.random.PRNGKey(0)), fixed)).get_trace(fit.args)
+    return {k: np.asarray(tr[k]["value"]) for k in DETERMINISTIC_STAGE3}
+
+
+def _extract_stage3(fit, truth, r, attempt):
+    """Stage-3 functional extraction: the union of the stage-1 and stage-2
+    functionals. log_background reverts to the stage-1 formula
+    log(Itot_txy - Itot_excite) -- with cox background BOTH terms are
+    field-dependent and live for the first time; the pointwise cells and z
+    components are stage 2's, verbatim. Truth and posterior sides use the
+    SAME traced sites, so the functionals cannot drift apart."""
+    for name in LATENT_STAGE3:
+        vals = np.asarray(fit.samples[name])
+        if not np.all(np.isfinite(vals)):
+            raise SystemExit(
+                f"FATAL: non-finite posterior for {name} in replicate {r} "
+                f"attempt {attempt}")
+
+    det_true = truth_sites_stage3(fit, truth)
+    det_post = posterior_deterministics(fit, return_sites=DETERMINISTIC_STAGE3)
+    bg_true = float(det_true["Itot_txy"] - det_true["Itot_excite"])
+    bg_post = np.asarray(det_post["Itot_txy"]) - np.asarray(det_post["Itot_excite"])
+    if bg_true <= 0 or not np.all(bg_post > 0):
+        raise SystemExit(
+            f"FATAL: non-positive background mass in replicate {r} attempt {attempt}")
+
+    sidx = np.asarray(fit.args["season_idx_of_t"])
+    n_xy = int(fit.args["n_xy"])
+    a0_true = float(truth["a_0"])
+    a0_post = np.asarray(fit.samples["a_0"])
+    share_true = float(det_true["Itot_excite"] / det_true["Itot_txy"])
+    share_post = (np.asarray(det_post["Itot_excite"])
+                  / np.asarray(det_post["Itot_txy"]))
+
+    truth_vals = {"alpha": truth["alpha"], "beta": truth["beta"],
+                  "sigmax_2": truth["sigmax_2"],
+                  "log_background": float(np.log(bg_true))}
+    gated_draws = {"alpha": np.asarray(fit.samples["alpha"]),
+                   "beta": np.asarray(fit.samples["beta"]),
+                   "sigmax_2": np.asarray(fit.samples["sigmax_2"]),
+                   "log_background": np.log(bg_post)}
+    for k, (t_i, ix, iy) in enumerate(STAGE2_GRID_POINTS):
+        xy_i = iy * n_xy + ix
+        name = f"log_intensity_p{k}"
+        truth_vals[name] = float(a0_true + det_true["f_t"][t_i]
+                                 + det_true["f_a"][sidx[t_i]]
+                                 + det_true["f_xy"][xy_i])
+        gated_draws[name] = (a0_post + det_post["f_t"][:, t_i]
+                             + det_post["f_a"][:, sidx[t_i]]
+                             + det_post["f_xy"][:, xy_i])
+    for vec, i in STAGE2_Z_PRIMARY:
+        name = f"{vec}_{i}"
+        truth_vals[name] = float(np.asarray(truth[vec])[i])
+        gated_draws[name] = np.asarray(fit.samples[vec])[:, i]
+
+    # a_0 and exc_share are supplementary: ranked and ESS-reported, never
+    # gating (a_0's tilt direction against the fields actually exists here;
+    # exc_share follows the stage-1 precedent).
+    gated_draws["a_0"] = a0_post
+    truth_vals["a_0"] = a0_true
+    gated_draws["exc_share"] = np.asarray(share_post)
+    truth_vals["exc_share"] = share_true
+    all_draws = dict(gated_draws)
+    extras = {"truth_functionals": {k: truth_vals[k] for k in RANK_ORDER[3]}}
+    return truth_vals, gated_draws, all_draws, extras
+
+
+STAGE_EXTRACT = {1: _extract_stage1, 2: _extract_stage2, 3: _extract_stage3}
 
 
 def rank_of(truth_val, draws, tie_rng):
@@ -640,10 +847,7 @@ def _jsonable_truth(truth):
 
 def run_replicate(r, gen, priors, cfg):
     seeds = replicate_seeds(cfg.master_seed, r)
-    if cfg.stage == 1:
-        truth = draw_truth(seeds["prior_key"], priors)
-    else:
-        truth = draw_truth_stage2(seeds["prior_key"], priors, gen)
+    truth = STAGE_TRUTH[cfg.stage](seeds["prior_key"], priors, gen)
     events = simulate_replicate(gen, truth, seeds)
     n = len(events)
     if n < 2:
@@ -997,10 +1201,7 @@ def prior_check(priors=None, draws=200, master_seed=PRIOR_CHECK_MASTER_SEED,
     counts = []
     for d in range(draws):
         seeds = replicate_seeds(master_seed, d)
-        if stage == 1:
-            truth = draw_truth(seeds["prior_key"], priors)
-        else:
-            truth = draw_truth_stage2(seeds["prior_key"], priors, gen)
+        truth = STAGE_TRUTH[stage](seeds["prior_key"], priors, gen)
         counts.append(len(simulate_replicate(gen, truth, seeds)))
     counts = np.array(counts)
     q = np.quantile(counts, [0.0, 0.05, 0.25, 0.5, 0.75, 0.95, 1.0]).astype(int)
@@ -1061,10 +1262,10 @@ def main():
         if not summary["budget_gate_pass"]:
             raise SystemExit("prior-predictive budget gate failed; do not start SBC")
     elif args.cmd == "run":
-        if args.stage not in (1, 2):
+        if args.stage not in (1, 2, 3):
             raise NotImplementedError(
-                f"stage {args.stage} is not implemented yet; see docs/sbc_runbook.md "
-                "'Staging' -- stage 3 (cox-Hawkes) follows a green stage 2.")
+                f"stage {args.stage} does not exist; stages 1-3 are the complete "
+                "staged plan (docs/sbc_runbook.md 'Staging').")
         # Suppress per-fit progress bars for the overnight log via the fit
         # path's own existing switch (inference_functions.run_mcmc checks this
         # env var); print_summary is captured per-replicate instead. No fit

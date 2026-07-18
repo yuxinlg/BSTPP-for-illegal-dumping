@@ -8,8 +8,9 @@ uniformity, deliberately). Priors here are smoke-specific low-count overrides
 for speed; they flow through the same matched-by-construction path as the
 pre-registered stage-1 priors, so nothing config-shaped is stubbed out.
 
-Marked slow: two real NUTS fits (20 warmup / 44 raw draws -> L=11), plus a
-separate adaptive-length smoke that forces one ESS retry.
+Marked slow: per-stage smokes with real NUTS fits (20 warmup / 44 raw draws
+-> L=11) for stages 1-3, plus a separate adaptive-length smoke that forces
+one ESS retry.
 Deselect with -m "not slow".
 """
 import os
@@ -192,7 +193,7 @@ def test_stage2_config_and_truth_plumbing():
     grid indices within range, identity fields, jsonable truth."""
     priors = sbc.stage2_priors()
     gen = sbc.build_model_stage2(sbc.make_placeholder(), priors)
-    assert gen.args["sp_var_mu"] == sbc.STAGE2_SP_VAR_MU == 0.0
+    assert gen.args["sp_var_mu"] == sbc.UNIT_GAIN_SP_VAR_MU == 0.0
     seeds = sbc.replicate_seeds(0, 0)
     truth = sbc.draw_truth_stage2(seeds["prior_key"], priors, gen)
     assert truth["z_temporal"].shape == (gen.args["z_dim_temporal"],)
@@ -210,7 +211,7 @@ def test_stage2_config_and_truth_plumbing():
     assert cfg.out_dir == os.path.join("results", "sbc_stage2")
     ident = cfg.identity(priors)
     assert ident["stage"] == 2 and ident["model"] == "lgcp"
-    assert ident["sp_var_mu"] == sbc.STAGE2_SP_VAR_MU == 0.0
+    assert ident["sp_var_mu"] == sbc.UNIT_GAIN_SP_VAR_MU == 0.0
     assert ident["p_threshold"] == 0.005
     assert ident["rank_targets"]["primaries"] == sbc.PRIMARY_STAGE2
     assert len(sbc.PRIMARY_STAGE2) == 9
@@ -257,6 +258,123 @@ def test_sbc_stage2_harness_smoke(tmp_path):
     assert set(out["functionals"]) == set(sbc.PRIMARY_STAGE2)
     assert set(out["supplementary"]) == {"a_0"}
     assert "0.005" in out["decision"]["rule"]
+    for entry in out["functionals"].values():
+        assert 0.0 <= entry["mc_p_value"] <= 1.0
+        assert sum(entry["rank_hist_bins"]) == 2
+
+
+def test_stage3_config_and_truth_plumbing():
+    """Fast stage-3 plumbing: the prior composition (stage 2's background
+    prior times stage 1's trigger priors), gain threading, per-component
+    truth subkeys (reproducible, matched dims), the traced composition
+    identity Itot_txy - Itot_excite == Itot_txy_back at one-ulp float32
+    tolerance, grid indices, identity fields, and the stage-aware out_dir."""
+    p1, p2, p3 = sbc.stage1_priors(), sbc.stage2_priors(), sbc.stage3_priors()
+    assert (p3["a_0"].loc, p3["a_0"].scale) == (p2["a_0"].loc, p2["a_0"].scale)
+    for name in ("alpha", "beta", "sigmax_2"):
+        assert type(p3[name]) is type(p1[name])
+        for arg in p3[name].arg_constraints:
+            assert float(np.asarray(getattr(p3[name], arg))) == \
+                float(np.asarray(getattr(p1[name], arg)))
+    assert (p3["a_0"].loc, p3["a_0"].scale) != (p1["a_0"].loc, p1["a_0"].scale)
+
+    gen = sbc.build_model_stage3(sbc.make_placeholder(), p3)
+    assert gen.args["model"] == "cox_hawkes"
+    assert gen.args["sp_var_mu"] == sbc.UNIT_GAIN_SP_VAR_MU == 0.0
+
+    seeds = sbc.replicate_seeds(0, 0)
+    truth = sbc.draw_truth_stage3(seeds["prior_key"], p3, gen)
+    truth_again = sbc.draw_truth_stage3(seeds["prior_key"], p3, gen)
+    for name in sbc.LATENT:
+        assert isinstance(truth[name], float)
+        assert truth[name] == truth_again[name]
+    for vec, dim_key in [("z_temporal", "z_dim_temporal"),
+                         ("z_seasonal", "z_dim_seasonal"),
+                         ("z_spatial", "z_dim_spatial")]:
+        assert truth[vec].shape == (gen.args[dim_key],)
+        assert np.array_equal(truth[vec], truth_again[vec])
+    json.dumps(sbc._jsonable_truth(truth))  # must serialize
+
+    # Composition identity on the traced model: Itot_txy is stored as the
+    # ROUNDED float32 sum Itot_excite + Itot_txy_back, so the subtraction is
+    # asserted to one ulp (rtol 1e-6), not bitwise -- a float fact, an order
+    # of magnitude below any structural composition defect.
+    from numpyro import handlers
+    import jax
+    for r in range(3):
+        tr_truth = sbc.draw_truth_stage3(
+            sbc.replicate_seeds(0, r)["prior_key"], p3, gen)
+        fixed = {k: tr_truth[k] for k in sbc.LATENT_STAGE3}
+        tr = handlers.trace(handlers.substitute(
+            handlers.seed(gen.model, jax.random.PRNGKey(0)),
+            fixed)).get_trace(gen.args)
+        txy = float(np.asarray(tr["Itot_txy"]["value"]))
+        exc = float(np.asarray(tr["Itot_excite"]["value"]))
+        back = float(np.asarray(tr["Itot_txy_back"]["value"]))
+        assert back > 0 and exc >= 0
+        np.testing.assert_allclose(txy - exc, back, rtol=1e-6, atol=0.0)
+
+    n_xy = int(gen.args["n_xy"])
+    for t_i, ix, iy in sbc.STAGE2_GRID_POINTS:
+        assert 0 <= t_i < gen.args["n_t"]
+        assert 0 <= iy * n_xy + ix < n_xy ** 2
+
+    cfg = sbc.SBCConfig(stage=3)
+    assert cfg.out_dir == os.path.join("results", "sbc_stage3")
+    ident = cfg.identity(p3)
+    assert ident["stage"] == 3 and ident["model"] == "cox_hawkes"
+    assert ident["sp_var_mu"] == sbc.UNIT_GAIN_SP_VAR_MU == 0.0
+    assert ident["p_threshold"] == 0.004
+    assert ident["rank_targets"]["primaries"] == sbc.PRIMARY_STAGE3
+    assert ident["rank_targets"]["supplementary"] == ["a_0", "exc_share"]
+    assert len(sbc.PRIMARY_STAGE3) == 12
+    assert ident["budget_band"] == [20, 2000, 0.05]
+
+
+@pytest.mark.slow
+def test_sbc_stage3_harness_smoke(tmp_path):
+    """Stage-3 mechanics end-to-end at the REAL stage-3 priors (the union
+    prior is low-count enough by design): two cox-Hawkes NUTS fits, ranks for
+    all 12 primaries plus the a_0 and exc_share supplementaries, stage-aware
+    storage, resume, stage-flip pooling refusal, config-driven report.
+    NOT calibration (R=2, deliberately)."""
+    out_dir = str(tmp_path / "sbc_stage3_smoke")
+    cfg = sbc.SBCConfig(replicates=2, master_seed=0, num_warmup=20,
+                        num_samples=44, rank_draws=11, min_ess_ratio=0.0,
+                        stage=3, out_dir=out_dir)
+    records, n_new = sbc.run_sbc(cfg)
+    assert n_new == 2 and len(records) == 2
+    expected = set(sbc.PRIMARY_STAGE3) | {"a_0", "exc_share"}
+    for rec in records:
+        assert rec["stage"] == 3 and rec["L"] == 11
+        assert set(rec["ranks"]) == expected
+        for name, rank in rec["ranks"].items():
+            assert 0 <= rank <= rec["L"], f"rank out of range for {name}"
+        assert set(rec["min_quantile_ess"]) == expected
+        assert set(sbc.LATENT).issubset(rec["truth"])
+        assert len(rec["truth"]["z_spatial"]) == 20
+        vals = list(rec["truth_functionals"].values())
+        assert np.all(np.isfinite(vals))
+        assert 0.0 <= rec["truth_functionals"]["exc_share"] <= 1.0
+
+    stored = json.load(open(sbc._paths(out_dir)[0], encoding="utf-8"))
+    assert stored["identity"]["stage"] == 3
+    assert stored["identity"]["model"] == "cox_hawkes"
+    assert stored["identity"]["sp_var_mu"] == 0.0
+
+    # resume performs zero new fits; a stage flip must refuse to pool
+    _, n2 = sbc.run_sbc(cfg)
+    assert n2 == 0
+    cfg_flip = sbc.SBCConfig(replicates=2, master_seed=0, num_warmup=20,
+                             num_samples=44, rank_draws=11, min_ess_ratio=0.0,
+                             stage=2, out_dir=out_dir)
+    with pytest.raises(RuntimeError, match="config mismatch"):
+        sbc.run_sbc(cfg_flip)
+
+    out = sbc.report(out_dir, mc_draws=300)
+    assert set(out["functionals"]) == set(sbc.PRIMARY_STAGE3)
+    assert set(out["supplementary"]) == {"a_0", "exc_share"}
+    assert "0.004" in out["decision"]["rule"]
     for entry in out["functionals"].values():
         assert 0.0 <= entry["mc_p_value"] <= 1.0
         assert sum(entry["rank_hist_bins"]) == 2
