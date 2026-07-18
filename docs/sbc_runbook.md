@@ -331,6 +331,8 @@ Effects on record:
   run, `primary_pass`; results in `refactor-patches/baselines-2026-07/sbc_stage1_adaptive/`).
   **Stage 2 complete** at harness tip `30734f1` (R=600 unit-gain LGCP,
   `primary_pass`; results in `refactor-patches/baselines-2026-07/sbc_stage2/`).
+  **Stage 3 complete** at harness tip `5da5784` (R=200 unit-gain cox-Hawkes,
+  `primary_pass`; results in `refactor-patches/baselines-2026-07/sbc_stage3/`).
 - The prior-predictive budget check uses a distinct master seed from the real
   run. Inspecting and gating on the exact real-run simulations would select
   the SBC ensemble by event count.

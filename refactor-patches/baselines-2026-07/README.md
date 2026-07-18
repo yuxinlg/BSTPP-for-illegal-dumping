@@ -31,6 +31,8 @@ values against runs from another machine.
   at `results/sbc_stage1/` (do not pool).
 - `sbc_stage2/` -- stage-2 SBC results (harness tip `30734f1`, R=600
   unit-gain LGCP, `primary_pass`). MACHINE-LOCAL; see that folder's README.
+- `sbc_stage3/` -- stage-3 SBC results (harness tip `5da5784`, R=200
+  unit-gain cox-Hawkes, `primary_pass`). MACHINE-LOCAL; see that folder's README.
 
 ## Reproduce
 

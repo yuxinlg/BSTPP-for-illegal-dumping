@@ -1,0 +1,249 @@
+{
+  "R": 200,
+  "L": 127,
+  "functionals": {
+    "alpha": {
+      "ecdf_sup_stat": 0.039062,
+      "mc_p_value": 0.863714,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        22,
+        27,
+        24,
+        27,
+        20,
+        24,
+        26,
+        30
+      ]
+    },
+    "beta": {
+      "ecdf_sup_stat": 0.074375,
+      "mc_p_value": 0.175282,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        37,
+        18,
+        24,
+        29,
+        28,
+        16,
+        22,
+        26
+      ]
+    },
+    "sigmax_2": {
+      "ecdf_sup_stat": 0.07,
+      "mc_p_value": 0.231977,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        21,
+        25,
+        31,
+        28,
+        12,
+        19,
+        30,
+        34
+      ]
+    },
+    "log_background": {
+      "ecdf_sup_stat": 0.062813,
+      "mc_p_value": 0.336766,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        31,
+        24,
+        22,
+        28,
+        25,
+        31,
+        18,
+        21
+      ]
+    },
+    "log_intensity_p0": {
+      "ecdf_sup_stat": 0.066875,
+      "mc_p_value": 0.277072,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        16,
+        26,
+        25,
+        33,
+        24,
+        22,
+        25,
+        29
+      ]
+    },
+    "log_intensity_p1": {
+      "ecdf_sup_stat": 0.068437,
+      "mc_p_value": 0.253075,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        29,
+        33,
+        19,
+        26,
+        26,
+        18,
+        26,
+        23
+      ]
+    },
+    "log_intensity_p2": {
+      "ecdf_sup_stat": 0.044063,
+      "mc_p_value": 0.754925,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        23,
+        24,
+        31,
+        20,
+        34,
+        21,
+        30,
+        17
+      ]
+    },
+    "log_intensity_p3": {
+      "ecdf_sup_stat": 0.06875,
+      "mc_p_value": 0.248575,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        22,
+        22,
+        25,
+        23,
+        26,
+        25,
+        29,
+        28
+      ]
+    },
+    "log_intensity_p4": {
+      "ecdf_sup_stat": 0.027188,
+      "mc_p_value": 0.992501,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        30,
+        22,
+        24,
+        19,
+        33,
+        21,
+        22,
+        29
+      ]
+    },
+    "z_temporal_0": {
+      "ecdf_sup_stat": 0.084375,
+      "mc_p_value": 0.092191,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        19,
+        28,
+        26,
+        24,
+        16,
+        25,
+        30,
+        32
+      ]
+    },
+    "z_seasonal_0": {
+      "ecdf_sup_stat": 0.037813,
+      "mc_p_value": 0.885911,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        25,
+        22,
+        24,
+        29,
+        23,
+        20,
+        29,
+        28
+      ]
+    },
+    "z_spatial_0": {
+      "ecdf_sup_stat": 0.035312,
+      "mc_p_value": 0.923608,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        28,
+        26,
+        18,
+        27,
+        24,
+        30,
+        21,
+        26
+      ]
+    }
+  },
+  "supplementary": {
+    "a_0": {
+      "ecdf_sup_stat": 0.032813,
+      "mc_p_value": 0.953105,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        23,
+        25,
+        33,
+        16,
+        27,
+        22,
+        28,
+        26
+      ]
+    },
+    "exc_share": {
+      "ecdf_sup_stat": 0.048437,
+      "mc_p_value": 0.648935,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        20,
+        23,
+        31,
+        28,
+        17,
+        27,
+        21,
+        33
+      ]
+    }
+  },
+  "divergences": {
+    "total_divergent_transitions": 0,
+    "replicates_with_divergences": 0,
+    "note": "divergent replicates are NOT dropped (pre-registered); a material rate is a finding to investigate, not to filter"
+  },
+  "sampling_diagnostics": {
+    "minimum_quantile_ess_by_functional": {
+      "alpha": 141.154,
+      "beta": 173.913,
+      "sigmax_2": 168.01,
+      "log_background": 147.815,
+      "log_intensity_p0": 225.874,
+      "log_intensity_p1": 160.637,
+      "log_intensity_p2": 160.859,
+      "log_intensity_p3": 166.005,
+      "log_intensity_p4": 179.573,
+      "z_temporal_0": 161.159,
+      "z_seasonal_0": 166.626,
+      "z_spatial_0": 185.258,
+      "a_0": 167.344,
+      "exc_share": 134.21
+    },
+    "max_raw_draws": 508,
+    "replicates_with_ess_retry": 0,
+    "note": "minimum over replicates of FINAL-chain ESS; each primary replicate passed its pre-registered ESS threshold before ranking, possibly after Talts-style adaptive lengthening"
+  },
+  "decision": {
+    "rule": "PASS iff every PRIMARY functional has mc_p_value >= 0.004 (pre-registered; Bonferroni family-wise false-alarm bound <= 4.8% over 12 functionals)",
+    "primary_pass": true,
+    "interpretation": "PASS means no calibration deviation was detected at this resolution; it is not proof that the implementation is correct"
+  }
+}
