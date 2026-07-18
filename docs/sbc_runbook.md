@@ -209,6 +209,8 @@ Two known small effects go on record BEFORE the first run:
   thinning (Talts et al.); uniformity judged by ECDF envelope, not eyeballed
   histograms. **Stage 1 complete** at harness tip `43556b4` (R=600 adaptive
   run, `primary_pass`; results in `refactor-patches/baselines-2026-07/sbc_stage1_adaptive/`).
+  **Stage 2 complete** at harness tip `30734f1` (R=600 unit-gain LGCP,
+  `primary_pass`; results in `refactor-patches/baselines-2026-07/sbc_stage2/`).
 - The prior-predictive budget check uses a distinct master seed from the real
   run. Inspecting and gating on the exact real-run simulations would select
   the SBC ensemble by event count.

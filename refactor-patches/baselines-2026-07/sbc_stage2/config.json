@@ -1,0 +1,122 @@
+{
+  "config_hash": "c8c98beacd6192d4ca41ed54b20043ad89d2f905ff22c6cbc122b27bf8ce0f8e",
+  "identity": {
+    "stage": 2,
+    "model": "lgcp",
+    "domain": [
+      [
+        0.0,
+        1.0
+      ],
+      [
+        0.0,
+        1.0
+      ]
+    ],
+    "T_days": 912.5,
+    "master_seed": 0,
+    "num_warmup": 300,
+    "num_samples": 508,
+    "max_num_samples": 4064,
+    "rank_draws": 127,
+    "min_ess_ratio": 0.95,
+    "priors": {
+      "a_0": {
+        "dist": "Normal",
+        "loc": 0.4,
+        "scale": 0.3
+      }
+    },
+    "rank_targets": {
+      "primaries": [
+        "log_background",
+        "log_intensity_p0",
+        "log_intensity_p1",
+        "log_intensity_p2",
+        "log_intensity_p3",
+        "log_intensity_p4",
+        "z_temporal_0",
+        "z_seasonal_0",
+        "z_spatial_0"
+      ],
+      "supplementary": [
+        "a_0"
+      ]
+    },
+    "p_threshold": 0.005,
+    "budget_band": [
+      20,
+      2000,
+      0.05
+    ],
+    "implementation": {
+      "commit": "30734f1a4681f74f53c86cb2302b8daa85c1f8db",
+      "tracked_code_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sbc_script_sha256": "a7290c079c7f527a5609b1b94addcacff960eb2a55e3e6b298d8d93e770a2f47",
+      "jax": "0.4.23",
+      "numpyro": "0.15.0",
+      "numpy": "1.26.4",
+      "python": "3.12.13"
+    },
+    "sp_var_mu": 0.0,
+    "grid_points": [
+      [
+        5,
+        12,
+        12
+      ],
+      [
+        15,
+        6,
+        6
+      ],
+      [
+        25,
+        18,
+        18
+      ],
+      [
+        35,
+        6,
+        18
+      ],
+      [
+        45,
+        18,
+        6
+      ]
+    ],
+    "z_primary_components": [
+      [
+        "z_temporal",
+        0
+      ],
+      [
+        "z_seasonal",
+        0
+      ],
+      [
+        "z_spatial",
+        0
+      ]
+    ]
+  },
+  "unit_annotation": {
+    "sigmax_2": "SQUARED REAL units of the input X/Y columns (real-unit trigger contract)",
+    "beta": "INTERNAL rescaled-time units (data time -> [0, 50]; Phase 3 conversion layer)",
+    "a_0": "internal-unit background intercept (background contract unchanged)",
+    "note": "unit-box domain: real == internal spatially, numbers unit-neutral HERE; the same config on a real domain is NOT"
+  },
+  "provenance": {
+    "commit": "30734f1a4681f74f53c86cb2302b8daa85c1f8db",
+    "tracked_code_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sbc_script_sha256": "a7290c079c7f527a5609b1b94addcacff960eb2a55e3e6b298d8d93e770a2f47",
+    "jax": "0.4.23",
+    "numpyro": "0.15.0",
+    "numpy": "1.26.4",
+    "python": "3.12.13",
+    "branch": "refactor",
+    "date": "2026-07-17 19:03:59",
+    "caveat": "MACHINE-LOCAL results; never compare against runs from another machine"
+  }
+}

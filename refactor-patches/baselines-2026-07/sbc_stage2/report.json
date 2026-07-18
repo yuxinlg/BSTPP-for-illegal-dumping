@@ -1,0 +1,185 @@
+{
+  "R": 600,
+  "L": 127,
+  "functionals": {
+    "log_background": {
+      "ecdf_sup_stat": 0.030937,
+      "mc_p_value": 0.532847,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        72,
+        69,
+        70,
+        91,
+        77,
+        77,
+        81,
+        63
+      ]
+    },
+    "log_intensity_p0": {
+      "ecdf_sup_stat": 0.033229,
+      "mc_p_value": 0.443756,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        69,
+        72,
+        70,
+        81,
+        84,
+        77,
+        65,
+        82
+      ]
+    },
+    "log_intensity_p1": {
+      "ecdf_sup_stat": 0.033438,
+      "mc_p_value": 0.435956,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        76,
+        66,
+        74,
+        76,
+        72,
+        72,
+        83,
+        81
+      ]
+    },
+    "log_intensity_p2": {
+      "ecdf_sup_stat": 0.028958,
+      "mc_p_value": 0.613839,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        71,
+        86,
+        81,
+        67,
+        68,
+        77,
+        64,
+        86
+      ]
+    },
+    "log_intensity_p3": {
+      "ecdf_sup_stat": 0.03875,
+      "mc_p_value": 0.264974,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        59,
+        86,
+        77,
+        86,
+        81,
+        79,
+        58,
+        74
+      ]
+    },
+    "log_intensity_p4": {
+      "ecdf_sup_stat": 0.037188,
+      "mc_p_value": 0.307769,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        88,
+        64,
+        80,
+        82,
+        82,
+        58,
+        70,
+        76
+      ]
+    },
+    "z_temporal_0": {
+      "ecdf_sup_stat": 0.038854,
+      "mc_p_value": 0.261274,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        96,
+        70,
+        63,
+        71,
+        68,
+        61,
+        95,
+        76
+      ]
+    },
+    "z_seasonal_0": {
+      "ecdf_sup_stat": 0.039583,
+      "mc_p_value": 0.245775,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        76,
+        66,
+        70,
+        72,
+        87,
+        74,
+        76,
+        79
+      ]
+    },
+    "z_spatial_0": {
+      "ecdf_sup_stat": 0.019479,
+      "mc_p_value": 0.946305,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        77,
+        70,
+        84,
+        65,
+        71,
+        83,
+        85,
+        65
+      ]
+    }
+  },
+  "supplementary": {
+    "a_0": {
+      "ecdf_sup_stat": 0.021771,
+      "mc_p_value": 0.886211,
+      "n_ties": 0,
+      "rank_hist_bins": [
+        72,
+        68,
+        82,
+        71,
+        69,
+        90,
+        65,
+        83
+      ]
+    }
+  },
+  "divergences": {
+    "total_divergent_transitions": 0,
+    "replicates_with_divergences": 0,
+    "note": "divergent replicates are NOT dropped (pre-registered); a material rate is a finding to investigate, not to filter"
+  },
+  "sampling_diagnostics": {
+    "minimum_quantile_ess_by_functional": {
+      "log_background": 124.349,
+      "log_intensity_p0": 169.886,
+      "log_intensity_p1": 184.928,
+      "log_intensity_p2": 148.717,
+      "log_intensity_p3": 183.758,
+      "log_intensity_p4": 172.342,
+      "z_temporal_0": 163.399,
+      "z_seasonal_0": 150.833,
+      "z_spatial_0": 135.605,
+      "a_0": 156.024
+    },
+    "max_raw_draws": 508,
+    "replicates_with_ess_retry": 0,
+    "note": "minimum over replicates of FINAL-chain ESS; each primary replicate passed its pre-registered ESS threshold before ranking, possibly after Talts-style adaptive lengthening"
+  },
+  "decision": {
+    "rule": "PASS iff every PRIMARY functional has mc_p_value >= 0.005 (pre-registered; Bonferroni family-wise false-alarm bound <= 4.5% over 9 functionals)",
+    "primary_pass": true,
+    "interpretation": "PASS means no calibration deviation was detected at this resolution; it is not proof that the implementation is correct"
+  }
+}

@@ -29,6 +29,8 @@ values against runs from another machine.
   R=600, `primary_pass`). MACHINE-LOCAL; see that folder's README. The
   quarantined fixed-length abort that motivated adaptive lengthening lives
   at `results/sbc_stage1/` (do not pool).
+- `sbc_stage2/` -- stage-2 SBC results (harness tip `30734f1`, R=600
+  unit-gain LGCP, `primary_pass`). MACHINE-LOCAL; see that folder's README.
 
 ## Reproduce
 
