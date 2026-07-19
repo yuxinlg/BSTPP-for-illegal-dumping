@@ -1,0 +1,10 @@
+conda_env illegal-dumping
+python 3.12.13
+python_exe C:\Users\Terhi\miniconda3\envs\illegal-dumping\python.exe
+jax 0.4.23
+jax_backend cpu
+numpyro 0.15.0
+numpy 1.26.4
+geopandas 1.1.3
+shapely 2.1.2
+jax_enable_x64 False

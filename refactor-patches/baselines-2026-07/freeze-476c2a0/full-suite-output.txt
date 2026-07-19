@@ -1,0 +1,28 @@
+﻿=== Phase 3 freeze: full-suite run ===
+behavioral_baseline: 476c2a044780ced66afae12760b53ac75e304fc6
+execution_environment: detached git worktree (NOT the analysis working copy)
+worktree_path: C:\Users\Terhi\Box\BSTPP_terhi\BSTPP-freeze-476c2a0-worktree
+worktree_HEAD: 476c2a044780ced66afae12760b53ac75e304fc6
+analysis_working_copy: C:\Users\Terhi\Box\BSTPP_terhi\BSTPP-for-illegal-dumping
+analysis_working_copy_state: dirty — untracked files only; tracked tree clean
+canonical_command: JAX_PLATFORM_NAME=cpu python -m pytest tests/ -q
+exact_command: JAX_PLATFORM_NAME=cpu "C:/Users/Terhi/miniconda3/envs/illegal-dumping/python.exe" -m pytest tests/ -q
+conda_env: illegal-dumping
+python_exe: C:\Users\Terhi\miniconda3\envs\illegal-dumping\python.exe
+python_version: 3.12.13
+timezone: America/New_York (UTC-4)
+start: 2026-07-19 19:44:15 -04:00
+end: 2026-07-19 19:49:50 -04:00
+elapsed_wall: 00:05:35.4760158
+exit_code: 0
+
+=== pytest output ===
+....................................................................     [100%]
+============================== warnings summary ===============================
+tests/test_ingestion_contract.py::test_geographic_crs_contract_warning_is_nonvacuous
+  C:\Users\Terhi\Box\BSTPP_terhi\BSTPP-freeze-476c2a0-worktree\bstpp\main.py:196: UserWarning: Geometry is in a geographic CRS. Results from 'area' are likely incorrect. Use 'GeoSeries.to_crs()' to re-project geometries to a projected CRS before this operation.
+  
+    args['A_area'] = A.area.sum()/((A_[0,1]-A_[0,0])*(A_[1,1]-A_[1,0]))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+68 passed, 1 warning in 325.68s (0:05:25)
