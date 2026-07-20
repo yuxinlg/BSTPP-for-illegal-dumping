@@ -1,0 +1,11 @@
+scope,check,kind,row,message
+tacony_box,event_time_out_of_range,violation,3213,"event times outside the model horizon [0, 1460] days"
+tacony_box,event_time_out_of_range,violation,3656,"event times outside the model horizon [0, 1460] days"
+mifflin_box,event_time_out_of_range,violation,1119,"event times outside the model horizon [0, 1460] days"
+fairmount_box,event_time_out_of_range,violation,7186,"event times outside the model horizon [0, 1460] days"
+fairmount_box,event_time_out_of_range,violation,9437,"event times outside the model horizon [0, 1460] days"
+pooled(4 boxes),event_time_out_of_range,violation,17475,"event times outside the model horizon [0, 1460] days"
+pooled(4 boxes),event_time_out_of_range,violation,18701,"event times outside the model horizon [0, 1460] days"
+pooled(4 boxes),event_time_out_of_range,violation,19588,"event times outside the model horizon [0, 1460] days"
+pooled(4 boxes),event_time_out_of_range,violation,21288,"event times outside the model horizon [0, 1460] days"
+pooled(4 boxes),event_time_out_of_range,violation,22575,"event times outside the model horizon [0, 1460] days"
