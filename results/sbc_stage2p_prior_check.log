@@ -1,0 +1,23 @@
+{
+  "stage": "2p",
+  "band": [
+    20,
+    2000,
+    0.05
+  ],
+  "draws": 200,
+  "master_seed": 20260717,
+  "quantiles_0_5_25_50_75_95_100": [
+    11,
+    22,
+    61,
+    122,
+    241,
+    699,
+    1735
+  ],
+  "frac_below_lo": 0.03,
+  "frac_above_hi": 0.0,
+  "n_zero_event": 0,
+  "budget_gate_pass": true
+}

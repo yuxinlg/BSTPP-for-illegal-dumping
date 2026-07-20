@@ -217,6 +217,82 @@ def test_stage2_config_and_truth_plumbing():
     assert len(sbc.PRIMARY_STAGE2) == 9
 
 
+def test_stage2p_config_domain_and_plumbing():
+    """Fast stage-2p plumbing (pre-registered in docs/sbc_runbook.md 'Stage
+    2p pre-registration' BEFORE this implementation): the polygon identity,
+    the analytic area, probe-cell interiority, in-domain placeholder events,
+    and stage-2-verbatim statistical constants."""
+    from shapely.geometry import box, Point
+    poly = sbc.stage2p_domain().geometry.iloc[0]
+    # analytic |A| = 0.928950 (four corner-cut triangles off the unit square)
+    assert poly.area == pytest.approx(sbc.STAGE2P_DOMAIN_AREA, abs=1e-12)
+    # all five archived pointwise grid CELLS strictly interior (comparability
+    # with the rectangular stages; registered rationale)
+    for _, ix, iy in sbc.STAGE2_GRID_POINTS:
+        cell = box(ix / 25, iy / 25, (ix + 1) / 25, (iy + 1) / 25)
+        assert poly.contains(cell), f"probe cell ({ix},{iy}) not interior"
+    # placeholder events lie inside the polygon (3a reject contracts)
+    ph = sbc.make_placeholder_stage2p()
+    assert len(ph) == 50
+    assert all(poly.covers(Point(x, y)) for x, y in zip(ph["X"], ph["Y"]))
+    assert sbc.stage_placeholder("2p") is sbc.make_placeholder_stage2p
+    assert sbc.stage_placeholder(2) is sbc.make_placeholder
+    # stage-2-verbatim design constants and identity
+    cfg = sbc.SBCConfig(stage="2p")
+    assert cfg.out_dir == os.path.join("results", "sbc_stage2p")
+    priors = sbc.stage_priors("2p")
+    assert sbc.prior_spec(priors) == sbc.prior_spec(sbc.stage2_priors())
+    ident = cfg.identity(priors)
+    assert ident["stage"] == "2p" and ident["model"] == "lgcp"
+    assert ident["domain"] == [list(v) for v in sbc.STAGE2P_DOMAIN_VERTICES]
+    assert ident["sp_var_mu"] == 0.0
+    assert ident["p_threshold"] == 0.005
+    assert ident["rank_targets"]["primaries"] == sbc.PRIMARY_STAGE2
+    assert sbc.BUDGET_BAND["2p"] == sbc.BUDGET_BAND[2]
+    # the generator model constructs on the polygon (clipped support live)
+    gen = sbc.build_model_stage2p(ph, priors)
+    assert len(np.asarray(gen.args["spatial_grid_cells"])) < 625
+    areas = np.asarray(gen.args["integration_areas"], dtype=np.float64)
+    assert areas.sum() == pytest.approx(sbc.STAGE2P_DOMAIN_AREA / 1.0, rel=2e-6)
+    assert (areas > 0).all() and (areas < 1 / 625 * (1 + 1e-6)).any()
+
+
+@pytest.mark.slow
+def test_sbc_stage2p_harness_smoke(tmp_path):
+    """Stage-2p mechanics end-to-end at the REAL stage-2 priors on the
+    pre-registered polygon: two LGCP NUTS fits, ranks for all 9 primaries
+    plus the a_0 supplementary, stage-aware storage, resume refusal on a
+    stage flip. NOT calibration (R=2, deliberately)."""
+    out_dir = str(tmp_path / "sbc_stage2p_smoke")
+    cfg = sbc.SBCConfig(replicates=2, master_seed=0, num_warmup=20,
+                        num_samples=44, rank_draws=11, min_ess_ratio=0.0,
+                        stage="2p", out_dir=out_dir)
+    records, n_new = sbc.run_sbc(cfg)
+    assert n_new == 2 and len(records) == 2
+    expected = set(sbc.PRIMARY_STAGE2) | {"a_0"}
+    for rec in records:
+        assert rec["stage"] == "2p" and rec["L"] == 11
+        assert set(rec["ranks"]) == expected
+        for name, rank in rec["ranks"].items():
+            assert 0 <= rank <= rec["L"], f"rank out of range for {name}"
+        vals = list(rec["truth_functionals"].values())
+        assert np.all(np.isfinite(vals))
+    stored = json.load(open(sbc._paths(out_dir)[0], encoding="utf-8"))
+    assert stored["identity"]["stage"] == "2p"
+    assert stored["identity"]["domain"] == [list(v) for v in
+                                            sbc.STAGE2P_DOMAIN_VERTICES]
+    _, n2 = sbc.run_sbc(cfg)   # resume: zero new fits
+    assert n2 == 0
+    cfg_flip = sbc.SBCConfig(replicates=2, master_seed=0, num_warmup=20,
+                             num_samples=44, rank_draws=11, min_ess_ratio=0.0,
+                             stage=2, out_dir=out_dir)
+    with pytest.raises(RuntimeError, match="config mismatch"):
+        sbc.run_sbc(cfg_flip)
+    out = sbc.report(out_dir, mc_draws=300)
+    assert set(out["functionals"]) == set(sbc.PRIMARY_STAGE2)
+    assert "0.005" in out["decision"]["rule"]
+
+
 @pytest.mark.slow
 def test_sbc_stage2_harness_smoke(tmp_path):
     """Stage-2 mechanics end-to-end at the REAL stage-2 priors (already

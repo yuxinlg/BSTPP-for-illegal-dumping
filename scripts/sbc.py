@@ -285,6 +285,27 @@ PRIMARY_STAGE2 = (["log_background"]
                   + [f"{vec}_{i}" for vec, i in STAGE2_Z_PRIMARY])
 SUPPLEMENTARY_STAGE2 = ["a_0"]
 
+# ---- stage 2p (polygon-domain LGCP) pre-registered constants ----------------
+# Registered in docs/sbc_runbook.md ("Stage 2p pre-registration", 2026-07-20)
+# BEFORE this implementation: the unit square with four generic asymmetric
+# corner cuts (convex octagon); bounding rectangle = the unit square, exact
+# |A| = 0.928950. Validates the 3c polygon BACKGROUND path only (clipped
+# support/compensator/sampler/membership) at unit gain; explicitly NOT the
+# 3d polygon excitation mode, production gain, or covariates. Every other
+# design constant is stage 2's verbatim (priors, R, ESS ladder, targets,
+# p >= 0.005 rule, budget band).
+STAGE2P_DOMAIN_VERTICES = [(0.22, 0.0), (0.79, 0.0), (1.0, 0.17), (1.0, 0.77),
+                           (0.86, 1.0), (0.24, 1.0), (0.0, 0.81), (0.0, 0.13)]
+STAGE2P_DOMAIN_AREA = 0.928950  # analytic; asserted against shapely in tests
+
+
+def stage2p_domain():
+    """The pre-registered stage-2p polygon as a GeoDataFrame domain."""
+    import geopandas as gpd
+    from shapely.geometry import Polygon
+    return gpd.GeoDataFrame({"geometry": [Polygon(STAGE2P_DOMAIN_VERTICES)]})
+
+
 # ---- stage 3 (cox-Hawkes) pre-registered constants --------------------------
 # The pointwise cells and z components reuse the STAGE2_* constants verbatim:
 # the names record provenance (pre-registered for stage 2); the reuse IS the
@@ -296,15 +317,21 @@ PRIMARY_STAGE3 = (["alpha", "beta", "sigmax_2", "log_background"]
                   + [f"{vec}_{i}" for vec, i in STAGE2_Z_PRIMARY])
 SUPPLEMENTARY_STAGE3 = ["a_0", "exc_share"]
 
-P_THRESHOLD = {1: 0.01, 2: 0.005, 3: 0.004}
-BUDGET_BAND = {1: (50, 500, 0.03), 2: (20, 2000, 0.05), 3: (20, 2000, 0.05)}
+# Stage "2p" reuses stage 2's statistical design verbatim (see its constants
+# block above); only the domain differs.
+P_THRESHOLD = {1: 0.01, 2: 0.005, 3: 0.004, "2p": 0.005}
+BUDGET_BAND = {1: (50, 500, 0.03), 2: (20, 2000, 0.05), 3: (20, 2000, 0.05),
+               "2p": (20, 2000, 0.05)}
 RANK_ORDER = {
     1: ["alpha", "beta", "sigmax_2", "a_0", "log_background", "exc_share"],
     2: PRIMARY_STAGE2 + SUPPLEMENTARY_STAGE2,
     3: PRIMARY_STAGE3 + SUPPLEMENTARY_STAGE3,
+    "2p": PRIMARY_STAGE2 + SUPPLEMENTARY_STAGE2,
 }
-PRIMARIES = {1: PRIMARY, 2: PRIMARY_STAGE2, 3: PRIMARY_STAGE3}
-SUPPLEMENTARY = {1: ["exc_share"], 2: SUPPLEMENTARY_STAGE2, 3: SUPPLEMENTARY_STAGE3}
+PRIMARIES = {1: PRIMARY, 2: PRIMARY_STAGE2, 3: PRIMARY_STAGE3,
+             "2p": PRIMARY_STAGE2}
+SUPPLEMENTARY = {1: ["exc_share"], 2: SUPPLEMENTARY_STAGE2,
+                 3: SUPPLEMENTARY_STAGE3, "2p": SUPPLEMENTARY_STAGE2}
 
 UNIT_ANNOTATION = {
     "sigmax_2": "SQUARED REAL units of the input X/Y columns (real-unit trigger contract)",
@@ -382,7 +409,7 @@ class SBCConfig:
     max_num_samples: int = 4064  # pre-registered adaptive-chain cap
     rank_draws: int = 127      # L after ESS-qualified uniform thinning
     min_ess_ratio: float = 0.95
-    stage: int = 1
+    stage: int | str = 1   # 1 | 2 | 3 | "2p"
     out_dir: str | None = None
 
     def __post_init__(self):
@@ -393,7 +420,7 @@ class SBCConfig:
         Frozen dataclasses may set derived defaults during __post_init__ via
         object.__setattr__.
         """
-        if self.stage not in (1, 2, 3):
+        if self.stage not in (1, 2, 3, "2p"):
             raise ValueError(f"stage {self.stage} is not implemented")
         if self.out_dir is None:
             object.__setattr__(
@@ -406,8 +433,10 @@ class SBCConfig:
         (master_seed, r)."""
         ident = {
             "stage": self.stage,
-            "model": {1: "hawkes", 2: "lgcp", 3: "cox_hawkes"}[self.stage],
-            "domain": [[0.0, 1.0], [0.0, 1.0]],
+            "model": {1: "hawkes", 2: "lgcp", 3: "cox_hawkes",
+                      "2p": "lgcp"}[self.stage],
+            "domain": ([list(v) for v in STAGE2P_DOMAIN_VERTICES]
+                       if self.stage == "2p" else [[0.0, 1.0], [0.0, 1.0]]),
             "T_days": T_DAYS,
             "master_seed": self.master_seed,
             "num_warmup": self.num_warmup,
@@ -422,7 +451,7 @@ class SBCConfig:
             "budget_band": list(BUDGET_BAND[self.stage]),
             "implementation": implementation_identity(),
         }
-        if self.stage in (2, 3):
+        if self.stage in (2, 3, "2p"):
             # Identical keys for both field stages; for stage 2 this produces
             # byte-for-byte the pre-rename identity dict (key "sp_var_mu",
             # value 0.0), so archived stage-2 dirs report unchanged.
@@ -489,6 +518,27 @@ def make_placeholder(seed=0, n=50):
                          "T": np.sort(rng.uniform(0, T_DAYS, n))})
 
 
+def make_placeholder_stage2p(seed=0, n=50):
+    """Placeholder events rejection-sampled strictly inside the stage-2p
+    polygon (the 3a contracts reject out-of-domain events; the generator's
+    grids remain data-independent)."""
+    from shapely.geometry import Point
+    poly = stage2p_domain().geometry.iloc[0].buffer(-1e-9)
+    rng = np.random.RandomState(seed)
+    xs, ys = [], []
+    while len(xs) < n:
+        x, y = rng.uniform(0.05, 0.95), rng.uniform(0.05, 0.95)
+        if poly.contains(Point(x, y)):
+            xs.append(x)
+            ys.append(y)
+    return pd.DataFrame({"X": xs, "Y": ys,
+                         "T": np.sort(rng.uniform(0, T_DAYS, n))})
+
+
+def stage_placeholder(stage):
+    return make_placeholder_stage2p if stage == "2p" else make_placeholder
+
+
 def build_model(data, priors):
     return Hawkes_Model(data, A_RECT, T_DAYS, cox_background=False, **priors)
 
@@ -502,12 +552,21 @@ def build_model_stage3(data, priors):
                         sp_var_mu=UNIT_GAIN_SP_VAR_MU, **priors)
 
 
+def build_model_stage2p(data, priors):
+    """Stage 2p: stage 2's LGCP at unit gain on the pre-registered polygon."""
+    return LGCP_Model(data, stage2p_domain(), T_DAYS,
+                      sp_var_mu=UNIT_GAIN_SP_VAR_MU, **priors)
+
+
 def stage_builder(stage):
-    return {1: build_model, 2: build_model_stage2, 3: build_model_stage3}[stage]
+    return {1: build_model, 2: build_model_stage2, 3: build_model_stage3,
+            "2p": build_model_stage2p}[stage]
 
 
 def stage_priors(stage):
-    return {1: stage1_priors, 2: stage2_priors, 3: stage3_priors}[stage]()
+    # Stage 2p runs stage 2's priors verbatim (pre-registered).
+    return {1: stage1_priors, 2: stage2_priors, 3: stage3_priors,
+            "2p": stage2_priors}[stage]()
 
 
 def replicate_seeds(master_seed, r):
@@ -578,7 +637,8 @@ def _draw_truth_stage1(key, priors, gen):
     return draw_truth(key, priors)
 
 
-STAGE_TRUTH = {1: _draw_truth_stage1, 2: draw_truth_stage2, 3: draw_truth_stage3}
+STAGE_TRUTH = {1: _draw_truth_stage1, 2: draw_truth_stage2,
+               3: draw_truth_stage3, "2p": draw_truth_stage2}
 
 
 def simulate_replicate(gen, truth, seeds):
@@ -776,7 +836,8 @@ def _extract_stage3(fit, truth, r, attempt):
     return truth_vals, gated_draws, all_draws, extras
 
 
-STAGE_EXTRACT = {1: _extract_stage1, 2: _extract_stage2, 3: _extract_stage3}
+STAGE_EXTRACT = {1: _extract_stage1, 2: _extract_stage2, 3: _extract_stage3,
+                 "2p": _extract_stage2}
 
 
 def rank_of(truth_val, draws, tie_rng):
@@ -1005,7 +1066,7 @@ def run_sbc(cfg, priors=None):
     if len(record_ids) != len(set(record_ids)):
         raise RuntimeError(f"duplicate replicate ids in {jsonl_path}; refusing to pool ranks")
     done = {rec["r"] for rec in records}
-    gen = stage_builder(cfg.stage)(make_placeholder(), priors)
+    gen = stage_builder(cfg.stage)(stage_placeholder(cfg.stage)(), priors)
 
     n_new = 0
     with open(jsonl_path, "a", encoding="utf-8") as f:
@@ -1197,7 +1258,7 @@ def prior_check(priors=None, draws=200, master_seed=PRIOR_CHECK_MASTER_SEED,
     hi = band_hi if hi is None else hi
     tail_tol = band_tol if tail_tol is None else tail_tol
     priors = stage_priors(stage) if priors is None else priors
-    gen = stage_builder(stage)(make_placeholder(), priors)
+    gen = stage_builder(stage)(stage_placeholder(stage)(), priors)
     counts = []
     for d in range(draws):
         seeds = replicate_seeds(master_seed, d)
@@ -1230,12 +1291,17 @@ def prior_check(priors=None, draws=200, master_seed=PRIOR_CHECK_MASTER_SEED,
     return summary
 
 
+def _stage_arg(s):
+    """CLI stage id: 1 | 2 | 3 | 2p."""
+    return int(s) if s.isdigit() else s
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p_run = sub.add_parser("run", help="resumable staged SBC run")
-    p_run.add_argument("--stage", type=int, default=1)
+    p_run.add_argument("--stage", type=_stage_arg, default=1)
     p_run.add_argument("--replicates", type=int, default=150)
     p_run.add_argument("--master-seed", type=int, default=0)
     p_run.add_argument("--num-warmup", type=int, default=300)
@@ -1247,7 +1313,7 @@ def main():
                        help="defaults to results/sbc_stage<stage>")
 
     p_chk = sub.add_parser("check", help="prior-predictive event-count check (no fits)")
-    p_chk.add_argument("--stage", type=int, default=1)
+    p_chk.add_argument("--stage", type=_stage_arg, default=1)
     p_chk.add_argument("--draws", type=int, default=200)
     p_chk.add_argument("--master-seed", type=int, default=PRIOR_CHECK_MASTER_SEED)
 
@@ -1262,10 +1328,11 @@ def main():
         if not summary["budget_gate_pass"]:
             raise SystemExit("prior-predictive budget gate failed; do not start SBC")
     elif args.cmd == "run":
-        if args.stage not in (1, 2, 3):
+        if args.stage not in (1, 2, 3, "2p"):
             raise NotImplementedError(
-                f"stage {args.stage} does not exist; stages 1-3 are the complete "
-                "staged plan (docs/sbc_runbook.md 'Staging').")
+                f"stage {args.stage} does not exist; stages 1-3 plus the "
+                "post-3c polygon-domain stage 2p are the complete staged plan "
+                "(docs/sbc_runbook.md 'Staging' and 'Stage 2p pre-registration').")
         # Suppress per-fit progress bars for the overnight log via the fit
         # path's own existing switch (inference_functions.run_mcmc checks this
         # env var); print_summary is captured per-replicate instead. No fit
