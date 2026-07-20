@@ -403,7 +403,16 @@ class Point_Process_Model:
             spatial_cov['cov_ind'] = np.arange(len(spatial_cov))
             #find covariate cell index for each point
             self.points.crs = spatial_cov.crs
-            args['cov_ind'] = self.points.sjoin(spatial_cov).sort_values(by='point_id')['cov_ind'].values
+            # D-22 unique membership, covariate leg: an event exactly on a
+            # shared covariate-polygon edge joins every incident polygon;
+            # ties resolve deterministically to the LARGEST cov_ind,
+            # mirroring the field grid's max-comp_grid_id rule (identical to
+            # left-closed on row-major raster-like layers; for arbitrary
+            # polygon layers it is a documented deterministic convention,
+            # not a geometric statement). Unique joins are bit-unchanged.
+            args['cov_ind'] = (self.points.sjoin(spatial_cov)
+                               .groupby('point_id')['cov_ind'].max()
+                               .sort_index().values)
             if len(args['cov_ind']) != len(self.points):
                 raise Exception("Spatial covariates are not defined for all data points!")
 
@@ -614,7 +623,18 @@ class Point_Process_Model:
         points['point_id'] = np.arange(len(data))
 
         #find grid cells where points are located
-        args['indices_xy'] = points.sjoin(comp_grid).sort_values(by='point_id')['comp_grid_id'].values
+        # D-22 deterministic unique membership (3a micro-rebaseline): cells are
+        # left-closed/right-open per axis, [e_k, e_{k+1}), with the domain's
+        # max-x/max-y edges closed. A point exactly on an internal grid line
+        # intersects both adjacent cells in the sjoin; the left-closed cell is
+        # the one with the LARGER comp_grid_id (ids are row-major from the
+        # bottom-left: +1 across an x-edge, +25 across a y-edge, both at a
+        # corner), so ties resolve to the per-point max id. Points with a
+        # unique join -- all strictly-interior events -- are bit-unchanged.
+        # Points exactly on the outermost right/top edge join only the last
+        # cell, which IS the closed-edge assignment.
+        _joined = points.sjoin(comp_grid).groupby('point_id')['comp_grid_id'].max()
+        args['indices_xy'] = _joined.sort_index().values
 
         if len(args['indices_xy']) != len(points):
             raise Exception("Computational grid does not encompass all data points!")
@@ -681,7 +701,13 @@ class Point_Process_Model:
             test_args['y_vals'] = y_vals
 
         if 'cov_ind' in self.args:
-            test_args['cov_ind'] = points.sjoin(self.spatial_cov).sort_values(by='point_id')['cov_ind'].values
+            # Same D-22 max-cov_ind tie rule as training ingestion. This also
+            # closes a silent misalignment: a held-out event on a shared
+            # covariate edge used to emit TWO rows here with no length check,
+            # shifting every later event's covariate silently.
+            test_args['cov_ind'] = (points.sjoin(self.spatial_cov)
+                                    .groupby('point_id')['cov_ind'].max()
+                                    .sort_index().values)
 
         # Remove training-specific keys if present
         for k in ['batch_size', 'num_samples', 'num_warmup', 'num_chains', 'thinning']:
