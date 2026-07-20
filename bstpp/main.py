@@ -35,6 +35,7 @@ from .likelihood import (seasonal_time_integral, spatial_refinement_masses,
                          background_masses)
 from .data_contracts import (validate_events, validate_covariates, enforce,
                              DataContractError)
+from .preparation import ModelData, prepare_domain
 
 
 def _load_decoder(name):
@@ -198,6 +199,13 @@ class Point_Process_Model:
         self.data_contract_report = enforce(
             validate_events(data, A, T), len(data), data_contracts)
 
+        # Phase 3b seam: the user's inputs as supplied (events post file-load;
+        # covariate source kept raw so load-error ordering is unchanged).
+        self.model_data = ModelData(
+            events=data, domain=A, horizon_days=T,
+            offset_seasonal=offset_seasonal, covariate_source=spatial_cov,
+            cov_names=cov_names, cov_grid_size=cov_grid_size)
+
         args={}
         args['T']=50
         args['S']=24 #24
@@ -211,55 +219,14 @@ class Point_Process_Model:
 
         args['offset_seasonal'] = offset_seasonal
 
-        if type(A) is gpd.GeoDataFrame:
-            A_ = np.stack((A.bounds.min(axis=0)[['minx','miny']],
-                      A.bounds.max(axis=0)[['maxx','maxy']])).T
-            #proportion of area of rectangle A_ covered by A. Used for Hawkes integral.
-            args['A_area'] = A.area.sum()/((A_[0,1]-A_[0,0])*(A_[1,1]-A_[1,0]))
-        else:# A is rectangle specified by np.array
-            args['A_area'] = 1
-            A_ = A
+        # Phase 3b seam: domain geometry, bounding rectangle, unit scales and
+        # the geographic-CRS contract warning live in prepare_domain; args
+        # entries below are the legacy adapter view of the same objects.
+        self.prepared_domain = prepare_domain(A)
+        A_ = self.prepared_domain.bounds
+        args['A_area'] = self.prepared_domain.area_ratio
         args['A_'] = A_
-        # Per-axis REAL lengths of the bounding rectangle: the affine ingestion
-        # map is x_int = (x - x_min) / axis_scales[0] (and likewise in y).
-        # The spatial-trigger contract is REAL-unit -- the kernel is isotropic
-        # in the units of the input X/Y columns -- so these scales are the
-        # declared conversion constants at the internal/real unit boundary
-        # (consumed by the event-term atom, the excitation compensator, and
-        # nothing else; the background never needs them).
-        A_np = np.asarray(A_, dtype=float)
-        args['axis_scales'] = jnp.asarray(A_np[:, 1] - A_np[:, 0])
-        # Data-contract warning (warns, never blocks): the spatial trigger is
-        # isotropic in the units of the input X/Y columns, so GEOGRAPHIC
-        # coordinates (lon/lat degrees) make the "isotropic" kernel
-        # anisotropic ON THE GROUND -- one degree of longitude shrinks by
-        # cos(latitude) -- silently reintroducing the aspect-ratio defect the
-        # real-unit contract removed. Project to a metric CRS (e.g. a state
-        # plane or UTM zone) before ingestion. A declared CRS on a
-        # GeoDataFrame domain is AUTHORITATIVE (crs.is_geographic decides both
-        # ways); the bounds heuristic is the fallback for array domains and
-        # CRS-less GeoDataFrames only.
-        _geo_warning = (
-            "Spatial domain %s geographic coordinates (lon/lat degrees). "
-            "The spatial trigger is isotropic in COORDINATE units, so in "
-            "degrees it is anisotropic on the ground by cos(latitude), and "
-            "sigmax_2 / spatial_window are in squared degrees / degrees. "
-            "Project X/Y to a metric CRS before ingestion.")
-        _crs = A.crs if type(A) is gpd.GeoDataFrame else None
-        if _crs is not None:
-            if _crs.is_geographic:
-                warnings.warn(_geo_warning % "has a geographic CRS, i.e. uses",
-                              UserWarning, stacklevel=2)
-        else:
-            _x0, _x1 = float(A_np[0, 0]), float(A_np[0, 1])
-            _y0, _y1 = float(A_np[1, 0]), float(A_np[1, 1])
-            if (-180.0 <= _x0 <= 180.0 and -180.0 <= _x1 <= 180.0
-                    and -90.0 <= _y0 <= 90.0 and -90.0 <= _y1 <= 90.0
-                    and (_x1 - _x0) < 2.0 and (_y1 - _y0) < 2.0
-                    and max(abs(_x0), abs(_x1)) > 5.0
-                    and max(abs(_y0), abs(_y1)) > 5.0):
-                warnings.warn(_geo_warning % "looks like",
-                              UserWarning, stacklevel=2)
+        args['axis_scales'] = self.prepared_domain.axis_scales
 
         # create computational grids
 
