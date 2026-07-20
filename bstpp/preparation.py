@@ -218,6 +218,7 @@ class PreparedPartitions:
     int_df: Optional[gpd.GeoDataFrame] = None
     cov_area: Optional[np.ndarray] = None
     cov_support: Optional[gpd.GeoDataFrame] = None
+    standardization: Optional[dict] = None
     integration_field_indices: Optional[np.ndarray] = None
     integration_cov_indices: Optional[np.ndarray] = None
     integration_areas: Optional[np.ndarray] = None
@@ -351,14 +352,62 @@ def attach_covariate_partitions(partitions: PreparedPartitions,
     A_ = domain.bounds
     partitions.cov_gdf = spatial_cov
 
+    # 3c-3 (D-7): clipped covariate support C_c ∩ A, for EVERY model --
+    # the plain-Hawkes compensator areas and background-sampler geometry,
+    # and the "domain_area" standardization weights (rows aligned 1:1 with
+    # cov_ind; zero-area rows KEPT so covariate indexing is unchanged).
+    domain_geom = (domain.domain.geometry.union_all() if domain.is_polygon
+                   else box(A_[0, 0], A_[1, 0], A_[0, 1], A_[1, 1]))
+    cov_support = spatial_cov.copy()
+    cov_support['geometry'] = (cov_support.geometry
+                               .intersection(domain_geom)
+                               .apply(_polygonal_part))
+    partitions.cov_support = cov_support
+    w_area = (cov_support.area / ((A_[0, 1] - A_[0, 0]) * (A_[1, 1] - A_[1, 0]))).values
+
     X_s = spatial_cov[cov_names].values
     if X_s.ndim == 1:
         X_s = X_s[:, None]
-    # standardize covariates
-    if standardize_cov:
+    # standardize covariates. 3c API commit: standardization is always
+    # REPORTED (D-10) via partitions.standardization; the one narrow
+    # explicit convenience is the method string "domain_area" (D-11,
+    # weights = the exact |C_c ∩ A| areas above). Boolean semantics are
+    # BIT-UNCHANGED and the default stays True -- OP-3 (default off) and
+    # OP-4 (full method-string API) are explicitly not settled in 3c.
+    if isinstance(standardize_cov, str):
+        if standardize_cov != 'domain_area':
+            raise ValueError(
+                "standardize_cov must be True (count-weighted z-score), "
+                "False (values preserved), or 'domain_area' (area-weighted "
+                f"over |C_c ∩ A|); got {standardize_cov!r}")
+        if w_area.sum() <= 0.0:
+            raise ValueError(
+                "standardize_cov='domain_area': the covariate layer has "
+                "zero total area inside the model domain A")
+        w = w_area[:, None]
+        mean = (w * X_s).sum(axis=0) / w_area.sum()
+        var = (w * (X_s - mean) ** 2).sum(axis=0) / w_area.sum()
+        if np.any(var <= 0.0):
+            bad = [cov_names[j] for j in np.flatnonzero(var <= 0.0)]
+            raise ValueError(
+                "standardize_cov='domain_area': zero variance over the "
+                f"positive-area cells for covariate(s) {bad}; a covariate "
+                "constant on A cannot be standardized")
+        scale = var ** 0.5
+        partitions.cov_values = (X_s - mean) / scale
+        partitions.standardization = {
+            'method': 'domain_area', 'columns': list(cov_names),
+            'mean': mean, 'scale': scale}
+    elif standardize_cov:
         partitions.cov_values = (X_s - X_s.mean(axis=0)) / (X_s.var(axis=0) ** 0.5)
+        partitions.standardization = {
+            'method': 'count', 'columns': list(cov_names),
+            'mean': X_s.mean(axis=0), 'scale': X_s.var(axis=0) ** 0.5}
     else:
         partitions.cov_values = X_s
+        partitions.standardization = {
+            'method': 'none', 'columns': list(cov_names),
+            'mean': None, 'scale': None}
 
     if model in ['lgcp', 'cox_hawkes']:
         partitions.comp_grid.crs = spatial_cov.crs
@@ -379,19 +428,9 @@ def attach_covariate_partitions(partitions: PreparedPartitions,
         # support from prepare_partitions; the legacy covariate-sjoin
         # override (covariate footprint as in-domain cell set) is removed.
     else:
-        # 3c-3 (D-7, SC): plain-Hawkes covariate support is C_c ∩ A. The
-        # clipped geometries live on cov_support (rows aligned 1:1 with
-        # spatial_cov / cov_ind -- zero-area rows are KEPT so covariate
-        # indexing is unchanged) and feed both the compensator areas and
-        # the background sampler's location draw.
-        domain_geom = (domain.domain.geometry.union_all() if domain.is_polygon
-                       else box(A_[0, 0], A_[1, 0], A_[0, 1], A_[1, 1]))
-        cov_support = spatial_cov.copy()
-        cov_support['geometry'] = (cov_support.geometry
-                                   .intersection(domain_geom)
-                                   .apply(_polygonal_part))
-        partitions.cov_support = cov_support
-        partitions.cov_area = (cov_support.area / ((A_[0, 1] - A_[0, 0]) * (A_[1, 1] - A_[1, 0]))).values
+        # 3c-3 (D-7, SC): the plain-Hawkes compensator charges the clipped
+        # |C_c ∩ A| areas of the shared cov_support object built above.
+        partitions.cov_area = w_area
 
 
 def finalize_integration_arrays(partitions: PreparedPartitions,

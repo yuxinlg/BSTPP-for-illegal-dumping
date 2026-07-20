@@ -166,8 +166,15 @@ class Point_Process_Model:
             List of covariate names. Must all be columns in spatial_cov.
         cov_grid_size: list-like
             Spatial covariate grid (width, height).
-        standardize_cov: bool
-            Standardize covariates
+        standardize_cov: bool or str
+            True (default): legacy count-weighted z-score over covariate
+            cells. False: values preserved exactly as supplied.
+            'domain_area': area-weighted standardization with the exact
+            clipped |C_c ∩ A| areas as weights (D-11 convenience) --
+            cells with no domain mass do not influence mean/scale.
+            Whichever method runs is reported on self.standardization
+            (D-10): {'method', 'columns', 'mean', 'scale'}, with
+            X = standardized * scale + mean.
         sp_var_mu: float
             Fixed log-amplitude multiplier applied to the spatial VAE decoder output.
             Calibrate as sp_var_mu = 0.5*log(sigma2_target / E[f^2]_decoder), where
@@ -201,6 +208,11 @@ class Point_Process_Model:
         self._data_contracts_mode = data_contracts
         self.data_contract_report = enforce(
             validate_events(data, A, T), len(data), data_contracts)
+
+        # D-10: always report whether/how covariates were standardized;
+        # overwritten by the covariate leg when covariates are supplied.
+        self.standardization = {'method': 'none', 'columns': [],
+                                'mean': None, 'scale': None}
 
         # Phase 3b seam: the user's inputs as supplied (events post file-load;
         # covariate source kept raw so load-error ordering is unchanged).
@@ -347,6 +359,10 @@ class Point_Process_Model:
             attach_covariate_partitions(parts, self.prepared_domain,
                                         spatial_cov, cov_names,
                                         standardize_cov, args['model'])
+            # D-10 (3c API): the model always reports whether/how it
+            # standardized -- method 'count' | 'none' | 'domain_area' with
+            # invertible mean/scale (X = standardized * scale + mean).
+            self.standardization = parts.standardization
             args['spatial_cov'] = parts.cov_values
             if args['model'] in ['lgcp','cox_hawkes']:
                 args['int_df'] = parts.int_df
