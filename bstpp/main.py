@@ -33,6 +33,8 @@ from .decode_fields import (decode_temporal_field, decode_seasonal_field,
                         decode_spatial_field)
 from .likelihood import (seasonal_time_integral, spatial_refinement_masses,
                          background_masses)
+from .data_contracts import (validate_events, validate_covariates, enforce,
+                             DataContractError)
 
 
 def _load_decoder(name):
@@ -129,7 +131,8 @@ def add_month_grid_and_labels(ax, start_date, num_days,label_every_n_months=3):
 
 class Point_Process_Model:
     def __init__(self,model,data,A,T,offset_seasonal=0,spatial_cov=None,cov_names=None,
-                 cov_grid_size=None,standardize_cov=True,sp_var_mu=2.0,**kwargs):
+                 cov_grid_size=None,standardize_cov=True,sp_var_mu=2.0,
+                 data_contracts='report',**kwargs):
         """
         Spatiotemporal Point Process Model.
         The data is rescaled to fit in a 1x1 spatial grid and a lenght 50 time window. Posterior samples must be interpreted with this in mind.
@@ -169,12 +172,29 @@ class Point_Process_Model:
             field. Note this is an amplitude multiplier, NOT the var_loc used in VAE
             training. A sampled amplitude (and a matching knob for the seasonal field, which
             currently has none) is planned follow-up work.
+        data_contracts: str
+            'report' (default) or 'reject'. Phase 3a boundary validation:
+            nonfinite coordinates/covariates, out-of-horizon times,
+            out-of-domain events (polygon boundary is inside, D-4), invalid
+            geometry, and CRS mismatches are collected into
+            self.data_contract_report. 'report' warns and leaves legacy
+            behavior bit-unchanged; 'reject' raises DataContractError listing
+            every offending row. The default flips to 'reject' after the
+            section-14 dry run is reviewed.
         priors: dict
             priors for parameters (a_0,w,alpha,beta,sigmax_2). Must be a numpyro distribution.
         """
         if type(data) is str:
             data = pd.read_csv(data)
         self.data = data
+
+        # Phase 3a data contracts: validate the raw events and domain BEFORE
+        # any grid construction, so reject mode fails with the actual defect
+        # rather than a downstream sjoin symptom. Report mode only warns:
+        # every numerical code path below is bit-unchanged.
+        self._data_contracts_mode = data_contracts
+        self.data_contract_report = enforce(
+            validate_events(data, A, T), len(data), data_contracts)
 
         args={}
         args['T']=50
@@ -369,6 +389,16 @@ class Point_Process_Model:
                                               spatial_cov.loc[i,'Y']+cov_grid_size[1]/2)]))
                 spatial_cov = gpd.GeoDataFrame(data=spatial_cov,geometry=polygons)
                 spatial_cov.crs = self.A.crs
+
+            # Phase 3a data contracts, covariate leg: validated on the
+            # normalized GeoDataFrame, before the legacy membership sjoin, so
+            # reject mode names the defect instead of the sjoin symptom.
+            _pts_xy = np.column_stack((
+                pd.to_numeric(data['X'], errors='coerce').to_numpy(dtype=float),
+                pd.to_numeric(data['Y'], errors='coerce').to_numpy(dtype=float)))
+            self.data_contract_report.checks.extend(enforce(
+                validate_covariates(spatial_cov, cov_names, A, points_xy=_pts_xy),
+                len(data), data_contracts).checks)
 
             spatial_cov['cov_ind'] = np.arange(len(spatial_cov))
             #find covariate cell index for each point
@@ -600,6 +630,21 @@ class Point_Process_Model:
         for col in ['X', 'Y', 'T']:
             if not np.issubdtype(data[col].dtype, np.number):
                 data[col] = pd.to_numeric(data[col], errors='coerce')
+        # Phase 3a data contracts: the historical dropna here silently altered
+        # the held-out event set (baseline defect, phase3 doc section 6.1 --
+        # NOTE the doc's "at ingestion" anchor is THIS held-out path; the
+        # constructor never dropped NaN, it crashed downstream). Report mode
+        # keeps the drop but says so loudly; reject mode refuses.
+        _n_nonfinite = int((~np.isfinite(
+            data[['X', 'Y', 'T']].to_numpy(dtype=float)).all(axis=1)).sum())
+        if _n_nonfinite:
+            _msg = (f"{_n_nonfinite} held-out row(s) have non-numeric or "
+                    "nonfinite X/Y/T")
+            if getattr(self, '_data_contracts_mode', 'report') == 'reject':
+                raise DataContractError(_msg)
+            warnings.warn(_msg + "; dropping them (legacy behavior, "
+                          "report-only mode; this will become a rejection).",
+                          UserWarning, stacklevel=2)
         data = data.dropna(subset=['X', 'Y', 'T'])
         if len(data) == 0:
             raise ValueError("No valid data points after cleaning")
