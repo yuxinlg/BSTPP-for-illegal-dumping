@@ -60,12 +60,16 @@ class ContractCheck:
     ``kind`` is "violation" (rejected under reject mode) or "diagnostic"
     (informational only). ``indices`` are positional row indices into the
     validated frame (events) or the covariate frame, as stated per check.
+    ``geometry`` (3c coverage contract, doc section 10.c) carries the ACTUAL
+    offending region as a shapely geometry -- gap/overlap/sliver exports --
+    when the finding is geometric rather than row-based; None otherwise.
     """
 
     name: str
     kind: str
     message: str
     indices: np.ndarray = field(default_factory=lambda: np.array([], dtype=int))
+    geometry: object = None
 
     def __post_init__(self):
         self.indices = np.asarray(self.indices, dtype=int)
@@ -314,6 +318,122 @@ def validate_covariates(spatial_cov, cov_names, A, points_xy=None) -> list:
                 "events covered by more than one covariate polygon (legacy "
                 "behavior: duplicate-join crash; deterministic membership is "
                 "the D-22 micro-rebaseline)", idx))
+    return checks
+
+
+# Normalized-area tolerance below which a coverage defect is a "sliver"
+# diagnostic rather than a violation: the same 1e-10 internal-area threshold
+# the common refinement uses to drop numerical slivers
+# (bstpp.preparation.SLIVER_AREA_INTERNAL; duplicated here so this module
+# stays importable without the jax stack).
+COVERAGE_SLIVER_TOL = 1e-10
+
+
+def _polygonal(geom):
+    """Polygonal component of a geometry (drop lowerdim pieces)."""
+    import shapely
+    if geom.geom_type == "GeometryCollection":
+        return shapely.unary_union(
+            [g for g in geom.geoms if g.geom_type in ("Polygon", "MultiPolygon")])
+    return geom
+
+
+def validate_covariate_coverage(spatial_cov, A) -> list:
+    """3c coverage contract (IV; D-7, doc section 10.c): the covariate layer
+    must cover the model domain A exactly once.
+
+    - ``covariate_gap`` (violation): region of A covered by NO covariate
+      polygon. Legacy behavior: silent zero-valued covariate region; since
+      the 3c-3 refinement, a silently uncharged region of the compensator.
+    - ``covariate_overlap`` (violation): positive-area pairwise overlap
+      between covariate polygons, clipped to A -- the refinement would
+      double-charge it. ``indices`` are the covariate rows involved.
+    - ``covariate_sliver`` (diagnostic): coverage defects with normalized
+      area <= COVERAGE_SLIVER_TOL, the pieces the refinement drops anyway.
+
+    Every finding EXPORTS the actual offending geometry on
+    ``ContractCheck.geometry`` (not merely failing ids). Areas are
+    normalized by the bounding-rectangle area, matching the internal
+    measure of the refinement. A is authoritative (D-7): coverage is of A
+    itself, polygon or rectangle.
+    """
+    checks = []
+    if gpd is None or not isinstance(spatial_cov, gpd.GeoDataFrame) \
+            or len(spatial_cov) == 0:
+        return checks
+    # Invalid covariate or domain geometry: skip coverage analysis -- GEOS
+    # set operations on invalid inputs raise TopologyException. The
+    # invalid-geometry VIOLATION is validate_covariates'/validate_domain's
+    # job and is already recorded; same skip pattern as validate_events.
+    if (spatial_cov.geometry.isna() | spatial_cov.geometry.is_empty
+            | ~spatial_cov.geometry.is_valid).any():
+        return checks
+    if isinstance(A, gpd.GeoDataFrame) and \
+            (A.geometry.isna() | A.geometry.is_empty
+             | ~A.geometry.is_valid).any():
+        return checks
+    import shapely
+
+    union = _domain_union(A)
+    if union is None:
+        A_np = np.asarray(A, dtype=float)
+        union = shapely.box(A_np[0, 0], A_np[1, 0], A_np[0, 1], A_np[1, 1])
+        bounds = A_np
+    else:
+        # .T so rows are per-axis (x0, x1) / (y0, y1), matching
+        # preparation.prepare_domain's A_ construction.
+        bounds = np.asarray(
+            np.stack((A.bounds.min(axis=0)[["minx", "miny"]],
+                      A.bounds.max(axis=0)[["maxx", "maxy"]])), dtype=float).T
+    rect_area = float((bounds[0, 1] - bounds[0, 0])
+                      * (bounds[1, 1] - bounds[1, 0]))
+
+    def _classify(name, geom, message, indices=()):
+        area = geom.area / rect_area
+        if area <= 0.0:
+            return
+        if area <= COVERAGE_SLIVER_TOL:
+            checks.append(ContractCheck(
+                "covariate_sliver", "diagnostic",
+                f"sub-tolerance {name.split('_', 1)[1]} of normalized area "
+                f"{area:.3e} (<= {COVERAGE_SLIVER_TOL:.0e}; the refinement "
+                "drops such pieces); geometry exported", indices,
+                geometry=geom))
+        else:
+            checks.append(ContractCheck(
+                name, "violation", message + "; geometry exported",
+                indices, geometry=geom))
+
+    # gap: A minus the covariate union
+    cov_union = spatial_cov.geometry.union_all() \
+        if hasattr(spatial_cov.geometry, "union_all") \
+        else spatial_cov.geometry.unary_union
+    gap = _polygonal(union.difference(cov_union))
+    _classify(
+        "covariate_gap", gap,
+        f"the covariate layer leaves {gap.area / rect_area:.4%} of the "
+        "model domain A uncovered (legacy behavior: silent zero-valued "
+        "covariate region)")
+
+    # overlaps: positive-area pairwise intersections, clipped to A
+    geoms = spatial_cov.geometry.values
+    tree = shapely.STRtree(geoms)
+    pairs = tree.query(geoms, predicate="intersects")
+    pieces, rows = [], set()
+    for i, j in zip(*pairs):
+        if i >= j:
+            continue
+        piece = _polygonal(shapely.intersection(geoms[i], geoms[j]))
+        piece = _polygonal(shapely.intersection(piece, union))
+        if piece.area > 0.0:
+            pieces.append(piece)
+            rows.update((int(i), int(j)))
+    if pieces:
+        _classify(
+            "covariate_overlap", shapely.unary_union(pieces),
+            "covariate polygons overlap with positive area inside A (the "
+            "common refinement would charge the region more than once)",
+            sorted(rows))
     return checks
 
 

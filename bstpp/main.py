@@ -33,7 +33,8 @@ from .decode_fields import (decode_temporal_field, decode_seasonal_field,
                         decode_spatial_field)
 from .likelihood import (seasonal_time_integral, spatial_refinement_masses,
                          background_masses)
-from .data_contracts import (validate_events, validate_covariates, enforce,
+from .data_contracts import (validate_events, validate_covariates,
+                             validate_covariate_coverage, enforce,
                              DataContractError)
 from .preparation import (ModelData, prepare_domain, prepare_partitions,
                           attach_covariate_partitions,
@@ -307,11 +308,15 @@ class Point_Process_Model:
             # Phase 3a data contracts, covariate leg: validated on the
             # normalized GeoDataFrame, before the legacy membership sjoin, so
             # reject mode names the defect instead of the sjoin symptom.
+            # Phase 3c coverage contract (IV; D-7): the layer must cover A
+            # exactly once -- gaps and positive-area overlaps are violations
+            # with the actual offending geometries exported on the report.
             _pts_xy = np.column_stack((
                 pd.to_numeric(data['X'], errors='coerce').to_numpy(dtype=float),
                 pd.to_numeric(data['Y'], errors='coerce').to_numpy(dtype=float)))
             self.data_contract_report.checks.extend(enforce(
-                validate_covariates(spatial_cov, cov_names, A, points_xy=_pts_xy),
+                validate_covariates(spatial_cov, cov_names, A, points_xy=_pts_xy)
+                + validate_covariate_coverage(spatial_cov, A),
                 len(data), data_contracts).checks)
 
             spatial_cov['cov_ind'] = np.arange(len(spatial_cov))
