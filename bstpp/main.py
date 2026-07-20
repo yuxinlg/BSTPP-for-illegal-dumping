@@ -450,11 +450,12 @@ class Point_Process_Model:
             self.samples = get_samples(rng_key,self.model,self.svi.guide,self.svi_results,self.args,sites)
         else:
             self.svi,self.svi_results,self.samples=run_SVI(rng_key, self.model, self.args, num_steps, lr, sites, **kwargs)
-        loss = np.asarray(self.svi_results.losses)
-        plt.plot(np.arange(int(.01*len(loss)),len(loss)),loss[int(.01*len(loss)):])
-        plt.xlabel("Iterations")
-        plt.ylabel("Loss")
-        plt.show()
+        if plot_loss:
+            loss = np.asarray(self.svi_results.losses)
+            plt.plot(np.arange(int(.01*len(loss)),len(loss)),loss[int(.01*len(loss)):])
+            plt.xlabel("Iterations")
+            plt.ylabel("Loss")
+            plt.show()
 
 
     def run_mcmc(self,batch_size=1,num_warmup=500,num_samples=1000,
