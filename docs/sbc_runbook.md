@@ -323,6 +323,66 @@ Effects on record:
 2. **Unseeded background draw**: irrelevant for SBC -- SBC needs no
    per-replicate reproducibility, only correct distributions.
 
+## Stage 2p pre-registration: polygon-domain LGCP background (post-3c)
+
+Registered 2026-07-20, BEFORE any harness implementation or run, per the
+team decision discharging Phase 3c's conditional SBC trigger (doc §12;
+`refactor-patches/phase3c/rebaseline_record.md`): 3c changed the LGCP
+background path on polygon domains. The decision taken:
+
+- **No rectangular stage-2 rerun.** The archived rectangular stage 2
+  (R=600 PASS at `30734f1`/`23cdf94`) is RETAINED on the bit-identity
+  evidence: after every 3c commit the four golden pin configs are
+  bit-identical and the array-rectangle support is constructed as the
+  exact legacy constants, so a rerun would re-verify an unchanged regime.
+- **Stage 2p is added**: the same stage-2 design run on a polygon domain,
+  where the 3c semantics are live.
+
+**Scope statement.** Stage 2p validates the polygon **background** path
+only: the clipped support `|C_c ∩ A|` in the compensator (`Itot_txy`),
+background sampling on the clipped geometries, and event-to-field-cell
+membership through the same support object -- at unit gain
+(`sp_var_mu = 0.0`), inherited from stage 2 with its scope caveats. It
+does NOT claim calibration of the polygon excitation support mode
+introduced in 3d (LGCP has no excitation term), nor of the
+production-gain prior, nor of covariate layers (none are supplied).
+
+### Domain (pre-registered)
+
+A single convex octagon: the unit square with four generic
+(non-grid-aligned, asymmetric) corner cuts, vertices counterclockwise
+
+    (0.22, 0), (0.79, 0), (1, 0.17), (1, 0.77),
+    (0.86, 1), (0.24, 1), (0, 0.81), (0, 0.13)
+
+supplied as a GeoDataFrame; bounding rectangle = the unit square, so the
+internal-unit geometry matches stage 2. Exact area
+|A| = 1 − (0.0143 + 0.01785 + 0.0161 + 0.0228) = **0.928950**.
+Rationale: the four diagonal edges cut ~30+ boundary cells of the 25×25
+grid into generic partial intersections and leave several corner cells
+fully outside (dropped from the support), so every 3c mechanism is live;
+all five pre-registered stage-2 pointwise grid cells remain strictly
+interior (verified in the smoke test), so the pointwise functionals stay
+directly comparable with the archived stages. Placeholder/generator
+events are rejection-sampled inside the polygon (the generator's grids
+are data-independent, as before).
+
+### Everything else: stage 2 verbatim
+
+Priors (`a_0 ~ N(0.4, 0.3)`, z hardcoded N(0, I)), unit gain, R = 600,
+warmup 300, initial 508 raw draws with the adaptive ESS ladder capped at
+4064, L = 127, min ESS ratio 0.95, the nine PRIMARY targets and
+supplementary `a_0`, and the decision rule: **stage 2p passes iff every
+primary Monte Carlo ECDF p-value is at least 0.005** (same Bonferroni
+family-wise bound ≤ 4.5% across nine correlated targets, no independence
+claim). Budget band unchanged (20-2000, ≤5% per tail, zero-event draws
+fatal); the count distribution scales by |A| ≈ 0.93, which the band
+absorbs; the pre-registered `check --stage 2p` at the distinct check
+seed (`PRIOR_CHECK_MASTER_SEED`) is the record, and the real run
+(master seed 0) is never conditioned on it. Config identity records the
+polygon vertices in place of the rectangle, under stage id `"2p"` and
+out_dir `results/sbc_stage2p`.
+
 ## Mechanics
 
 - R ~ 100-200 replicates; L = 127 posterior draws after ESS-qualified uniform
