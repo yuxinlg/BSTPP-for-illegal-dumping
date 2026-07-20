@@ -25,7 +25,10 @@ import numpyro.distributions as dist
 import pytest
 
 from bstpp.main import Hawkes_Model
-from bstpp.preparation import ModelData, PreparedDomain, prepare_domain
+from bstpp.preparation import (
+    ModelData, PreparedDomain, PreparedPartitions, prepare_domain,
+    prepare_partitions, N_XY, T_INTERNAL)
+from bstpp.utils import aligned_difference_pairs
 
 A_RECT = np.array([[10.0, 30.0], [5.0, 15.0]])
 T_DAYS = 200.0
@@ -124,3 +127,72 @@ def test_model_data_is_frozen():
                      **PRIORS)
     with pytest.raises(dataclasses.FrozenInstanceError):
         m.model_data.horizon_days = 999.0
+
+
+# --------------------------------------------------------- PreparedPartitions
+
+def test_prepare_partitions_rectangle():
+    parts = prepare_partitions(prepare_domain(A_RECT), T_DAYS, 0.0)
+    assert (parts.n_t, parts.n_s, parts.n_xy) == (50, 24, 25)
+    assert len(parts.comp_grid) == N_XY ** 2
+    np.testing.assert_array_equal(parts.spatial_grid_cells,
+                                  np.arange(N_XY ** 2))
+    # W rows sum to the internal temporal cell width (exact-overlap contract)
+    np.testing.assert_allclose(
+        np.asarray(parts.season_overlap).sum(axis=1),
+        T_INTERNAL / parts.n_t, rtol=1e-6)
+    # comp_grid tiles the REAL bounding rectangle
+    np.testing.assert_allclose(parts.comp_grid.total_bounds,
+                               [10.0, 5.0, 30.0, 15.0])
+
+
+def test_prepare_partitions_polygon_selects_in_domain_cells():
+    parts = prepare_partitions(prepare_domain(_triangle_gdf()), T_DAYS, 0.0)
+    n_cells = len(parts.spatial_grid_cells)
+    # triangle covers half the rectangle: strictly fewer than all cells,
+    # far more than none
+    assert 0 < n_cells < N_XY ** 2
+    assert parts.int_df is None and parts.cov_gdf is None
+
+
+def test_model_partitions_adapter_identity():
+    m = Hawkes_Model(_interior_data(), A_RECT, T_DAYS, cox_background=False,
+                     **PRIORS)
+    parts = m.prepared_partitions
+    assert isinstance(parts, PreparedPartitions)
+    # args entries and model attributes ARE the seam object's fields
+    assert m.args["x_t"] is parts.x_t
+    assert m.args["x_a"] is parts.x_a
+    assert m.args["season_overlap"] is parts.season_overlap
+    assert m.args["season_idx_of_t"] is parts.season_idx_of_t
+    assert m.args["spatial_grid_cells"] is parts.spatial_grid_cells
+    assert m.comp_grid is parts.comp_grid
+    assert (m.args["n_t"], m.args["n_s"], m.args["n_xy"]) == (50, 24, 25)
+
+
+def test_covariate_partitions_adapter_identity_plain_hawkes():
+    from shapely.geometry import box
+    cov = gpd.GeoDataFrame(
+        {"v": [1.0, 2.0]},
+        geometry=[box(10, 5, 20, 15), box(20, 5, 30, 15)])
+    m = Hawkes_Model(_interior_data(), A_RECT, T_DAYS, cox_background=False,
+                     spatial_cov=cov, cov_names=["v"], **PRIORS)
+    parts = m.prepared_partitions
+    assert m.args["spatial_cov"] is parts.cov_values
+    assert m.args["cov_area"] is parts.cov_area
+    assert parts.cov_gdf is m.spatial_cov
+    # standardized design matrix: mean 0, unit variance over cells
+    np.testing.assert_allclose(parts.cov_values.mean(axis=0), 0.0, atol=1e-12)
+
+
+# ------------------------------------------------- binding invariant 10.b.7
+
+def test_pair_construction_takes_no_partition_argument():
+    """10.b.7 (binding on all future work): excitation pairs are a function
+    of the global event set and cutoff/window only. This is the negative
+    constraint -- adding any tile/partition/cell parameter to
+    aligned_difference_pairs must fail here and force a recorded decision."""
+    import inspect
+    params = set(inspect.signature(aligned_difference_pairs).parameters)
+    assert params == {"t", "x", "y", "window", "spatial_window",
+                      "axis_scales"}

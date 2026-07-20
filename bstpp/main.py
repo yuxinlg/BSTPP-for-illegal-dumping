@@ -35,7 +35,9 @@ from .likelihood import (seasonal_time_integral, spatial_refinement_masses,
                          background_masses)
 from .data_contracts import (validate_events, validate_covariates, enforce,
                              DataContractError)
-from .preparation import ModelData, prepare_domain
+from .preparation import (ModelData, prepare_domain, prepare_partitions,
+                          attach_covariate_partitions,
+                          finalize_integration_arrays)
 
 
 def _load_decoder(name):
@@ -228,82 +230,25 @@ class Point_Process_Model:
         args['A_'] = A_
         args['axis_scales'] = self.prepared_domain.axis_scales
 
-        # create computational grids
-
-        # time grid
-        n_t=50
-        x_t = jnp.arange(0, args['T'], args['T']/n_t)
-        args["n_t"]=n_t
-        args["x_t"]=x_t
-
-        # seasonal grid
-        n_s=24 #24
-        x_a = jnp.arange(0, args['S'], args['S']/n_s)
-        args["n_s"]=n_s
-        args["x_a"]=x_a
+        # Phase 3b seam: temporal/seasonal/spatial partitions, comp_grid,
+        # in-domain cells, season_idx_of_t and the exact overlap matrix W
+        # live in prepare_partitions (verbatim extraction); args entries are
+        # the legacy adapter view of the same objects.
+        parts = prepare_partitions(self.prepared_domain, T, offset_seasonal)
+        self.prepared_partitions = parts
         self.S = 365
-
-        # spatial grid
-        n_xy = 25
-        args["n_xy"]= n_xy
-        cols = np.arange(0, 1, 1/n_xy)
-        polygons = []
-        for y in cols:
-            for x in cols:
-                polygons.append(Polygon([(x,y), (x+1/n_xy, y), (x+1/n_xy, y+1/n_xy), (x, y+1/n_xy)]))
-        comp_grid = gpd.GeoDataFrame({'geometry':polygons,'comp_grid_id':np.arange(n_xy**2)})
-        comp_grid.geometry = comp_grid.geometry.scale(xfact=A_[0,1]-A_[0,0],yfact=A_[1,1]-A_[1,0],
-                                                      origin=(0,0)).translate(A_[0,0],A_[1,0])
-
-        if type(A) is gpd.GeoDataFrame:
-            # find grid cells overlapping with A
-            comp_grid.crs = A.crs
-            args['spatial_grid_cells'] = np.unique(comp_grid.sjoin(A, how='inner')['comp_grid_id'])
-            self.A = A
-        else:
-            self.A = comp_grid
-            args['spatial_grid_cells'] = np.arange(25**2)
-
+        args["n_t"] = parts.n_t
+        args["x_t"] = parts.x_t
+        args["n_s"] = parts.n_s
+        args["x_a"] = parts.x_a
+        args["n_xy"] = parts.n_xy
+        args['spatial_grid_cells'] = parts.spatial_grid_cells
+        args['season_idx_of_t'] = parts.season_idx_of_t
+        args['season_overlap'] = parts.season_overlap
+        comp_grid = parts.comp_grid
         self.comp_grid = comp_grid
+        self.A = A if self.prepared_domain.is_polygon else comp_grid
         self.T = T
-
-        # Seasonal index of each temporal grid cell midpoint (diagonal a = sigma(t)):
-        # internal cell i covers real days [i, i+1) * (T / n_t); map its midpoint through
-        # day-of-year (mod self.S) onto the internal seasonal grid [0, args['S']).
-        # NOTE: the likelihood no longer integrates via this midpoint index (it uses the
-        # exact overlap matrix season_overlap below); season_idx_of_t is retained for
-        # diagnostics (rate_time) and scripts/recover_test.py's intercept combination.
-        t_mid_days = (np.arange(n_t) + 0.5) * (T / n_t)
-        a_mid = ((t_mid_days + offset_seasonal) % self.S) / self.S * args['S']
-        args['season_idx_of_t'] = np.searchsorted(np.asarray(x_a), a_mid, side='right') - 1
-
-        # Exact seasonal overlap matrix W (n_t x n_s), in INTERNAL time units:
-        #   W[i, k] = measure{ t in temporal cell i : sigma(t) in seasonal cell k }.
-        # f_t (n_t cells) and f_a (n_s cells) are piecewise constant but the cell widths
-        # differ (T/n_t days vs self.S/n_s days), so temporal cells straddle seasonal
-        # boundaries and the time integral of exp(a_0 + f_t + f_a[sigma(t)]) has a closed
-        # form: contract exp(f_a) against W. Temporal cell i covers real days
-        # [i, i+1) * (T / n_t); sigma(d) = (d + offset_seasonal) mod self.S; seasonal cell
-        # k = floor(sigma / self.S * n_s). In the shifted coordinate s = d + offset_seasonal
-        # every split point we need -- seasonal-cell edges AND the year wrap -- is an integer
-        # multiple of h_day = self.S / n_s (since self.S = n_s * h_day), and on the interval
-        # [p*h_day, (p+1)*h_day) the seasonal cell is p mod n_s. Day-lengths convert to
-        # internal units via * (args['T'] / T).
-        h_day = self.S / n_s
-        dt_day = T / n_t
-        W = np.zeros((n_t, n_s))
-        for i in range(n_t):
-            s = i * dt_day + offset_seasonal
-            s_end = (i + 1) * dt_day + offset_seasonal
-            while s < s_end - 1e-9:
-                p = int(np.floor(s / h_day + 1e-9))
-                seg_end = min((p + 1) * h_day, s_end)
-                W[i, p % n_s] += seg_end - s
-                s = seg_end
-        W *= args['T'] / T
-        assert np.allclose(W.sum(axis=1), args['T'] / n_t, rtol=1e-6), \
-            "season_overlap rows must sum to the internal temporal cell width args['T']/n_t"
-        args['season_overlap'] = jnp.asarray(W)
 
         args,points = self._scale_xyt(data,args,comp_grid)
         self.points = points
@@ -389,44 +334,30 @@ class Point_Process_Model:
             self.cov_names = cov_names
             self.spatial_cov = spatial_cov
 
-            X_s = spatial_cov[self.cov_names].values
-            if X_s.ndim == 1:
-                X_s = X_s[:, None]
-            # standardize covariates
-            if standardize_cov:
-                args['spatial_cov'] = (X_s-X_s.mean(axis=0))/(X_s.var(axis=0)**0.5)
-            else:
-                args['spatial_cov'] = X_s
-
-            #Create Computational Grid GeoDataFrame
+            # Phase 3b seam: covariate partition products (design matrix,
+            # common refinement with exact intersection areas, in-domain
+            # cell override / covariate areas) live on PreparedPartitions;
+            # args entries below are the legacy adapter view. Event
+            # membership (cov_ind above) stays event-side by design.
+            attach_covariate_partitions(parts, self.prepared_domain,
+                                        spatial_cov, cov_names,
+                                        standardize_cov, args['model'])
+            args['spatial_cov'] = parts.cov_values
             if args['model'] in ['lgcp','cox_hawkes']:
-                self.comp_grid.crs = spatial_cov.crs
-                #find covariate cell intersection with computational grid cells area
-                intersect = gpd.overlay(self.comp_grid, spatial_cov, how='intersection', keep_geom_type=True)
-                intersect['area'] = intersect.area/((A_[0,1]-A_[0,0])*(A_[1,1]-A_[1,0]))
-                intersect = intersect[intersect['area']>1e-10]
-                args['int_df'] = intersect
-                #find cells on the computational grid that are in the domain
-                args['spatial_grid_cells'] = np.unique(self.comp_grid.sjoin(spatial_cov, how='inner')['comp_grid_id'])
+                args['int_df'] = parts.int_df
+                args['spatial_grid_cells'] = parts.spatial_grid_cells
             else:
-                args['cov_area'] = (spatial_cov.area/((A_[0,1]-A_[0,0])*(A_[1,1]-A_[1,0]))).values
+                args['cov_area'] = parts.cov_area
 
         # Integration arrays for the pure spatial_refinement_integral atom
-        # (eq. 24): plain NumPy arrays only, derived once here, so no pandas /
-        # GeoPandas object is ever read inside traced likelihood code. The
-        # no-covariate grid is the special case of the common refinement with
-        # uniform cell areas 1/n_xy^2.
+        # (eq. 24): plain NumPy arrays only, derived once on the seam object,
+        # so no pandas / GeoPandas object is ever read inside traced
+        # likelihood code.
+        finalize_integration_arrays(parts, args['model'])
         if args['model'] in ['lgcp', 'cox_hawkes']:
-            if 'int_df' in args:
-                args['integration_field_indices'] = args['int_df']['comp_grid_id'].values
-                args['integration_cov_indices'] = args['int_df']['cov_ind'].values
-                args['integration_areas'] = args['int_df']['area'].values
-            else:
-                args['integration_field_indices'] = args['spatial_grid_cells']
-                args['integration_cov_indices'] = None
-                args['integration_areas'] = np.full(
-                    len(args['spatial_grid_cells']), 1.0 / args['n_xy'] ** 2,
-                    dtype=np.float32)
+            args['integration_field_indices'] = parts.integration_field_indices
+            args['integration_cov_indices'] = parts.integration_cov_indices
+            args['integration_areas'] = parts.integration_areas
 
         #Set up parameter priors
         default_priors = {}
