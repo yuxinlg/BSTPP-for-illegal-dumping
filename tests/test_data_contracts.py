@@ -186,13 +186,21 @@ def test_event_outside_polygon_inside_rectangle_rejected():
         _model(data, A=tri, mode="reject")
 
 
-def test_event_outside_polygon_report_warns_but_legacy_accepts():
+def test_event_outside_polygon_report_warns_then_fails_at_membership():
+    """UPDATED at 3c-2 (real requirement change, flagged in that commit):
+    the 3a-era version of this test pinned report mode's legacy SILENT
+    acceptance of out-of-domain events. Since 3c-2 the event membership
+    join runs against the clipped support C_c ∩ A, so an out-of-domain
+    event has no supported field cell: report mode still surfaces the
+    defect by name first, then construction fails loudly at membership
+    (D-3 fail-fast) instead of silently charging a bounding-rectangle
+    cell outside A."""
     tri = _triangle_gdf()
     data = _triangle_data()
     data.loc[0, ["X", "Y"]] = (12.0, 12.0)
     with pytest.warns(UserWarning, match="event_outside_domain"):
-        m = _model(data, A=tri, mode="report")
-    assert len(m.args["t_events"]) == len(data)  # legacy silent acceptance
+        with pytest.raises(Exception, match="encompass"):
+            _model(data, A=tri, mode="report")
 
 
 def test_polygon_boundary_point_is_inside_D4():

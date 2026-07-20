@@ -20,6 +20,16 @@ as a polygon must degenerate to the same support within tolerance
 RED (pre-3c-1): the clipped-area property tests and both sampler-support
 tests fail (uniform full areas; notch samples); the rectangle-regime tests
 pass and are retained as the unchanged-regime pins.
+
+3c-2 (same 10.c row): the event-to-field-cell membership join runs against
+the SAME support object, so every event maps to a cell that carries domain
+mass. Strictly-interior events are bit-unchanged (interior-agreement
+guard); where ∂A runs along a grid line the D-22 max-id rule resolves
+within the support; events outside A (possible only under
+data_contracts='report'/'off', and on the held-out scoring path, which
+never validated domain membership) now fail loudly at membership (D-3).
+RED (pre-3c-2): the boundary-membership, report-mode, and held-out tests
+fail; the interior-agreement guard passes.
 """
 import os
 import sys
@@ -40,7 +50,7 @@ from numpyro import handlers
 import pytest
 
 import bstpp
-from bstpp.main import LGCP_Model
+from bstpp.main import Hawkes_Model, LGCP_Model
 from bstpp.preparation import (prepare_domain, prepare_partitions,
                                finalize_integration_arrays, N_XY)
 
@@ -199,6 +209,93 @@ def test_sim_cox_background_supported_on_A():
     assert inside.all(), (
         f"{(~inside).sum()}/{len(s)} background points outside A: sampler "
         f"support is not the clipped geometry")
+
+
+# ---------------------------------------------------------------------------
+# 3c-2: event-to-field-cell mapping via the same clipped support geometries
+# ---------------------------------------------------------------------------
+
+PRIORS = dict(a_0=dist.Normal(0, 5), alpha=dist.Beta(2, 2),
+              beta=dist.HalfNormal(1.0), sigmax_2=dist.HalfNormal(0.25))
+
+
+def _hawkes(data, domain, **kw):
+    return Hawkes_Model(data, domain, T_DAYS, cox_background=False,
+                        **PRIORS, **kw)
+
+
+def test_boundary_event_membership_resolves_within_the_support():
+    """An event ON the domain boundary where ∂A runs along a grid line
+    (grid-aligned L notch, y = 0.48 = edge of grid row 12) is valid (D-4:
+    boundary inside) but its left-closed D-22 cell -- the upper cell, max
+    id 315 -- has ZERO support (touch-only, dropped in 3c-1). Membership
+    must resolve within the SUPPORT: the event maps to the lower clipped
+    cell (id 290) that actually carries its domain mass, and every event
+    maps to a supported cell. RED pre-3c-2: the full-grid sjoin max-id
+    assigns cell 315, outside the support."""
+    interior = _events_inside(L_POLY, n=10)
+    data = pd.concat([interior, pd.DataFrame(
+        {"X": [0.61], "Y": [0.48], "T": [interior["T"].iloc[-1] + 1.0]})],
+        ignore_index=True)
+    m = _hawkes(data, L_GDF)
+    support = set(np.asarray(m.args["spatial_grid_cells"]).tolist())
+    idx = np.asarray(m.args["indices_xy"])
+    assert idx[-1] == 11 * 25 + 15, (
+        f"boundary event assigned cell {idx[-1]}, expected the supported "
+        f"lower cell 290 (upper cell 315 has zero domain support)")
+    assert set(idx.tolist()) <= support, (
+        f"events assigned to unsupported cells: {sorted(set(idx) - support)}")
+
+
+def test_interior_membership_bit_unchanged():
+    """Strictly-interior events keep their D-22 membership bit-identically
+    when the join source becomes the clipped support: compare against
+    independent half-open floor arithmetic on the triangle domain. Passes
+    pre- AND post-3c-2 (the no-change guard for the join-source switch)."""
+    rng = np.random.RandomState(11)
+    pts = []
+    while len(pts) < 200:
+        x, y = rng.uniform(0.01, 0.99), rng.uniform(0.01, 0.99)
+        # strictly inside the triangle, off every grid line
+        if x - y > 0.02 and min(x % 0.04, y % 0.04) > 0.003:
+            pts.append((x, y))
+    data = pd.DataFrame({"X": [p[0] for p in pts],
+                         "Y": [p[1] for p in pts],
+                         "T": np.sort(rng.uniform(0, T_DAYS, len(pts)))})
+    m = _hawkes(data, TRI_GDF)
+    expected = (np.floor(data["Y"].values * N_XY).astype(int) * N_XY
+                + np.floor(data["X"].values * N_XY).astype(int))
+    np.testing.assert_array_equal(np.asarray(m.args["indices_xy"]), expected)
+
+
+def test_out_of_domain_event_fails_loudly_at_membership():
+    """Under data_contracts='report' an out-of-domain event is reported and
+    legacy execution continues -- but with the support join it now has NO
+    supported field cell and must fail loudly at membership (D-3 fail-fast)
+    instead of being silently charged to a bounding-rectangle cell outside
+    A. RED pre-3c-2: the notch event silently maps to a full-grid cell and
+    the model constructs."""
+    interior = _events_inside(L_POLY, n=10)
+    data = pd.concat([interior, pd.DataFrame(
+        {"X": [0.8], "Y": [0.8], "T": [interior["T"].iloc[-1] + 1.0]})],
+        ignore_index=True)
+    with pytest.warns(UserWarning):
+        with pytest.raises(Exception, match="encompass"):
+            _hawkes(data, L_GDF, data_contracts="report")
+
+
+def test_held_out_out_of_domain_event_fails_loudly():
+    """log_expected_likelihood shares the membership path: a held-out event
+    outside A (in the notch) has no supported field cell and must raise
+    rather than being scored on a cell the model charges no mass. RED
+    pre-3c-2: it silently scores. (The 3a held-out validation covers
+    nonfinite coordinates and the time horizon only, not domain
+    membership.)"""
+    data = _events_inside(L_POLY, n=15)
+    m = _hawkes(data, L_GDF)
+    held_out = pd.DataFrame({"X": [0.8], "Y": [0.8], "T": [100.0]})
+    with pytest.raises(Exception, match="encompass"):
+        m.log_expected_likelihood(held_out)
 
 
 @needs_decoder

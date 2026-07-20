@@ -250,7 +250,7 @@ class Point_Process_Model:
         self.A = A if self.prepared_domain.is_polygon else comp_grid
         self.T = T
 
-        args,points = self._scale_xyt(data,args,comp_grid)
+        args,points = self._scale_xyt(data,args,parts.support_cells)
         self.points = points
 
         if args['model'] in ['lgcp','cox_hawkes']:
@@ -491,7 +491,7 @@ class Point_Process_Model:
         self.samples=self.mcmc.get_samples()
 
 
-    def _scale_xyt(self,data,args,comp_grid):
+    def _scale_xyt(self,data,args,field_support):
         #scale temporal events
         t_events_total=data['T'].values/self.T*args["n_t"]
         args["t_events"]=t_events_total
@@ -518,7 +518,7 @@ class Point_Process_Model:
 
         xy_events_total=np.array((x_events_total,y_events_total)).transpose()
 
-        geometry = gpd.points_from_xy(data.X, data.Y,crs=comp_grid.crs)
+        geometry = gpd.points_from_xy(data.X, data.Y,crs=field_support.crs)
         points = gpd.GeoDataFrame(data=data,geometry=geometry)
         points['point_id'] = np.arange(len(data))
 
@@ -533,11 +533,27 @@ class Point_Process_Model:
         # unique join -- all strictly-interior events -- are bit-unchanged.
         # Points exactly on the outermost right/top edge join only the last
         # cell, which IS the closed-edge assignment.
-        _joined = points.sjoin(comp_grid).groupby('point_id')['comp_grid_id'].max()
+        # 3c-2 (10.c clipped-geometry reuse): the join source is the SUPPORT
+        # object (C_c ∩ A clipped cells; the full grid on rectangle domains,
+        # where this is the legacy join bit-identically), so every event maps
+        # to a cell that carries domain mass. Where ∂A runs along a grid line
+        # the left-closed cell can have zero support; the max-id rule then
+        # resolves within the support (the event's mass-carrying cell), the
+        # one refinement of D-22 this introduces. Events outside A join
+        # nothing and fail the length check below (D-3 fail-fast) -- under
+        # data_contracts='report' the contract warning naming the defect has
+        # already fired by the time this raises.
+        _joined = (points.sjoin(field_support[['comp_grid_id', 'geometry']])
+                   .groupby('point_id')['comp_grid_id'].max())
         args['indices_xy'] = _joined.sort_index().values
 
         if len(args['indices_xy']) != len(points):
-            raise Exception("Computational grid does not encompass all data points!")
+            raise Exception(
+                "Computational grid does not encompass all data points! "
+                f"{len(points) - len(args['indices_xy'])} event(s) have no "
+                "supported field cell: nonfinite coordinates, or located "
+                "outside the model domain A (out-of-domain events are "
+                "rejected, D-3).")
 
         args["xy_events"]=xy_events_total.transpose()
         return args,points
@@ -570,7 +586,8 @@ class Point_Process_Model:
             raise ValueError("No valid data points after cleaning")
 
         # Only pass the minimal required arguments for likelihood
-        test_args, points = self._scale_xyt(data, self.args.copy(), self.comp_grid)
+        test_args, points = self._scale_xyt(data, self.args.copy(),
+                                            self.prepared_partitions.support_cells)
 
         # Held-out events must lie within the training time horizon [0, T]: the
         # excitation compensator jnp.minimum(T - t, window) is only defined there
