@@ -1409,9 +1409,11 @@ class Point_Process_Model:
           - a finite spatial_window IS mirrored in the offspring thinning (real-unit
             box, within_real_box_window), matching the clipped compensator exactly, so
             finite-ws configurations are inside the calibration-supported regime.
-          - For a GeoDataFrame domain, boundary cells are sampled over the FULL cell and then
-            clipped by simulate()'s A-filter, and the excitation compensator integrates over
-            the bounding rectangle A_ rather than the polygon.
+          - For a GeoDataFrame domain, the EXCITATION compensator still integrates over
+            the bounding rectangle A_ rather than the polygon (3d scope). The background
+            itself is exact on the polygon since 3c-1: boundary cells are charged and
+            sampled on the clipped support C_c ∩ A, so simulate()'s A-filter no longer
+            discards background points.
         """
         n_t, T_int = self.args['n_t'], self.args['T']
         n_s, offset = self.args['n_s'], self.args['offset_seasonal']
@@ -1449,9 +1451,14 @@ class Point_Process_Model:
         else:
             # Support geometries via INDEXED lookup by comp_grid_id -- never a
             # geometric self-join (see the array-domain fix commit and
-            # test_sim_cox_array_domain_support_regression).
+            # test_sim_cox_array_domain_support_regression). 3c-1 (D-6):
+            # the rows are the CLIPPED support cells C_c ∩ A -- the same
+            # object whose areas built the integration arrays -- so
+            # background points outside A are never drawn (full cells on
+            # rectangle domains, where this is the legacy geometry).
             fi = np.asarray(self.args['integration_field_indices'])
-            geo_df = self.comp_grid.set_index('comp_grid_id').loc[fi]
+            geo_df = (self.prepared_partitions.support_cells
+                      .set_index('comp_grid_id').loc[fi])
         # One mass vector for BOTH the count rate and the conditional cell
         # draw: the eq. 24 masses atom (spatial_refinement_integral is its
         # sum, so Ih is the likelihood's own integral by construction).

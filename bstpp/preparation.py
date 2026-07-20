@@ -35,6 +35,7 @@ import pandas as pd
 import geopandas as gpd
 import jax.numpy as jnp
 from shapely.geometry import Polygon
+from shapely.ops import unary_union
 
 # Internal-coordinate geometry, previously inline magic numbers in the
 # constructor. Values are pinned by the pretrained decoder output shapes
@@ -47,6 +48,27 @@ S_DAYS = 365      # real seasonal period in days (self.S)
 N_T = 50          # temporal field cells (decoder-pinned)
 N_S = 24          # seasonal field cells (decoder-pinned)
 N_XY = 25         # spatial field cells per axis (decoder-pinned)
+
+# Minimum normalized intersection area a refinement/support cell must have
+# to carry mass -- same threshold the covariate common refinement has always
+# used to drop numerical slivers (attach_covariate_partitions).
+SLIVER_AREA_INTERNAL = 1e-10
+
+
+def _polygonal_part(geom):
+    """Polygonal component of a cell ∩ domain intersection.
+
+    Polygon ∩ Polygon can return a GeometryCollection when a cell both
+    overlaps A and shares a boundary segment with it (polygon + lowerdim
+    pieces). Only the polygonal part carries area/support; lowerdim pieces
+    must not reach GeoSeries.sample_points, which would place background
+    points on zero-mass sets.
+    """
+    if geom.geom_type == 'GeometryCollection':
+        polys = [g for g in geom.geoms
+                 if g.geom_type in ('Polygon', 'MultiPolygon')]
+        return unary_union(polys)
+    return geom
 
 
 @dataclass(frozen=True)
@@ -166,6 +188,11 @@ class PreparedPartitions:
     membership has been established (matching the legacy constructor's
     operation order exactly). ``comp_grid`` is the 25x25 spatial field grid
     in REAL coordinates; ``spatial_grid_cells`` the in-domain cell ids;
+    ``support_cells`` the no-covariate background SUPPORT (3c-1, D-6): one
+    row per in-domain cell with the clipped geometry C_c ∩ A and its exact
+    normalized area (full cells with uniform 1/n_xy^2 on rectangle
+    domains) -- the single object feeding both the likelihood integration
+    arrays and the background sampler;
     ``season_overlap`` the exact (n_t x n_s) matrix W of eq. (26).
 
     Covariate fields (None without covariates): ``cov_gdf`` the normalized
@@ -183,6 +210,7 @@ class PreparedPartitions:
     n_xy: int
     comp_grid: gpd.GeoDataFrame
     spatial_grid_cells: np.ndarray
+    support_cells: gpd.GeoDataFrame
     season_idx_of_t: np.ndarray
     season_overlap: jnp.ndarray
     cov_gdf: Optional[gpd.GeoDataFrame] = None
@@ -230,13 +258,35 @@ def prepare_partitions(domain: PreparedDomain, horizon_days: float,
         xfact=A_[0, 1] - A_[0, 0], yfact=A_[1, 1] - A_[1, 0],
         origin=(0, 0)).translate(A_[0, 0], A_[1, 0])
 
+    rect_area = float((A_[0, 1] - A_[0, 0]) * (A_[1, 1] - A_[1, 0]))
     if domain.is_polygon:
         # find grid cells overlapping with A
         comp_grid.crs = domain.domain.crs
-        spatial_grid_cells = np.unique(
+        candidate_cells = np.unique(
             comp_grid.sjoin(domain.domain, how='inner')['comp_grid_id'])
+        # 3c-1 (D-6, SC): the background support is C_c ∩ A -- each
+        # in-domain cell clipped to the polygon, with its EXACT normalized
+        # intersection area. One support object serves the likelihood
+        # integration arrays and the background sampler (10.c
+        # clipped-geometry reuse); cells that merely touch A (zero-area
+        # intersection, or slivers below the covariate path's 1e-10
+        # threshold) carry no background mass and leave the support.
+        clipped = comp_grid.loc[
+            comp_grid['comp_grid_id'].isin(candidate_cells),
+            ['comp_grid_id', 'geometry']].copy()
+        clipped['geometry'] = clipped.geometry.intersection(
+            domain.domain.geometry.union_all()).apply(_polygonal_part)
+        clipped['area'] = clipped.area / rect_area
+        support_cells = clipped[clipped['area'] > SLIVER_AREA_INTERNAL
+                                ].reset_index(drop=True)
+        spatial_grid_cells = support_cells['comp_grid_id'].values
     else:
+        # Rectangle regime (unchanged, pin-gated): full grid, exact uniform
+        # areas -- NOT geometrically computed, so the value is the same
+        # double 1/n_xy^2 the legacy code used.
         spatial_grid_cells = np.arange(N_XY ** 2)
+        support_cells = comp_grid[['comp_grid_id', 'geometry']].copy()
+        support_cells['area'] = 1.0 / N_XY ** 2
 
     # Seasonal index of each temporal grid cell midpoint (diagonal a = sigma(t)):
     # internal cell i covers real days [i, i+1) * (T / n_t); map its midpoint through
@@ -278,6 +328,7 @@ def prepare_partitions(domain: PreparedDomain, horizon_days: float,
     return PreparedPartitions(
         n_t=n_t, x_t=x_t, n_s=n_s, x_a=x_a, n_xy=n_xy,
         comp_grid=comp_grid, spatial_grid_cells=spatial_grid_cells,
+        support_cells=support_cells,
         season_idx_of_t=season_idx_of_t, season_overlap=jnp.asarray(W))
 
 
@@ -337,8 +388,11 @@ def finalize_integration_arrays(partitions: PreparedPartitions,
             partitions.integration_cov_indices = partitions.int_df['cov_ind'].values
             partitions.integration_areas = partitions.int_df['area'].values
         else:
+            # 3c-1 (D-6): |C_c ∩ A| clipped areas from the support object.
+            # Rectangle domains store the exact uniform 1/n_xy^2 there, so
+            # this float32 cast reproduces the legacy np.full(...) array
+            # bit-identically in the pin-gated regime.
             partitions.integration_field_indices = partitions.spatial_grid_cells
             partitions.integration_cov_indices = None
-            partitions.integration_areas = np.full(
-                len(partitions.spatial_grid_cells), 1.0 / partitions.n_xy ** 2,
-                dtype=np.float32)
+            partitions.integration_areas = (
+                partitions.support_cells['area'].values.astype(np.float32))
