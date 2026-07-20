@@ -34,7 +34,7 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import jax.numpy as jnp
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, box
 from shapely.ops import unary_union
 
 # Internal-coordinate geometry, previously inline magic numbers in the
@@ -217,6 +217,7 @@ class PreparedPartitions:
     cov_values: Optional[np.ndarray] = None
     int_df: Optional[gpd.GeoDataFrame] = None
     cov_area: Optional[np.ndarray] = None
+    cov_support: Optional[gpd.GeoDataFrame] = None
     integration_field_indices: Optional[np.ndarray] = None
     integration_cov_indices: Optional[np.ndarray] = None
     integration_areas: Optional[np.ndarray] = None
@@ -361,17 +362,36 @@ def attach_covariate_partitions(partitions: PreparedPartitions,
 
     if model in ['lgcp', 'cox_hawkes']:
         partitions.comp_grid.crs = spatial_cov.crs
-        # find covariate cell intersection with computational grid cells area
-        intersect = gpd.overlay(partitions.comp_grid, spatial_cov,
-                                how='intersection', keep_geom_type=True)
+        partitions.support_cells.crs = spatial_cov.crs
+        # 3c-3 (D-7, SC): common refinement C_c ∩ A_m ∩ A -- the overlay
+        # runs on the CLIPPED support cells (A_m ∩ A from 3c-1), so every
+        # refinement piece is inside the domain and the supplied A is
+        # authoritative over the covariate extents. On rectangle domains
+        # the support cells ARE the full grid, so this is the legacy
+        # C_c ∩ A_m overlay unchanged.
+        intersect = gpd.overlay(
+            partitions.support_cells[['comp_grid_id', 'geometry']],
+            spatial_cov, how='intersection', keep_geom_type=True)
         intersect['area'] = intersect.area / ((A_[0, 1] - A_[0, 0]) * (A_[1, 1] - A_[1, 0]))
-        intersect = intersect[intersect['area'] > 1e-10]
+        intersect = intersect[intersect['area'] > SLIVER_AREA_INTERNAL]
         partitions.int_df = intersect
-        # find cells on the computational grid that are in the domain
-        partitions.spatial_grid_cells = np.unique(
-            partitions.comp_grid.sjoin(spatial_cov, how='inner')['comp_grid_id'])
+        # A authoritative (D-7): spatial_grid_cells remains the DOMAIN
+        # support from prepare_partitions; the legacy covariate-sjoin
+        # override (covariate footprint as in-domain cell set) is removed.
     else:
-        partitions.cov_area = (spatial_cov.area / ((A_[0, 1] - A_[0, 0]) * (A_[1, 1] - A_[1, 0]))).values
+        # 3c-3 (D-7, SC): plain-Hawkes covariate support is C_c ∩ A. The
+        # clipped geometries live on cov_support (rows aligned 1:1 with
+        # spatial_cov / cov_ind -- zero-area rows are KEPT so covariate
+        # indexing is unchanged) and feed both the compensator areas and
+        # the background sampler's location draw.
+        domain_geom = (domain.domain.geometry.union_all() if domain.is_polygon
+                       else box(A_[0, 0], A_[1, 0], A_[0, 1], A_[1, 1]))
+        cov_support = spatial_cov.copy()
+        cov_support['geometry'] = (cov_support.geometry
+                                   .intersection(domain_geom)
+                                   .apply(_polygonal_part))
+        partitions.cov_support = cov_support
+        partitions.cov_area = (cov_support.area / ((A_[0, 1] - A_[0, 0]) * (A_[1, 1] - A_[1, 0]))).values
 
 
 def finalize_integration_arrays(partitions: PreparedPartitions,

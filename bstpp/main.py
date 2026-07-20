@@ -1917,7 +1917,11 @@ class Hawkes_Model(Point_Process_Model):
         a_0 = float(parameters['a_0'])
         T_int = self.args['T']
         if 'spatial_cov' in self.args:
-            geo_df = self.spatial_cov
+            # 3c-3 (D-7): the clipped covariate support C_c ∩ A -- the same
+            # object whose areas are cov_area -- so background points
+            # outside A are never drawn (identical to spatial_cov when the
+            # layer lies within A).
+            geo_df = self.prepared_partitions.cov_support
             mu = np.exp(a_0 + np.asarray(parameters['b_0']))
             areas = np.asarray(self.args['cov_area'])
         else:

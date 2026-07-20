@@ -298,6 +298,100 @@ def test_held_out_out_of_domain_event_fails_loudly():
         m.log_expected_likelihood(held_out)
 
 
+# ---------------------------------------------------------------------------
+# 3c-3: covariate support C_c ∩ A_m ∩ A; A authoritative (D-7)
+# ---------------------------------------------------------------------------
+
+def _quadrant_cov(lo=0.0, hi=1.0):
+    """Four-quadrant covariate layer tiling [lo,hi]^2 exactly."""
+    m = (lo + hi) / 2.0
+    return gpd.GeoDataFrame(
+        {"v": [0.5, -1.0, 1.5, -0.5]},
+        geometry=[box(lo, lo, m, m), box(m, lo, hi, m),
+                  box(lo, m, m, hi), box(m, m, hi, hi)])
+
+
+def test_plain_hawkes_cov_area_is_clipped_to_A():
+    """Plain-Hawkes covariate cell areas are |C_c ∩ A| (D-7), not the full
+    covariate polygon areas. Triangle domain y <= x over the unit square,
+    quadrant covariates: analytic clipped areas are [1/8, 1/4, 0, 1/8].
+    RED pre-3c-3: cov_area is [1/4, 1/4, 1/4, 1/4]."""
+    data = _events_inside(TRI_POLY.buffer(-0.02), n=15)
+    m = _hawkes(data, TRI_GDF, spatial_cov=_quadrant_cov(), cov_names=["v"])
+    np.testing.assert_allclose(np.asarray(m.args["cov_area"], dtype=np.float64),
+                               [0.125, 0.25, 0.0, 0.125], rtol=1e-9, atol=1e-12)
+
+
+def test_sim_hawkes_bg_covariate_background_supported_on_A():
+    """The plain-Hawkes covariate background sampler draws from the SAME
+    clipped covariate geometries that carry cov_area: no background point
+    falls outside A. RED pre-3c-3: locations are sampled over the FULL
+    covariate polygons (the whole unit square here)."""
+    data = _events_inside(TRI_POLY.buffer(-0.02), n=15)
+    m = _hawkes(data, TRI_GDF, spatial_cov=_quadrant_cov(), cov_names=["v"])
+    pars = {"a_0": 5.0, "b_0": np.zeros(4)}
+    s = m._sim_hawkes_bg(pars, rng=np.random.default_rng(3))
+    assert len(s) > 100, "draw too small to probe the outside region"
+    inside = np.array([TRI_POLY.buffer(1e-9).contains(p)
+                       for p in gpd.points_from_xy(s[:, 0], s[:, 1])])
+    assert inside.all(), (
+        f"{(~inside).sum()}/{len(s)} covariate-background points outside A")
+
+
+@needs_decoder
+def test_cox_covariate_refinement_is_C_cap_Am_cap_A():
+    """The Cox/LGCP covariate common refinement is C_c ∩ A_m ∩ A: each
+    int_df row's area is the exact normalized triple intersection
+    (field cell ∩ covariate polygon ∩ domain), independently recomputed
+    with shapely, and the total is |A| for a layer covering A. RED
+    pre-3c-3: the refinement is C_c ∩ A_m only (full boundary cells), so
+    boundary rows overcharge and the total exceeds |A|."""
+    data = _events_inside(TRI_POLY.buffer(-0.02), n=20)
+    cov = _quadrant_cov()
+    m = LGCP_Model(data, TRI_GDF, T_DAYS, spatial_cov=cov, cov_names=["v"],
+                   a_0=dist.Normal(0, 5))
+    int_df = m.args["int_df"]
+    cell_geoms = m.comp_grid.set_index("comp_grid_id").geometry
+    expected = np.array([
+        cell_geoms.loc[r["comp_grid_id"]]
+        .intersection(cov.geometry.iloc[int(r["cov_ind"])])
+        .intersection(TRI_POLY).area
+        for _, r in int_df.iterrows()])
+    np.testing.assert_allclose(int_df["area"].values, expected,
+                               rtol=2e-9, atol=1e-12)
+    assert float(int_df["area"].sum()) == pytest.approx(TRI_POLY.area, rel=1e-6)
+
+
+@needs_decoder
+def test_domain_support_authoritative_over_covariate_extent():
+    """D-7: the supplied A is authoritative over covariate extents. With a
+    covariate layer covering the WHOLE unit square, the in-domain cell set
+    of a triangle-domain model stays the domain support -- not the
+    covariate footprint. RED pre-3c-3: the covariate sjoin override sets
+    all 625 cells."""
+    data = _events_inside(TRI_POLY.buffer(-0.02), n=20)
+    m = LGCP_Model(data, TRI_GDF, T_DAYS, spatial_cov=_quadrant_cov(),
+                   cov_names=["v"], a_0=dist.Normal(0, 5))
+    m_nocov = LGCP_Model(data, TRI_GDF, T_DAYS, a_0=dist.Normal(0, 5))
+    np.testing.assert_array_equal(np.asarray(m.args["spatial_grid_cells"]),
+                                  np.asarray(m_nocov.args["spatial_grid_cells"]))
+    assert len(np.asarray(m.args["spatial_grid_cells"])) < N_XY**2
+
+
+def test_rectangle_covariate_regime_preserved():
+    """Rectangle degeneracy for the covariate leg: on an array rectangle a
+    layer tiling A exactly keeps cov_area = the full normalized polygon
+    areas (clipping is the identity). Passes pre- AND post-3c-3."""
+    r = np.random.RandomState(2)
+    data = pd.DataFrame({"X": r.uniform(0.05, 0.95, 20),
+                         "Y": r.uniform(0.05, 0.95, 20),
+                         "T": np.sort(r.uniform(0, T_DAYS, 20))})
+    m = _hawkes(data, np.array([[0.0, 1.0], [0.0, 1.0]]),
+                spatial_cov=_quadrant_cov(), cov_names=["v"])
+    np.testing.assert_allclose(np.asarray(m.args["cov_area"], dtype=np.float64),
+                               [0.25, 0.25, 0.25, 0.25], rtol=1e-12)
+
+
 @needs_decoder
 def test_sim_cox_count_rate_matches_clipped_compensator():
     """The Poisson count mean of the background draw equals Ig * Ih with Ih
