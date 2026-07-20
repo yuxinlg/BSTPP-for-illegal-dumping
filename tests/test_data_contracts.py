@@ -88,6 +88,26 @@ def test_valid_interior_data_constructs_under_reject():
     assert m.data_contract_report.ok
 
 
+def test_default_mode_is_reject():
+    """Post-dry-run flip (reviewer sign-off 2026-07-20): constructing with
+    invalid data and NO data_contracts argument must reject."""
+    data = _interior_data()
+    data.loc[3, "X"] = np.nan
+    with pytest.raises(DataContractError, match="event_coordinates_nonfinite"):
+        Hawkes_Model(data, A_RECT, T_DAYS, cox_background=False, **PRIORS)
+
+
+def test_default_mode_reject_heldout_path():
+    m = Hawkes_Model(_interior_data(), A_RECT, T_DAYS, cox_background=False,
+                     **PRIORS)
+    assert m.data_contract_report.mode == "reject"
+    m.run_svi(10, 0.01, plot_loss=False)
+    with_nan = _interior_data(n=10, seed=11)
+    with_nan.loc[len(with_nan)] = {"X": np.nan, "Y": 7.0, "T": 50.0}
+    with pytest.raises(DataContractError, match="nonfinite X/Y/T"):
+        m.log_expected_likelihood(with_nan)
+
+
 # ------------------------------------------------------ nonfinite coordinates
 
 def test_nan_coordinate_rejected():

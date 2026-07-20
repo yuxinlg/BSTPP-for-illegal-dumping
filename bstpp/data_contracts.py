@@ -9,17 +9,18 @@ acceptance, ambiguous membership) is either surfaced (report mode) or refused
 
 Two modes (constructor argument ``data_contracts``):
 
-- ``"report"`` (current default): violations and diagnostics are collected
-  into a :class:`DataContractReport` (stored as
-  ``model.data_contract_report``) and violations are emitted as a single
-  ``UserWarning``. Legacy numerical behavior is bit-unchanged -- including
-  the legacy failure modes for invalid data (misleading sjoin crash, silent
-  NaN drop in ``log_expected_likelihood``). This is the section-14 dry-run
-  instrument.
-- ``"reject"``: any violation raises :class:`DataContractError` listing every
-  offending row. The flip of the DEFAULT from report to reject is gated on
-  reviewing the section-14 dry run against the project data (recorded
-  decision, not a silent relaxation).
+- ``"reject"`` (default): any violation raises :class:`DataContractError`
+  listing every offending row. The default was flipped from ``"report"`` on
+  reviewer sign-off of the committed section-14 report-only dry run against
+  the project data (2026-07-20; sole finding: five leap-day horizon
+  violations, an upstream ``total_days`` defect -- see
+  ``refactor-patches/phase3a/``).
+- ``"report"``: violations and diagnostics are collected into a
+  :class:`DataContractReport` (stored as ``model.data_contract_report``) and
+  violations are emitted as a single ``UserWarning``. Legacy numerical
+  behavior is bit-unchanged -- including the legacy failure modes for
+  invalid data (misleading sjoin crash, silent NaN drop in
+  ``log_expected_likelihood``). This is the section-14 dry-run instrument.
 
 Violations (would-reject) vs diagnostics (informational, never reject):
 
@@ -330,7 +331,8 @@ def enforce(checks, n_events, mode) -> DataContractReport:
         if mode == "reject":
             raise DataContractError(report.summary())
         warnings.warn(
-            "BSTPP data-contract violations detected (report-only mode; "
-            "these will become rejections):\n" + report.summary(),
+            "BSTPP data-contract violations detected (report mode; these "
+            "are rejected under the default data_contracts='reject'):\n"
+            + report.summary(),
             UserWarning, stacklevel=3)
     return report

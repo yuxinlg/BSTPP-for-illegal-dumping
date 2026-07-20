@@ -32,12 +32,16 @@ against the grid's own edge arithmetic); events covered by >1 covariate
 polygon; held-out rows the legacy path drops. These are the §14 dry-run
 inventory fields.
 
-**Report-only staging (reviewer decision, 2026-07-19):** the default stays
-`'report'` — every legacy numerical path and legacy failure mode is
-bit-preserved — until the §14 report-only dry run against the actual
-Philadelphia package-boundary inputs is committed and reviewed. The flip of
-the default to `'reject'` is a separate, gated commit. Any contract
-adjustment motivated by the dry run will be a recorded decision.
+**Report-only staging (reviewer decision, 2026-07-19) — completed:** the
+default stayed `'report'` until the §14 report-only dry run against the
+actual Philadelphia package-boundary inputs was committed (`ff1aef5`) and
+reviewed. **Reviewer sign-off received 2026-07-20 and the default flipped to
+`'reject'`** (commit recorded below). The dry run's sole finding — five
+events on 2024-12-31 with T ∈ (1460.30, 1460.64], caused by the pipeline's
+`total_days = 365*4` ignoring the 2024 leap day — is an upstream data/config
+defect to fix in the pipeline (`total_days = 1461`), not a contract
+adjustment. `data_contracts='report'` remains available as the dry-run
+instrument.
 
 ## MR change (otherwise-valid boundary events; intentional rebaseline)
 
@@ -88,9 +92,12 @@ are deduplicated.
 | Provenance review | `data_contracts` mode stored on the model (`_data_contracts_mode`, `data_contract_report`); full §16 provenance object is 3f scope |
 | Rebaseline record | this file |
 
-## Outstanding for 3a completion
+## 3a completion status
 
-1. §14 report-only dry run on the real package-boundary inputs (events,
-   domain polygons, covariates, X/Y/T-mapping script) — committed report,
-   then reviewer sign-off.
-2. Default flip `report → reject` (separate commit, gated on 1).
+1. §14 report-only dry run — **done** (`ff1aef5`,
+   `refactor-patches/phase3a/dry_run_report.md`); reviewer sign-off
+   2026-07-20.
+2. Default flip `report → reject` — **done** (commit following this record's
+   update). 3a is complete pending the upstream pipeline fix of
+   `total_days` (1460 → 1461), which lives in the analysis tree, not this
+   package.

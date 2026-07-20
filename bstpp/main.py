@@ -132,7 +132,7 @@ def add_month_grid_and_labels(ax, start_date, num_days,label_every_n_months=3):
 class Point_Process_Model:
     def __init__(self,model,data,A,T,offset_seasonal=0,spatial_cov=None,cov_names=None,
                  cov_grid_size=None,standardize_cov=True,sp_var_mu=2.0,
-                 data_contracts='report',**kwargs):
+                 data_contracts='reject',**kwargs):
         """
         Spatiotemporal Point Process Model.
         The data is rescaled to fit in a 1x1 spatial grid and a lenght 50 time window. Posterior samples must be interpreted with this in mind.
@@ -173,14 +173,16 @@ class Point_Process_Model:
             training. A sampled amplitude (and a matching knob for the seasonal field, which
             currently has none) is planned follow-up work.
         data_contracts: str
-            'report' (default) or 'reject'. Phase 3a boundary validation:
+            'reject' (default) or 'report'. Phase 3a boundary validation:
             nonfinite coordinates/covariates, out-of-horizon times,
             out-of-domain events (polygon boundary is inside, D-4), invalid
             geometry, and CRS mismatches are collected into
-            self.data_contract_report. 'report' warns and leaves legacy
-            behavior bit-unchanged; 'reject' raises DataContractError listing
-            every offending row. The default flips to 'reject' after the
-            section-14 dry run is reviewed.
+            self.data_contract_report. 'reject' raises DataContractError
+            listing every offending row; 'report' warns and leaves legacy
+            behavior bit-unchanged (the section-14 dry-run instrument).
+            Default flipped report -> reject on reviewer sign-off of the
+            committed dry run (2026-07-20); see
+            refactor-patches/phase3a/rebaseline_record.md.
         priors: dict
             priors for parameters (a_0,w,alpha,beta,sigmax_2). Must be a numpyro distribution.
         """
@@ -660,10 +662,10 @@ class Point_Process_Model:
         if _n_nonfinite:
             _msg = (f"{_n_nonfinite} held-out row(s) have non-numeric or "
                     "nonfinite X/Y/T")
-            if getattr(self, '_data_contracts_mode', 'report') == 'reject':
+            if getattr(self, '_data_contracts_mode', 'reject') == 'reject':
                 raise DataContractError(_msg)
-            warnings.warn(_msg + "; dropping them (legacy behavior, "
-                          "report-only mode; this will become a rejection).",
+            warnings.warn(_msg + "; dropping them (legacy behavior, kept "
+                          "only under data_contracts='report').",
                           UserWarning, stacklevel=2)
         data = data.dropna(subset=['X', 'Y', 'T'])
         if len(data) == 0:
