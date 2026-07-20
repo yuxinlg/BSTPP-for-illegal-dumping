@@ -21,13 +21,11 @@ Usage:
   python refactor-patches/phase3a/dry_run_report.py
 """
 import hashlib
-import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 import geopandas as gpd
-import numpy as np
 import pandas as pd
 
 REPO = Path(__file__).resolve().parents[2]
