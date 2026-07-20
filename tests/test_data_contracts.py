@@ -248,6 +248,21 @@ def test_grid_line_events_are_diagnostics_each_axis_and_corner():
     assert list(checks["event_on_grid_line_y"].indices) == [1, 2]
 
 
+def test_polygon_domain_grid_line_events_are_diagnostics():
+    """Grid edges for a polygon domain come from its bounding rectangle
+    (here exactly A_RECT for the triangle), so interior events on internal
+    edges must be surfaced just as in the array-domain case."""
+    # x = 14.0 is the k=5 internal x-edge (10 + 5/25*20); y = 7.0 is the
+    # k=5 internal y-edge (5 + 5/25*10). Both points are strictly inside
+    # the triangle (y < 5 + (x-10)/2) and off the other axis's edges.
+    data = pd.DataFrame({
+        "X": [14.0, 20.0], "Y": [6.0, 7.0], "T": [10.0, 20.0]})
+    checks = _checks_by_name(validate_events(data, _triangle_gdf(), T_DAYS))
+    assert "event_outside_domain" not in checks
+    assert list(checks["event_on_grid_line_x"].indices) == [0]
+    assert list(checks["event_on_grid_line_y"].indices) == [1]
+
+
 def test_domain_edge_events_are_not_grid_line_ties():
     """Events on the OUTER rectangle edges join a single cell today and are
     covered by the D-22 outermost-edge-closed rule; they must not appear in

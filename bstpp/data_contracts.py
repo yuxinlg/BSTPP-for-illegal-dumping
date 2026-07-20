@@ -215,7 +215,7 @@ def validate_events(data, A, T_max, n_xy=25) -> list:
                 "events exactly on the boundary of A; INSIDE per D-4", idx))
         bounds = np.asarray(
             np.stack((A.bounds.min(axis=0)[["minx", "miny"]],
-                      A.bounds.max(axis=0)[["maxx", "maxy"]])), dtype=float)
+                      A.bounds.max(axis=0)[["maxx", "maxy"]])), dtype=float).T
     elif union is None and not any(c.kind == "violation" for c in domain_checks):
         bounds = np.asarray(A, dtype=float)
         x, y = vals["X"], vals["Y"]
