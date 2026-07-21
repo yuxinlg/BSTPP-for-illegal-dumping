@@ -394,6 +394,12 @@ out_dir `results/sbc_stage2p`.
   **Stage 3 COMPLETE** — R=200 PASS (min primary p = 0.092, zero
   divergences, zero ESS retries); results archived at
   `refactor-patches/baselines-2026-07/sbc_stage3/`.
+  **Stage 2p COMPLETE** — R=600 PASS (min primary p = 0.134
+  (`log_intensity_p1`), supplementary `a_0` p = 0.913, zero divergences,
+  zero ESS retries across all 600 replicates); results archived at
+  `refactor-patches/baselines-2026-07/sbc_stage2p/`. Discharges the
+  Phase 3c conditional SBC trigger for the polygon LGCP background path
+  per its scope statement above.
 - The prior-predictive budget check uses a distinct master seed from the real
   run. Inspecting and gating on the exact real-run simulations would select
   the SBC ensemble by event count.

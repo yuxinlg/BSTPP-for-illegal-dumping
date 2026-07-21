@@ -57,7 +57,20 @@ scope (D-17), deliberately untouched.
 `tests/test_standardization_api.py` (6) — every SC/IV/API claim above has a
 RED-verified test; RED states are recorded per commit body.
 
-## Conditional SBC escalation (§12 "C") — OPEN, requires a decision
+## Conditional SBC escalation (§12 "C") — DISCHARGED (option 2, 2026-07-20)
+
+Team decision (2026-07-20): option 2 taken. The rectangular stage 2 was NOT
+rerun and its archived R=600 PASS is retained on the bit-identity evidence;
+a new polygon-domain LGCP-only configuration, **stage 2p**, was
+preregistered (docs/sbc_runbook.md "Stage 2p pre-registration", committed
+before implementation and run) and executed: **R=600 PASS** — every primary
+p ≥ 0.005 (min 0.134), zero divergences, zero ESS retries; archived at
+`refactor-patches/baselines-2026-07/sbc_stage2p/`. Per its scope
+statement, stage 2p validates the polygon BACKGROUND path only and claims
+nothing about the 3d polygon excitation mode. The section below is the
+original open-decision record, retained as written.
+
+## Conditional SBC escalation (§12 "C") — original record (superseded above)
 
 3c intentionally changed the LGCP/Cox background path (clipped `Itot_xy`,
 covariate refinement, sampler support), which is exactly the §12 example

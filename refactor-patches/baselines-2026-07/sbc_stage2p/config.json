@@ -1,0 +1,146 @@
+{
+  "config_hash": "0ae4bb3e6ddd445d4c7138775a53118fb8f3c4bfc4d12e770d400c21b5dcc09b",
+  "identity": {
+    "stage": "2p",
+    "model": "lgcp",
+    "domain": [
+      [
+        0.22,
+        0.0
+      ],
+      [
+        0.79,
+        0.0
+      ],
+      [
+        1.0,
+        0.17
+      ],
+      [
+        1.0,
+        0.77
+      ],
+      [
+        0.86,
+        1.0
+      ],
+      [
+        0.24,
+        1.0
+      ],
+      [
+        0.0,
+        0.81
+      ],
+      [
+        0.0,
+        0.13
+      ]
+    ],
+    "T_days": 912.5,
+    "master_seed": 0,
+    "num_warmup": 300,
+    "num_samples": 508,
+    "max_num_samples": 4064,
+    "rank_draws": 127,
+    "min_ess_ratio": 0.95,
+    "priors": {
+      "a_0": {
+        "dist": "Normal",
+        "loc": 0.4,
+        "scale": 0.3
+      }
+    },
+    "rank_targets": {
+      "primaries": [
+        "log_background",
+        "log_intensity_p0",
+        "log_intensity_p1",
+        "log_intensity_p2",
+        "log_intensity_p3",
+        "log_intensity_p4",
+        "z_temporal_0",
+        "z_seasonal_0",
+        "z_spatial_0"
+      ],
+      "supplementary": [
+        "a_0"
+      ]
+    },
+    "p_threshold": 0.005,
+    "budget_band": [
+      20,
+      2000,
+      0.05
+    ],
+    "implementation": {
+      "commit": "677c9b7269d8bcc0098c2990b19366feb5b04f67",
+      "tracked_code_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sbc_script_sha256": "ce68f54d1a7884708f4e355c5c4ae72684f16ab7fc59d873f8f9e1448795d166",
+      "jax": "0.4.23",
+      "numpyro": "0.15.0",
+      "numpy": "1.26.4",
+      "python": "3.12.13"
+    },
+    "sp_var_mu": 0.0,
+    "grid_points": [
+      [
+        5,
+        12,
+        12
+      ],
+      [
+        15,
+        6,
+        6
+      ],
+      [
+        25,
+        18,
+        18
+      ],
+      [
+        35,
+        6,
+        18
+      ],
+      [
+        45,
+        18,
+        6
+      ]
+    ],
+    "z_primary_components": [
+      [
+        "z_temporal",
+        0
+      ],
+      [
+        "z_seasonal",
+        0
+      ],
+      [
+        "z_spatial",
+        0
+      ]
+    ]
+  },
+  "unit_annotation": {
+    "sigmax_2": "SQUARED REAL units of the input X/Y columns (real-unit trigger contract)",
+    "beta": "INTERNAL rescaled-time units (data time -> [0, 50]; Phase 3 conversion layer)",
+    "a_0": "internal-unit background intercept (background contract unchanged)",
+    "note": "unit-box domain: real == internal spatially, numbers unit-neutral HERE; the same config on a real domain is NOT"
+  },
+  "provenance": {
+    "commit": "677c9b7269d8bcc0098c2990b19366feb5b04f67",
+    "tracked_code_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sbc_script_sha256": "ce68f54d1a7884708f4e355c5c4ae72684f16ab7fc59d873f8f9e1448795d166",
+    "jax": "0.4.23",
+    "numpyro": "0.15.0",
+    "numpy": "1.26.4",
+    "python": "3.12.13",
+    "branch": "refactor",
+    "date": "2026-07-20 18:32:08",
+    "caveat": "MACHINE-LOCAL results; never compare against runs from another machine"
+  }
+}
