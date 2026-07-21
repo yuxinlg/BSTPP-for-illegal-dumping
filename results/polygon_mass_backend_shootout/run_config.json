@@ -1,0 +1,143 @@
+{
+  "timestamp": "2026-07-21T01:53:08.409788",
+  "git_branch": "refactor",
+  "git_head": "1a9dd22306e83e709ef6dbb0ab61dbb680331897",
+  "git_status_short": [
+    "?? batch_park_fits.py",
+    "?? cbg-park-seasonal.ipynb",
+    "?? nuts_recover_log.txt",
+    "?? pins2d_2.json",
+    "?? pins2d_3.json",
+    "?? pins2d_4.json",
+    "?? pins2d_base.json",
+    "?? pins_1.json",
+    "?? pins_2.json",
+    "?? pins_3.json",
+    "?? pins_4.json",
+    "?? pins_5.json",
+    "?? pins_base.json",
+    "?? pins_final.json",
+    "?? pins_wt_2b.json",
+    "?? pins_wt_2c1.json",
+    "?? pins_wt_2c2.json",
+    "?? refactor-patches/commit_prompt_sbc_stage3.md",
+    "?? refactor-patches/sbc1/",
+    "?? refactor-patches/sbc2/",
+    "?? refactor-patches/sbc_runbook_stage3.md",
+    "?? refactor-patches/sbc_v3.py",
+    "?? refactor-patches/test_sbc_smoke_v3.py",
+    "?? results/_sbc_stage2_batch_driver.py",
+    "?? results/polygon_mass_backend_shootout/",
+    "?? results/sbc_stage1_adaptive_chunk470.log",
+    "?? results/sbc_stage1_adaptive_chunk520.log",
+    "?? results/sbc_stage1_adaptive_chunk570.log",
+    "?? results/sbc_stage1_adaptive_chunk600.log",
+    "?? results/sbc_stage1_adaptive_probe420.log",
+    "?? results/sbc_stage1_adaptive_run.log",
+    "?? results/sbc_stage1_ess_pilot/",
+    "?? results/sbc_stage1_run.log",
+    "?? results/sbc_stage2_chunk100.log",
+    "?? results/sbc_stage2_chunk200.log",
+    "?? results/sbc_stage2_chunk300.log",
+    "?? results/sbc_stage2_chunk400.log",
+    "?? results/sbc_stage2_chunk500.log",
+    "?? results/sbc_stage2_chunk600.log",
+    "?? results/sbc_stage2_driver.log",
+    "?? results/sbc_stage2p/",
+    "?? results/sbc_stage2p_run.log",
+    "?? results/sbc_stage3_run.log",
+    "?? scripts/polygon_mass_backend_shootout.py",
+    "?? scripts/polygon_mass_diagnostic.py",
+    "?? tests/test_polygon_mass_backend_shootout.py"
+  ],
+  "python": "3.12.13",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "jax": "0.4.23",
+  "numpy": "1.26.4",
+  "shapely": "2.1.2",
+  "geopandas": "1.1.3",
+  "jax_backend": "cpu",
+  "jax_devices": [
+    "TFRT_CPU_0"
+  ],
+  "jax_enable_x64": true,
+  "inputs": {
+    "C:\\Users\\Terhi\\Box\\BSTPP_terhi\\BSTPP-for-illegal-dumping\\output\\illegal_dumping_full.geojson": "02450e1e267f22c13fe795f63970e199ce35bb2042015014c28bcd588d8b3205",
+    "C:\\Users\\Terhi\\Box\\BSTPP_terhi\\BSTPP-for-illegal-dumping\\data\\planning_districts.geojson": "fce0942aaa2df6fc5ce3bf6368ca34918dded866872d8fd4406f7d35c4299dd9",
+    "C:\\Users\\Terhi\\Box\\BSTPP_terhi\\BSTPP-for-illegal-dumping\\output\\all_parks_gdf.geojson": "9507e210d7c48eb59f6b814f1819b57e7e48e4fd481d729eedfa8455e9b16ff9"
+  },
+  "oracle": {
+    "max_step_sigma": 0.5,
+    "gl_order": 20,
+    "module": "scripts/polygon_mass_diagnostic.py (unchanged)"
+  },
+  "select_seed": 0,
+  "offgrid_seed": 1234,
+  "fd_h": 0.001,
+  "tau_abs": 0.000539,
+  "tau_deriv": 0.000539,
+  "tau_floor": 1e-07,
+  "representative_ws_m": 400.0,
+  "panel_configs": [
+    [
+      10.0,
+      8
+    ],
+    [
+      20.0,
+      8
+    ],
+    [
+      20.0,
+      16
+    ],
+    [
+      40.0,
+      16
+    ]
+  ],
+  "knot_counts": [
+    24,
+    40,
+    64
+  ],
+  "eval_batch": 256,
+  "primary_target": "uncut mass over A (spatial_window=None, current default)",
+  "cutoff_target": "A \u2229 C_j with representative w_s=400 m (machinery check)",
+  "cases": {
+    "Lower South": {
+      "n_region": 223,
+      "coord_hash": "ff93709d21e8fb3ea36305f13593c0542a7f2cdc8f81442e03d68ffe2ea231b3",
+      "n_selected": 128
+    },
+    "North Delaware": {
+      "n_region": 4953,
+      "coord_hash": "a2df5e8abd6c84bd9fad472192df941d65d110cd33d3b46c0e19194c315ab2ff",
+      "n_selected": 128
+    },
+    "Central": {
+      "n_region": 15520,
+      "coord_hash": "3bb0310bb35540b6d67f91d147751ca01fed65ed481a3c926ccc967c07fde655",
+      "n_selected": 128
+    },
+    "East Fairmount Park": {
+      "n_region": 110,
+      "coord_hash": "add1afc0f81a8513c2cb0c3d6349462392c8cb42a850bb3531a657dbc8c8f1ac",
+      "n_selected": 110
+    },
+    "Mifflin Square": {
+      "n_region": 47,
+      "coord_hash": "e0efd9ea4c5e216b480263871fb6b0f5927a6db0b4883d8a4bfdbd4ad5dd36b9",
+      "n_selected": 47
+    }
+  },
+  "oracle_wall_s": 239.996083799997,
+  "deriv_uncertainty_max": 1.3177492430571647e-07,
+  "float32_spot_check": {
+    "backend": "quad_h20_q16",
+    "region": "Lower South",
+    "max_abs_err": 0.01567564969393087,
+    "passes_tau": false
+  },
+  "synthetic_tests": "tests/test_polygon_mass_backend_shootout.py (rectangle/triangle/concave/hole/multipolygon/rectangle-degeneracy)"
+}
