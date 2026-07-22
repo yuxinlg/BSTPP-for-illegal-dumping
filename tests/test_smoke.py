@@ -54,6 +54,8 @@ PRIORS = dict(a_0=dist.Normal(0, 5), alpha=dist.Beta(2, 2),
 
 
 def make_hawkes(cox, A=A_RECT, **extra):
+    if not isinstance(A, np.ndarray) and "excitation_support" not in extra:
+        extra = {**extra, "excitation_support": "rectangle"}
     return Hawkes_Model(DATA, A, T_DAYS, cox_background=cox, **PRIORS, **extra)
 
 

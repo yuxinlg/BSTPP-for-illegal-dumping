@@ -100,6 +100,49 @@ required for the decision.
   the closed-form erf product (tested here at the evaluator level;
   13/13 focused tests pass, suite 155/155).
 
+## Finite-cutoff hybrid-table confirmation (post-shootout residual)
+
+**Status: PASS** — focused confirmation only; does not rewrite the original
+shootout results above. Implemented in
+`tests/test_polygon_mass_backend_shootout.py::test_finite_cutoff_hybrid_table_confirmation`.
+Helper: `scripts/polygon_mass_backend_shootout.py::build_quad_table`.
+
+Confirms the recommended hybrid path when a finite spatial cutoff is used:
+
+* Target: M_j(σ) over A ∩ C_j with fixed `spatial_window = REPRESENTATIVE_WS
+  = 400 m` (preregistered representative; not a 3e production recommendation).
+* Builder: K=64 log-spaced knots on [10, 500] m; float64 fixed-node
+  quadrature with h=20 m, GL-16; knot values + forward-mode AD slopes on the
+  ws-aware kernel (analytic erf² fast path when C_j ⊂ A).
+* Online: existing C1 cubic Hermite evaluator; float32 online cast checked
+  separately (construction remains float64; module fixture restores the
+  global `jax_enable_x64` flag so unrelated production fitting is unchanged).
+* Cases (synthetic, sized for w_s=400 m; not a full district):
+  1. 2000×2000 m rectangle, boundary-near event (50, 50) — C_j clips dA;
+  2. same rectangle, interior event (1000, 1000) — C_j ⊂ A fast path;
+  3. large concave L, boundary-near event (850, 850) at the re-entrant corner.
+* Off-knot σ grid: geometric midpoints, 10 seeded log-uniform (seed 1234),
+  and left/right of representative interior knots.
+* Gates: max |ΔM| ≤ 5.39e-4 and max |Δ dM/dlogσ| ≤ 5.39e-4 vs the
+  exact-intersection §13 oracle (FD derivative with h and h/2; FD floor
+  reported separately); 0 ≤ M ≤ erf(w_s/(√2 σ))² ≤ 1 with a documented
+  Hermite-overshoot allowance of 1e-6 (oracle gates unchanged); C1 across
+  knots; no silent extrapolation.
+
+Measured (2026-07-21, `illegal-dumping` env, CPU JAX; pytest `-s` block):
+
+| Quantity | Value |
+|---|---|
+| max abs mass error (f64 online) | **5.76e-7** |
+| max abs dM/dlogσ error (f64) | **1.11e-7** (FD floor ≤ 1.16e-8) |
+| signed mass error range | [-5.76e-7, 1.95e-7] |
+| float32 online max abs mass error | 6.14e-7 |
+| float32 online max deriv error | 1.07e-6 |
+| bounds / C1 / no-extrapolation | PASS |
+| analytic fast path vs erf² / oracle | PASS (exact at knots; ≤ τ off-knot) |
+| test runtime | ~10 s (body) / ~24 s wall incl. compile |
+| conclusion | **PASS — finite-cutoff hybrid table fully confirmed** |
+
 ## Remaining risks before 3d production integration
 
 1. Tables are per-event: simulation-time offspring PROPOSALS at new

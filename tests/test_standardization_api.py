@@ -66,6 +66,7 @@ def _data(n=15, seed=4):
 def _model(standardize=True, cov=COV, domain=TRI_GDF):
     kw = {} if standardize == "DEFAULT" else {"standardize_cov": standardize}
     return Hawkes_Model(_data(), domain, T_DAYS, cox_background=False,
+                        excitation_support="rectangle",
                         spatial_cov=cov, cov_names=["v"], **PRIORS, **kw)
 
 

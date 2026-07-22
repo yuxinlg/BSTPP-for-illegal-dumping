@@ -58,6 +58,10 @@ Equation concordance (guide numbering):
   pair set and the offspring thinning use (within_real_box_window), so all
   three legs agree on rectangles and the historical event-side-only
   discrepancy is closed.
+- polygon_excitation_compensator ........ Phase 3d polygon-mode compensator:
+  same temporal factor as the rectangle atom; spatial mass is the hybrid
+  Hermite lookup M_j(sigma) from an offline float64 quad-built table (no
+  polygon quadrature inside the likelihood).
 
 Unit contract (real-unit spatial trigger). The spatial trigger is a density
 per REAL area, isotropic in the units of the input X/Y columns; sigmax_2 and
@@ -115,6 +119,34 @@ def real_spatial_trigger_values(spatial_trigger, spatial_parameters, coords,
         spatial_parameters,
         (coords, x_vals * axis_scales[0], y_vals * axis_scales[1]))
     return values * (axis_scales[0] * axis_scales[1])
+
+
+def polygon_excitation_compensator(alpha, t_events, horizon, temporal_window,
+                                   temporal_parameters, spatial_parameters,
+                                   temporal_trigger, mass_table):
+    """Total excitation compensator over [0, horizon] x polygon support.
+
+    Same temporal factor as :func:`rectangular_excitation_compensator`; the
+    spatial mass at each parent is the Phase 3d Hermite lookup
+    ``M_j(sigma)`` for ``sigma = sqrt(sigmax_2)`` (table built offline over
+    ``[min_sigma, max_sigma]``; no polygon quadrature in this path).
+    """
+    from .polygon_mass import _TABLE_MASSES
+
+    temp_part = alpha * temporal_trigger.compute_integral(
+        temporal_parameters, jnp.minimum(horizon - t_events, temporal_window))
+    sigma = jnp.sqrt(spatial_parameters['sigmax_2'])
+    log_sigma = jnp.log(sigma)
+    # Online dtype follows the model (typically float32); tables were built
+    # float64 and cast here. Extrapolation yields NaN by construction.
+    dt = jnp.result_type(log_sigma, temp_part)
+    sp_part = _TABLE_MASSES(
+        log_sigma,
+        jnp.asarray(mass_table.log_knots, dtype=dt),
+        jnp.asarray(mass_table.values, dtype=dt),
+        jnp.asarray(mass_table.slopes, dtype=dt),
+    )
+    return jnp.sum(temp_part * sp_part)
 
 
 def rectangular_excitation_compensator(alpha, t_events, xy_events, horizon,

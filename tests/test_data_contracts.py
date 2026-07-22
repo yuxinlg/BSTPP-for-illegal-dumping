@@ -49,6 +49,7 @@ def _interior_data(n=30, seed=7):
 
 def _model(data, A=A_RECT, mode="report", **kw):
     return Hawkes_Model(data, A, T_DAYS, cox_background=False,
+                        excitation_support="rectangle",
                         data_contracts=mode, **PRIORS, **kw)
 
 

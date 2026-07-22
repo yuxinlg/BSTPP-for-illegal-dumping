@@ -14,6 +14,7 @@ from .decode_fields import (decode_temporal_field, decode_seasonal_field,
 from .likelihood import (aggregate_pair_trigger_values,
                          constant_background_integral,
                          covariate_background_integral,
+                         polygon_excitation_compensator,
                          real_spatial_trigger_values,
                          rectangular_excitation_compensator,
                          seasonal_time_integral,
@@ -175,17 +176,27 @@ def spatiotemporal_hawkes_model(args):
     elif args['model']=='cox_hawkes':
       ell_1=numpyro.deterministic('ell_1',jnp.sum(jnp.log(l_hawkes+jnp.exp(a_0 + f_t_events + f_a_events + f_xy_events))))
 
-    #### hawkes integral: truncated excitation compensator over the rectangle
-    #### (eq. 14 specialized + eq. 27; honest scope in likelihood.py docstring)
+    #### hawkes integral: truncated excitation compensator
+    #### rectangle mode: eq. 14 specialized + eq. 27 over A_□
+    #### polygon mode: same temporal factor × Hermite M_j(sigma) over A (3d)
     win = args.get('window', T)   # temporal truncation window; NOT the sampled covariate weights `w`
-    Itot_excite = numpyro.deterministic(
-        "Itot_excite",
-        rectangular_excitation_compensator(alpha, t_events, xy_events, T, win,
-                                           (x_min, x_max, y_min, y_max),
-                                           t_pars, sp_pars,
-                                           args['t_trig'], args['sp_trig'],
-                                           axis_scales=args['axis_scales'],
-                                           spatial_window=args.get('spatial_window')))
+    support = args.get('excitation_support')
+    if support is not None and support.mode == 'polygon':
+        Itot_excite = numpyro.deterministic(
+            "Itot_excite",
+            polygon_excitation_compensator(
+                alpha, t_events, T, win, t_pars, sp_pars,
+                args['t_trig'], support.mass_table))
+    else:
+        Itot_excite = numpyro.deterministic(
+            "Itot_excite",
+            rectangular_excitation_compensator(
+                alpha, t_events, xy_events, T, win,
+                (x_min, x_max, y_min, y_max),
+                t_pars, sp_pars,
+                args['t_trig'], args['sp_trig'],
+                axis_scales=args['axis_scales'],
+                spatial_window=args.get('spatial_window')))
     ## total integral
     Itot_txy = numpyro.deterministic("Itot_txy",Itot_excite + Itot_txy_back)
     loglik=numpyro.deterministic('loglik',ell_1-Itot_txy)

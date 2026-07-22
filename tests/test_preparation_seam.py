@@ -115,6 +115,7 @@ def test_model_exposes_seam_objects_consistent_with_args():
 def test_model_seam_objects_polygon_domain():
     tri = _triangle_gdf()
     m = Hawkes_Model(_triangle_data(), tri, T_DAYS, cox_background=False,
+                     excitation_support="rectangle",
                      **PRIORS)
     assert m.prepared_domain.is_polygon
     assert m.prepared_domain.domain is tri

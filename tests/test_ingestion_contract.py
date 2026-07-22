@@ -65,7 +65,8 @@ def test_geographic_crs_contract_warning_is_nonvacuous():
                          crs="EPSG:4326")
     with pytest.warns(UserWarning, match=CONTRACT_MATCH):
         Hawkes_Model(_data_in(0.1, 0.5, 0.1, 0.5), A, T_DAYS,
-                     cox_background=False, **PRIORS)
+                     cox_background=False, excitation_support="rectangle",
+                     **PRIORS)
 
 
 def test_crsless_gdf_falls_back_to_heuristic():
@@ -78,10 +79,12 @@ def test_crsless_gdf_falls_back_to_heuristic():
     assert A_deg.crs is None
     with pytest.warns(UserWarning, match=CONTRACT_MATCH):
         Hawkes_Model(_data_in(-75.25, -75.15, 39.90, 40.00), A_deg, T_DAYS,
-                     cox_background=False, **PRIORS)
+                     cox_background=False, excitation_support="rectangle",
+                     **PRIORS)
     A_unit = gpd.GeoDataFrame({"geometry": [box(0, 0, 1, 1)]})
     assert A_unit.crs is None
     with warnings.catch_warnings():
         warnings.simplefilter("error", UserWarning)
         Hawkes_Model(_data_in(0.0, 1.0, 0.0, 1.0), A_unit, T_DAYS,
-                     cox_background=False, **PRIORS)
+                     cox_background=False, excitation_support="rectangle",
+                     **PRIORS)

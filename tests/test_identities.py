@@ -367,7 +367,8 @@ def _compensator(model, t_events, xy_events, params):
 
 
 def test_simulated_count_matches_compensator():
-    model = Hawkes_Model(DATA, A_GDF, T_DAYS, cox_background=False, **PRIORS)
+    model = Hawkes_Model(DATA, A_GDF, T_DAYS, cox_background=False,
+                         excitation_support="rectangle", **PRIORS)
     truth = dict(a_0=0.4, alpha=0.3, beta=2.0, sigmax_2=0.01)   # internal units
 
     # Guard: the assembled compensator must equal the model's own Itot_txy
@@ -513,7 +514,8 @@ def test_simulated_count_matches_compensator_finite_spatial_window():
     units): holds only because all three legs -- pair set, compensator, and
     offspring thinning -- share the real-unit box semantics. IMPOSSIBLE
     before the symmetry fix."""
-    model = Hawkes_Model(DATA, A_GDF, T_DAYS, cox_background=False, **PRIORS)
+    model = Hawkes_Model(DATA, A_GDF, T_DAYS, cox_background=False,
+                         excitation_support="rectangle", **PRIORS)
     model.set_window(float(model.args["T"]), spatial_window=0.2)
     truth = dict(a_0=0.4, alpha=0.3, beta=2.0, sigmax_2=0.01)
 
@@ -636,7 +638,8 @@ def test_simulate_fully_reproducible_with_generator(cox):
     historically unseeded. (rng=None preserves the legacy behavior.)"""
     if cox == "cox" and not os.path.isfile(_SEASONAL_DECODER):
         pytest.skip("seasonal decoder artifact absent")
-    model = Hawkes_Model(DATA, A_GDF, T_DAYS, cox_background=cox, **PRIORS)
+    model = Hawkes_Model(DATA, A_GDF, T_DAYS, cox_background=cox,
+                         excitation_support="rectangle", **PRIORS)
     if cox == "cox":
         tr = handlers.trace(handlers.seed(model.model,
                                           jax.random.PRNGKey(3))).get_trace(model.args)
@@ -678,7 +681,8 @@ def test_geographic_coordinate_warning():
     # (unit box near the origin would never trip it)
     geo_gdf = gpd.GeoDataFrame({"geometry": [box(0, 0, 1, 1)]}, crs="EPSG:4326")
     with pytest.warns(UserWarning, match="geographic"):
-        Hawkes_Model(DATA, geo_gdf, T_DAYS, cox_background=False, **PRIORS)
+        Hawkes_Model(DATA, geo_gdf, T_DAYS, cox_background=False,
+                     excitation_support="rectangle", **PRIORS)
 
     # CRS path, negative: a PROJECTED CRS suppresses the warning even on
     # degree-like bounds (the CRS is authoritative over the heuristic)
@@ -686,4 +690,5 @@ def test_geographic_coordinate_warning():
         {"geometry": [box(-75.25, 39.90, -75.15, 40.00)]}, crs="EPSG:2272")
     with _w.catch_warnings():
         _w.simplefilter("error", UserWarning)
-        Hawkes_Model(geo_data, proj_gdf, T_DAYS, cox_background=False, **PRIORS)
+        Hawkes_Model(geo_data, proj_gdf, T_DAYS, cox_background=False,
+                     excitation_support="rectangle", **PRIORS)

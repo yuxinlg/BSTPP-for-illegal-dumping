@@ -392,6 +392,46 @@ def build_table(poly, x, y, K: int, ws: float | None,
     return prep
 
 
+def build_quad_table(poly, x, y, K: int, ws: float | None,
+                     h: float = 20.0, gl_order: int = 16,
+                     tag: str | None = None) -> TablePrep:
+    """Hermite table whose knot values and slopes come from fixed-node quad.
+
+    Builds in the caller's JAX precision (callers that need float64 must
+    enable x64 before invoking). Knot values are the ws-aware quadrature
+    mass at each log-spaced sigma; knot slopes are dM/dlog(sigma) via
+    forward-mode AD of the same kernel. The online Hermite evaluator is
+    unchanged — finite w_s enters only through this builder.
+    """
+    t0 = time.perf_counter()
+    log_knots = np.linspace(np.log(SIGMA_RANGE[0]), np.log(SIGMA_RANGE[1]), K)
+    prep = prepare_quadrature(poly, np.asarray(x, float), np.asarray(y, float),
+                              h, ws)
+    masses_fn, d_masses_fn, _ = make_quad_eval(gl_order, ws)
+    ej = jnp.asarray(prep.ev_xy)
+    pj = jnp.asarray(prep.panels)
+    mj = jnp.asarray(prep.mask)
+    fj = jnp.asarray(prep.inside_flag)
+    vals = np.array([np.asarray(masses_fn(lk, ej, pj, mj, fj))
+                     for lk in log_knots]).T
+    slopes = np.array([np.asarray(d_masses_fn(lk, ej, pj, mj, fj))
+                       for lk in log_knots]).T
+    build = time.perf_counter() - t0
+    out = TablePrep(log_knots=log_knots, values=vals, slopes=slopes,
+                    n_nonmonotone=0, build_seconds=build,
+                    nbytes=vals.nbytes + slopes.nbytes + log_knots.nbytes)
+    if tag is not None:
+        npz = OUT_DIR / "tables" / f"table_quad_{tag}_K{K}.npz"
+        npz.parent.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(npz, log_knots=log_knots, values=vals, slopes=slopes,
+                            ws=np.array(np.nan if ws is None else ws),
+                            h_panel=np.array(h), gl_order=np.array(gl_order))
+        out.npz_path = npz
+        out.npz_sha256 = sha256_file(npz)
+        out.npz_bytes = npz.stat().st_size
+    return out
+
+
 def make_table_eval():
     """Jitted C1 cubic-Hermite interpolation along log sigma (uniform knots).
 

@@ -39,6 +39,12 @@ from .data_contracts import (validate_events, validate_covariates,
 from .preparation import (ModelData, prepare_domain, prepare_partitions,
                           attach_covariate_partitions,
                           finalize_integration_arrays)
+from .excitation_support import (
+    build_excitation_support,
+    resolve_excitation_support_mode,
+    truncate_sigmax_2_prior,
+)
+from .polygon_mass import warn_if_sigma_near_bound
 
 
 def _load_decoder(name):
@@ -471,6 +477,7 @@ class Point_Process_Model:
             self.samples = get_samples(rng_key,self.model,self.svi.guide,self.svi_results,self.args,sites)
         else:
             self.svi,self.svi_results,self.samples=run_SVI(rng_key, self.model, self.args, num_steps, lr, sites, **kwargs)
+        self._warn_sigma_near_bound()
         if plot_loss:
             loss = np.asarray(self.svi_results.losses)
             plt.plot(np.arange(int(.01*len(loss)),len(loss)),loss[int(.01*len(loss)):])
@@ -511,6 +518,18 @@ class Point_Process_Model:
 
         self.mcmc = run_mcmc(rng_key_post, self.model, self.args)
         self.samples=self.mcmc.get_samples()
+        self._warn_sigma_near_bound()
+
+
+    def _warn_sigma_near_bound(self):
+        """Warn when posterior sigma approaches a configured max_sigma."""
+        support = self.args.get('excitation_support')
+        if support is None or support.max_sigma_real is None:
+            return
+        samples = getattr(self, 'samples', None)
+        if samples is None or 'sigmax_2' not in samples:
+            return
+        warn_if_sigma_near_bound(samples['sigmax_2'], support.max_sigma_real)
 
 
     def _scale_xyt(self,data,args,field_support):
@@ -1578,8 +1597,14 @@ class Point_Process_Model:
 
 
 class Hawkes_Model(Point_Process_Model):
-    def __init__(self,data, A, T, cox_background='cox',temporal_trig=Temporal_Exponential,
-                 spatial_trig=Spatial_Symmetric_Gaussian,window=None,spatial_window=None,**kwargs):
+    def __init__(self, data, A, T, cox_background='cox',
+                 temporal_trig=Temporal_Exponential,
+                 spatial_trig=Spatial_Symmetric_Gaussian,
+                 window=None, spatial_window=None,
+                 excitation_support=None,
+                 min_sigma=None, max_sigma=None,
+                 mass_table=None,
+                 **kwargs):
         r"""
         Spatiotemporal Point Process Model given by,
 
@@ -1630,6 +1655,26 @@ class Hawkes_Model(Point_Process_Model):
             calibration/SBC. Must comfortably exceed the posterior real-unit kernel scale
             (rule of thumb: spatial_window >= 4 * sqrt(sigmax_2)). Defaults to None (no
             spatial truncation).
+        excitation_support: {'rectangle', 'polygon'}, optional
+            Phase 3d support mode. Controls both offspring parenting eligibility and
+            the excitation compensator charge region (D-18). Required on
+            nonrectangular (GeoDataFrame) domains; defaults to 'rectangle' on
+            axis-aligned array domains. 'polygon' discards offspring outside A
+            before parenting and charges Hermite polygon mass; 'rectangle' retains
+            the bounding-rectangle approximation.
+        min_sigma: float, optional
+            Lower bound on sigma = sqrt(sigmax_2) in domain CRS units. Required
+            (explicit, finite, positive) for polygon mode. In rectangle mode,
+            omit together with max_sigma to leave the prior unchanged.
+        max_sigma: float, optional
+            Upper bound on sigma in domain CRS units. Polygon mode defaults to
+            5 km converted via the projected CRS when omitted. In rectangle mode,
+            omit together with min_sigma to leave the prior unchanged. When
+            bounds are active the sigmax_2 prior is truncated to
+            [min_sigma**2, max_sigma**2] with interval support for NUTS/SVI.
+        mass_table: PolygonMassTable, optional
+            Prebuilt Hermite table to reuse on refit (must match events/geometry/
+            sigma range / spatial_window); otherwise built at construction.
         sp_var_mu: float
             Fixed log-amplitude multiplier applied to the spatial VAE decoder output; see
             Point_Process_Model for calibration guidance. Default 2.0.
@@ -1641,7 +1686,32 @@ class Hawkes_Model(Point_Process_Model):
             name = 'cox_hawkes'
         else:
             name = 'hawkes'
+        self._spatial_trig_cls = spatial_trig
+        self._temporal_trig_cls = temporal_trig
+        self._excitation_support_arg = excitation_support
+        self._min_sigma_arg = min_sigma
+        self._max_sigma_arg = max_sigma
+        self._mass_table_arg = mass_table
         super().__init__(name, data, A, T, **kwargs)
+
+        mode = resolve_excitation_support_mode(
+            is_polygon_domain=self.prepared_domain.is_polygon,
+            excitation_support=excitation_support)
+
+        # Resolve bounds and truncate sigmax_2 BEFORE constructing triggers so
+        # NUTS/SVI see interval support (no proposal clipping).
+        if 'sigmax_2' not in self.args['priors']:
+            raise ValueError(
+                "Hawkes_Model requires a user-supplied sigmax_2 prior "
+                "(numpyro Distribution in squared real units).")
+        # Probe bounds without building the table yet (cheap).
+        from .excitation_support import resolve_sigma_bounds
+        lo, hi, _ = resolve_sigma_bounds(
+            mode=mode, min_sigma=min_sigma, max_sigma=max_sigma,
+            crs=self.prepared_domain.crs)
+        if lo is not None and hi is not None:
+            self.args['priors']['sigmax_2'] = truncate_sigmax_2_prior(
+                self.args['priors']['sigmax_2'], lo, hi)
 
         self.args['t_trig'] = temporal_trig(self.args['priors'])
         self.args['sp_trig'] = spatial_trig(self.args['priors'])
@@ -1649,6 +1719,58 @@ class Hawkes_Model(Point_Process_Model):
             window = float(self.args['T'])   # exact likelihood: no truncation
         self.set_window(float(window),
                         float(spatial_window) if spatial_window is not None else None)
+
+    def _event_xy_real(self):
+        """Observed event locations in real CRS units (table / support order)."""
+        A_ = np.asarray(self.args['A_'], dtype=float)
+        scales = np.asarray(self.args['axis_scales'], dtype=float)
+        xy = np.asarray(self.args['xy_events'])
+        return (xy[0] * scales[0] + A_[0, 0],
+                xy[1] * scales[1] + A_[1, 0])
+
+    def _install_excitation_support(self, spatial_window=None):
+        """Build/replace the single D-18 support object (and polygon table)."""
+        mode = resolve_excitation_support_mode(
+            is_polygon_domain=self.prepared_domain.is_polygon,
+            excitation_support=self._excitation_support_arg)
+        x_real, y_real = self._event_xy_real()
+        domain_gdf = (self.prepared_domain.domain
+                      if self.prepared_domain.is_polygon else None)
+        support = build_excitation_support(
+            mode=mode,
+            bounds=self.args['A_'],
+            domain_gdf=domain_gdf,
+            is_polygon_domain=self.prepared_domain.is_polygon,
+            crs=self.prepared_domain.crs,
+            spatial_window=spatial_window,
+            min_sigma=self._min_sigma_arg,
+            max_sigma=self._max_sigma_arg,
+            event_x_real=x_real,
+            event_y_real=y_real,
+            mass_table=self._mass_table_arg,
+        )
+        # User-supplied table is only valid for the first install; subsequent
+        # set_window rebuilds must recompute when ws/events change.
+        self._mass_table_arg = None
+        self.args['excitation_support'] = support
+        self.excitation_support = support
+        self.excitation_provenance = dict(support.provenance)
+
+    def set_window(self, window, spatial_window=None):
+        """window: temporal truncation, INTERNAL units. spatial_window:
+        spatial truncation, REAL length. Rebuilds pairs and the excitation
+        support object (polygon Hermite table is ws-dependent)."""
+        super().set_window(window, spatial_window)
+        self._install_excitation_support(self.args.get('spatial_window'))
+
+    def export_polygon_mass_table(self, path):
+        """Export the polygon-mode Hermite table for later refit reload."""
+        support = self.args.get('excitation_support')
+        if support is None or support.mass_table is None:
+            raise ValueError(
+                "No polygon mass table to export (rectangle mode, or support "
+                "not installed).")
+        return support.mass_table.export_npz(path)
 
     def __str__(self):
         model = "Hawkes" if self.args['model'] == "hawkes" else "Cox Hawkes"
@@ -2003,16 +2125,19 @@ class Hawkes_Model(Point_Process_Model):
                         sp_dif[0], sp_dif[1], sw):
                     continue
                 cand = bg[i] + np.append(sp_dif, t_dif)
-                # Prop 1.1(ii): offspring outside the bounding rectangle X --
-                # the region the compensator charges (eq. 27) -- are discarded
-                # BEFORE they can parent. Pre-fix they stayed in the cascade
-                # until simulate()'s final sjoin, so hidden out-of-domain
-                # events excited observed ones (second-order count bias; see
-                # test_offspring_cascade_discards_outside_rectangle_before_parenting).
-                A_ = self.args['A_']
-                if not (A_[0, 0] <= cand[0] <= A_[0, 1]
-                        and A_[1, 0] <= cand[1] <= A_[1, 1]):
-                    continue
+                # D-18: parenting eligibility region ≡ compensator charge
+                # region, via the single excitation_support object.
+                support = self.args.get('excitation_support')
+                if support is not None:
+                    if not support.candidate_in_support(
+                            float(cand[0]), float(cand[1])):
+                        continue
+                else:
+                    # Legacy fallback (should not occur for Hawkes after 3d)
+                    A_ = self.args['A_']
+                    if not (A_[0, 0] <= cand[0] <= A_[0, 1]
+                            and A_[1, 0] <= cand[1] <= A_[1, 1]):
+                        continue
                 bg = np.concatenate((bg,[cand]))
             i += 1
         return bg

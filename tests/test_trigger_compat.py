@@ -122,6 +122,7 @@ class _VarKwargsSpatial(Spatial_Symmetric_Gaussian):
 
 def _model(spatial_cls):
     return Hawkes_Model(DATA, A_GDF, T_DAYS, cox_background=False,
+                        excitation_support="rectangle",
                         spatial_trig=spatial_cls, **PRIORS)
 
 

@@ -221,6 +221,7 @@ PRIORS = dict(a_0=dist.Normal(0, 5), alpha=dist.Beta(2, 2),
 
 def _hawkes(data, domain, **kw):
     return Hawkes_Model(data, domain, T_DAYS, cox_background=False,
+                        excitation_support="rectangle",
                         **PRIORS, **kw)
 
 
