@@ -45,6 +45,10 @@ from .excitation_support import (
     truncate_sigmax_2_prior,
 )
 from .polygon_mass import warn_if_sigma_near_bound
+from .cutoffs import (
+    resolve_computational_cutoffs,
+    scale_temporal_prior_to_internal,
+)
 
 
 def _load_decoder(name):
@@ -1601,6 +1605,12 @@ class Hawkes_Model(Point_Process_Model):
                  temporal_trig=Temporal_Exponential,
                  spatial_trig=Spatial_Symmetric_Gaussian,
                  window=None, spatial_window=None,
+                 temporal_cutoff_days=None,
+                 temporal_cutoff_tol=None,
+                 spatial_cutoff_tol=None,
+                 cutoff_tol=None,
+                 design_mean_lag_days=None,
+                 design_sigma=None,
                  excitation_support=None,
                  min_sigma=None, max_sigma=None,
                  mass_table=None,
@@ -1621,7 +1631,14 @@ class Hawkes_Model(Point_Process_Model):
 
         $$\mu(s,t) = exp(a_0 + X(s)w)$$
 
-        The data is rescaled to fit in a 1x1 spatial grid and a lenght 50 time window. Posterior samples must be interpreted with this in mind, with ONE deliberate exception: the SPATIAL trigger is a REAL-unit object -- sigmax_2 (and its prior, which the user must supply) is the kernel variance in SQUARED REAL units of the input X/Y columns, and posterior sigmax_2 is directly interpretable (e.g. square meters) and comparable across differently-shaped domains. Temporal trigger parameters (beta, window) remain internal-unit.
+        The data is rescaled to a 1x1 spatial grid and an internal length-50 time
+        window. Spatial trigger quantities (sigmax_2, spatial_window) are REAL-unit
+        by contract. The preferred public temporal scale prior is ``mean_lag_days``
+        (days); it is converted to the internal sample site ``beta``. Finite
+        ``window`` / ``spatial_window`` values are computational cutoffs of
+        infinite-support kernels (D-13/D-14), applied consistently to pairs,
+        compensator, and simulator, with omitted mass in
+        ``cutoff_provenance`` (OP-6).
 
         Parameters
         ----------
@@ -1638,23 +1655,38 @@ class Hawkes_Model(Point_Process_Model):
         spatial_trig: class Trigger
             an implementation of Trigger to parameterize the spatial triggering mechanism.
         window: float, optional
-            Temporal truncation window for the self-excitation kernel, in the internal
-            rescaled time units (data time is rescaled to [0, 50]). Excitation pairs with
-            dt > window are dropped from the sum, and the excitation integral is truncated
-            to match -- this is the exact likelihood of the truncated-kernel model. window
-            must comfortably exceed the posterior temporal scale beta (rule of thumb:
-            window >= 5*beta) or be left at the default. Defaults to T, i.e. the full
-            window / no truncation, which exactly reproduces the previous likelihood.
+            Legacy temporal computational cutoff in INTERNAL time units
+            ([0, 50]). Prefer ``temporal_cutoff_days``. Mutually exclusive with
+            ``temporal_cutoff_days``. When omitted together with tolerance kwargs,
+            defaults to the full horizon (no temporal cutoff).
         spatial_window: float, optional
-            Spatial truncation half-width for excitation pairs, a REAL length in the units
-            of the input X/Y columns: pairs are kept iff max(|dx|, |dy|) <= spatial_window
-            in real coordinates (a real-space square; per-axis box semantics -- the only
-            shape the compensator can charge in closed form). The excitation integral and
-            the offspring thinning apply the SAME truncation, so this is the exact
-            likelihood of the truncated-kernel model and finite values are safe for
-            calibration/SBC. Must comfortably exceed the posterior real-unit kernel scale
-            (rule of thumb: spatial_window >= 4 * sqrt(sigmax_2)). Defaults to None (no
-            spatial truncation).
+            Spatial computational cutoff half-width, a REAL length: pairs kept
+            iff max(|dx|, |dy|) <= spatial_window (per-axis square, D-21). Same
+            cutoff applies to the compensator and offspring thinning. Prefer
+            ``spatial_cutoff_tol`` with ``design_sigma`` for tolerance-based
+            selection (default tol subsumes spatial_window >= 4*sigma). Defaults
+            to None (no spatial cutoff).
+        temporal_cutoff_days: float, optional
+            Preferred physical temporal cutoff in real days (converted to
+            internal units for the three legs). Wins over
+            ``temporal_cutoff_tol`` when both are supplied (OP-6).
+        temporal_cutoff_tol: float, optional
+            Target omitted temporal mass eps_t; requires
+            ``design_mean_lag_days``. Default package tol is exp(-5)
+            (the old window >= 5*beta rule).
+        spatial_cutoff_tol: float, optional
+            Target omitted spatial mass eps_s for the square cutoff; requires
+            ``design_sigma``. Default package tol is 1-erf(4/sqrt(2))**2
+            (the old spatial_window >= 4*sigma rule).
+        cutoff_tol: float, optional
+            Shared default for temporal and spatial tolerances when the
+            axis-specific tol is omitted.
+        design_mean_lag_days: float, optional
+            Design temporal scale (days) used to convert eps_t -> window at
+            construction (beta is latent).
+        design_sigma: float, optional
+            Design spatial scale (real length) used to convert eps_s ->
+            spatial_window at construction (sigma is latent).
         excitation_support: {'rectangle', 'polygon'}, optional
             Phase 3d support mode. Controls both offspring parenting eligibility and
             the excitation compensator charge region (D-18). Required on
@@ -1679,7 +1711,10 @@ class Hawkes_Model(Point_Process_Model):
             Fixed log-amplitude multiplier applied to the spatial VAE decoder output; see
             Point_Process_Model for calibration guidance. Default 2.0.
         kwargs: dict
-            parameters from Point_Process_Model
+            parameters from Point_Process_Model, plus preferred prior
+            ``mean_lag_days`` (numpyro Distribution in days) which is converted
+            to the internal ``beta`` sample site. Legacy ``beta=`` (internal)
+            remains accepted; do not pass both.
         """
         self.model = spatiotemporal_hawkes_model
         if cox_background:
@@ -1692,7 +1727,21 @@ class Hawkes_Model(Point_Process_Model):
         self._min_sigma_arg = min_sigma
         self._max_sigma_arg = max_sigma
         self._mass_table_arg = mass_table
+
+        # Phase 3e: pop public-days prior before the base constructor treats
+        # every Distribution kwarg as a sample-site prior name.
+        mean_lag_days_prior = kwargs.pop('mean_lag_days', None)
+
         super().__init__(name, data, A, T, **kwargs)
+
+        if mean_lag_days_prior is not None:
+            if 'beta' in self.args['priors']:
+                raise ValueError(
+                    "Pass mean_lag_days or beta, not both "
+                    "(mean_lag_days is the public days-unit prior; beta is "
+                    "the legacy internal-unit sample site).")
+            self.args['priors']['beta'] = scale_temporal_prior_to_internal(
+                mean_lag_days_prior, self.T)
 
         mode = resolve_excitation_support_mode(
             is_polygon_domain=self.prepared_domain.is_polygon,
@@ -1715,10 +1764,27 @@ class Hawkes_Model(Point_Process_Model):
 
         self.args['t_trig'] = temporal_trig(self.args['priors'])
         self.args['sp_trig'] = spatial_trig(self.args['priors'])
-        if window is None:
-            window = float(self.args['T'])   # exact likelihood: no truncation
-        self.set_window(float(window),
-                        float(spatial_window) if spatial_window is not None else None)
+
+        # OP-6: resolve computational cutoffs (physical wins over tolerance).
+        # Legacy path: bare window=None / spatial_window=None keeps the
+        # untruncated defaults so fixed-cutoff pins stay bit-stable.
+        cutoff_prov = resolve_computational_cutoffs(
+            horizon_days=float(self.T),
+            temporal_cutoff_days=temporal_cutoff_days,
+            window_internal=float(window) if window is not None else None,
+            spatial_window=(
+                float(spatial_window) if spatial_window is not None else None),
+            temporal_cutoff_tol=temporal_cutoff_tol,
+            spatial_cutoff_tol=spatial_cutoff_tol,
+            cutoff_tol=cutoff_tol,
+            design_mean_lag_days=design_mean_lag_days,
+            design_sigma=design_sigma,
+        )
+        self.cutoff_provenance = cutoff_prov
+        self.set_window(
+            cutoff_prov.temporal.window_internal,
+            cutoff_prov.spatial.spatial_window,
+        )
 
     def _event_xy_real(self):
         """Observed event locations in real CRS units (table / support order)."""
@@ -1757,9 +1823,12 @@ class Hawkes_Model(Point_Process_Model):
         self.excitation_provenance = dict(support.provenance)
 
     def set_window(self, window, spatial_window=None):
-        """window: temporal truncation, INTERNAL units. spatial_window:
-        spatial truncation, REAL length. Rebuilds pairs and the excitation
-        support object (polygon Hermite table is ws-dependent)."""
+        """window: temporal computational cutoff, INTERNAL units.
+        spatial_window: spatial computational cutoff, REAL length (D-21
+        square). Rebuilds pairs and the excitation support object (polygon
+        Hermite table is ws-dependent). Does not rewrite cutoff_provenance
+        from the constructor's OP-6 resolution -- call resolve + assign
+        explicitly if cutoffs are re-selected."""
         super().set_window(window, spatial_window)
         self._install_excitation_support(self.args.get('spatial_window'))
 

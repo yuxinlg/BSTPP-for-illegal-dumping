@@ -26,9 +26,9 @@ class Trigger(ABC):
         real-unit displacements, compute_integral real-unit rectangle limits,
         simulate_trigger returns a real-unit displacement, and any sampled
         parameters (and their priors) are real-unit quantities. TEMPORAL
-        triggers remain in internal time units (data time rescaled to
-        [0, 50]); this asymmetry is deliberate and documented -- the temporal
-        conversion is a pure relabel, deferred to the conversion layer.
+        triggers operate in internal time units (data time rescaled to
+        [0, 50]); the public days-unit prior ``mean_lag_days`` is converted
+        onto the internal ``beta`` sample site by bstpp.cutoffs (Phase 3e).
         Custom spatial triggers written against the pre-contract API (internal
         units) will still run but their parameters change meaning.
 
