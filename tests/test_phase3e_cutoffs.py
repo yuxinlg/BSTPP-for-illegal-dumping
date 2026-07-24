@@ -392,3 +392,160 @@ def test_set_window_temporal_only_preserves_spatial_provenance_consistency():
     assert m.cutoff_provenance.temporal.window_internal == pytest.approx(12.0)
     assert m.cutoff_provenance.spatial.spatial_window is None
     assert m.cutoff_provenance.spatial.selection == "default_untruncated"
+
+
+# ---------------------- set_window transactional (failure leaves state) --
+def _observable_window_state(m):
+    """Snapshot of public/observable window-related model state."""
+    coords = np.asarray(m.args["coords"])
+    return {
+        "window": float(m.args["window"]),
+        "spatial_window": (
+            None if m.args["spatial_window"] is None
+            else float(m.args["spatial_window"])),
+        "coords": coords.copy(),
+        "t_vals": np.asarray(m.args["t_vals"]).copy(),
+        "x_vals": np.asarray(m.args["x_vals"]).copy(),
+        "y_vals": np.asarray(m.args["y_vals"]).copy(),
+        "cutoff_provenance": m.cutoff_provenance.to_dict(),
+        "excitation_mode": m.excitation_support.mode,
+        "excitation_provenance": dict(m.excitation_provenance),
+        "support_id": id(m.excitation_support),
+        "mass_table_id": (
+            None if m.excitation_support.mass_table is None
+            else id(m.excitation_support.mass_table)),
+    }
+
+
+def _assert_window_state_unchanged(before, m):
+    after = _observable_window_state(m)
+    assert after["window"] == pytest.approx(before["window"])
+    assert after["spatial_window"] == before["spatial_window"] or (
+        after["spatial_window"] is not None
+        and before["spatial_window"] is not None
+        and after["spatial_window"] == pytest.approx(before["spatial_window"]))
+    np.testing.assert_array_equal(after["coords"], before["coords"])
+    np.testing.assert_array_equal(after["t_vals"], before["t_vals"])
+    np.testing.assert_array_equal(after["x_vals"], before["x_vals"])
+    np.testing.assert_array_equal(after["y_vals"], before["y_vals"])
+    assert after["cutoff_provenance"] == before["cutoff_provenance"]
+    assert after["excitation_mode"] == before["excitation_mode"]
+    assert after["excitation_provenance"] == before["excitation_provenance"]
+    assert after["support_id"] == before["support_id"]
+    assert after["mass_table_id"] == before["mass_table_id"]
+
+
+@pytest.mark.parametrize("bad_call", [
+    {"window": -1.0, "spatial_window": 0.2},
+    {"window": 0.0, "spatial_window": 0.2},
+    {"window": float("nan"), "spatial_window": 0.2},
+    {"window": float("inf"), "spatial_window": 0.2},
+    {"window": 10.0, "spatial_window": -0.2},
+    {"window": 10.0, "spatial_window": 0.0},
+    {"window": 10.0, "spatial_window": float("nan")},
+])
+def test_set_window_invalid_inputs_leave_state_unchanged(bad_call):
+    """Failed validation must not partially mutate cutoffs, pairs, or support."""
+    m = Hawkes_Model(
+        _data(), np.array([[0.0, 1.0], [0.0, 1.0]]), T_DAYS,
+        cox_background=False,
+        window=25.0, spatial_window=0.4,
+        **PRIORS_INTERNAL,
+    )
+    before = _observable_window_state(m)
+    with pytest.raises(ValueError):
+        m.set_window(**bad_call)
+    _assert_window_state_unchanged(before, m)
+
+
+def test_set_window_support_rebuild_failure_leaves_state_unchanged(monkeypatch):
+    """If excitation-support rebuild raises, observable state must roll back."""
+    m = Hawkes_Model(
+        _data(), np.array([[0.0, 1.0], [0.0, 1.0]]), T_DAYS,
+        cox_background=False,
+        window=25.0, spatial_window=0.4,
+        **PRIORS_INTERNAL,
+    )
+    before = _observable_window_state(m)
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("forced support rebuild failure")
+
+    monkeypatch.setattr("bstpp.main.build_excitation_support", _boom)
+    with pytest.raises(RuntimeError, match="forced support rebuild failure"):
+        m.set_window(10.0, spatial_window=0.2)
+    _assert_window_state_unchanged(before, m)
+
+
+def test_set_window_success_updates_pairs_cutoffs_support_consistently():
+    m = Hawkes_Model(
+        _data(n=20, seed=1), np.array([[0.0, 1.0], [0.0, 1.0]]), T_DAYS,
+        cox_background=False,
+        window=25.0, spatial_window=0.4,
+        **PRIORS_INTERNAL,
+    )
+    before = _observable_window_state(m)
+    m.set_window(8.0, spatial_window=0.15)
+    after = _observable_window_state(m)
+
+    assert after["window"] == pytest.approx(8.0)
+    assert after["spatial_window"] == pytest.approx(0.15)
+    assert after["cutoff_provenance"]["temporal"]["window_internal"] == pytest.approx(8.0)
+    assert after["cutoff_provenance"]["spatial"]["spatial_window"] == pytest.approx(0.15)
+    assert after["cutoff_provenance"]["temporal"]["selection"] == "physical"
+    assert after["cutoff_provenance"]["spatial"]["selection"] == "physical"
+    # Pairs must reflect the new windows (not bit-identical to the old set).
+    assert not np.array_equal(after["coords"], before["coords"]) or after["coords"].shape != before["coords"].shape
+    assert after["support_id"] != before["support_id"]
+    assert after["excitation_mode"] == "rectangle"
+    assert m.args["excitation_support"] is m.excitation_support
+
+
+def test_set_window_polygon_success_and_failed_rebuild_leave_or_update_consistently(
+        monkeypatch):
+    """Polygon mode: success refreshes table/support; failed rebuild is a no-op."""
+    A = np.array([[0.0, 200.0], [0.0, 200.0]])
+    priors = dict(
+        a_0=dist.Normal(0, 5),
+        alpha=dist.Beta(2, 2),
+        beta=dist.HalfNormal(1.0),
+        sigmax_2=dist.HalfNormal(40.0),
+    )
+    rng = np.random.default_rng(2)
+    data = pd.DataFrame({
+        "X": rng.uniform(20.0, 180.0, 8),
+        "Y": rng.uniform(20.0, 180.0, 8),
+        "T": np.sort(rng.uniform(0.5, T_DAYS - 0.5, 8)),
+    })
+    m = Hawkes_Model(
+        data, A, T_DAYS, cox_background=False,
+        excitation_support="polygon",
+        min_sigma=5.0, max_sigma=40.0,
+        window=20.0, spatial_window=50.0,
+        **priors,
+    )
+    assert m.excitation_support.mode == "polygon"
+    assert m.excitation_support.mass_table is not None
+    before = _observable_window_state(m)
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("forced polygon support rebuild failure")
+
+    monkeypatch.setattr("bstpp.main.build_excitation_support", _boom)
+    with pytest.raises(RuntimeError, match="forced polygon support rebuild"):
+        m.set_window(12.0, spatial_window=40.0)
+    _assert_window_state_unchanged(before, m)
+
+    # Successful polygon update after restoring the real builder.
+    monkeypatch.undo()
+    m.set_window(12.0, spatial_window=40.0)
+    after = _observable_window_state(m)
+    assert after["window"] == pytest.approx(12.0)
+    assert after["spatial_window"] == pytest.approx(40.0)
+    assert after["cutoff_provenance"]["temporal"]["window_internal"] == pytest.approx(12.0)
+    assert after["cutoff_provenance"]["spatial"]["spatial_window"] == pytest.approx(40.0)
+    assert after["excitation_mode"] == "polygon"
+    assert after["mass_table_id"] is not None
+    assert after["mass_table_id"] != before["mass_table_id"]
+    assert after["support_id"] != before["support_id"]
+
