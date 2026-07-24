@@ -148,6 +148,26 @@ def validate_domain(A) -> list:
                 "domain rows with missing/empty/invalid geometry "
                 "(self-intersection etc.); repair upstream (e.g. make_valid), "
                 "BSTPP will not repair silently", bad))
+            return checks
+        # Require polygonal support (Polygon / MultiPolygon). Do not dissolve
+        # or repair nonpolygonal geometry into a domain.
+        types = A.geometry.geom_type.to_numpy()
+        nonpoly = np.flatnonzero(
+            ~np.isin(types, ("Polygon", "MultiPolygon")))
+        if len(nonpoly):
+            checks.append(ContractCheck(
+                "domain_not_polygonal", "violation",
+                "domain GeoDataFrame rows must be Polygon or MultiPolygon "
+                f"(got {sorted(set(types[nonpoly]))}); BSTPP will not "
+                "reinterpret lines/points as areal support", nonpoly))
+            return checks
+        union = _domain_union(A)
+        area = float(getattr(union, "area", float("nan")))
+        if not (np.isfinite(area) and area > 0.0):
+            checks.append(ContractCheck(
+                "domain_nonpositive_area", "violation",
+                "domain union must have finite positive area; "
+                f"got area={area}"))
     else:
         A_np = np.asarray(A, dtype=float)
         if A_np.shape != (2, 2) or not np.all(np.isfinite(A_np)) \
