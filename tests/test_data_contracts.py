@@ -350,6 +350,16 @@ def test_crs_mismatch_rejected():
         _model(data, A=tri, mode="reject", spatial_cov=cov, cov_names=["v"])
 
 
+def test_missing_covariate_crs_rejected_when_domain_has_crs():
+    """Domain CRS + missing covariate CRS is incompatible."""
+    tri = _triangle_gdf(crs="EPSG:2272")
+    cov = _cov_layer(crs=None)
+    assert cov.crs is None
+    data = _triangle_data()
+    with pytest.raises(DataContractError, match="crs_missing|crs_mismatch"):
+        _model(data, A=tri, mode="reject", spatial_cov=cov, cov_names=["v"])
+
+
 # ------------------------------------------------------------------- horizon
 @pytest.mark.parametrize("bad_T", [0.0, -1.0, float("nan"), float("inf")])
 def test_nonpositive_or_nonfinite_horizon_rejected(bad_T):
