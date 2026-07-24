@@ -662,6 +662,17 @@ class Point_Process_Model:
             test_args['x_vals'] = x_vals
             test_args['y_vals'] = y_vals
 
+            # Polygon Hermite tables are per-parent-event. Reusing the training
+            # table crashes when counts differ and silently mis-scores when
+            # counts match but locations differ. Build a test-specific support
+            # object; never mutate self.args / self.excitation_support.
+            train_support = self.args.get('excitation_support')
+            if (train_support is not None
+                    and getattr(train_support, 'mode', None) == 'polygon'):
+                test_args['excitation_support'] = (
+                    self._excitation_support_for_events(
+                        *self._xy_events_to_real(test_args)))
+
         if 'cov_ind' in self.args:
             # Same D-22 max-cov_ind tie rule as training ingestion. This also
             # closes a silent misalignment: a held-out event on a shared
@@ -1786,13 +1797,44 @@ class Hawkes_Model(Point_Process_Model):
             cutoff_prov.spatial.spatial_window,
         )
 
-    def _event_xy_real(self):
-        """Observed event locations in real CRS units (table / support order)."""
-        A_ = np.asarray(self.args['A_'], dtype=float)
-        scales = np.asarray(self.args['axis_scales'], dtype=float)
-        xy = np.asarray(self.args['xy_events'])
+    @staticmethod
+    def _xy_events_to_real(args):
+        """Map internal xy_events in ``args`` back to real CRS coordinates."""
+        A_ = np.asarray(args['A_'], dtype=float)
+        scales = np.asarray(args['axis_scales'], dtype=float)
+        xy = np.asarray(args['xy_events'])
         return (xy[0] * scales[0] + A_[0, 0],
                 xy[1] * scales[1] + A_[1, 0])
+
+    def _event_xy_real(self):
+        """Observed event locations in real CRS units (table / support order)."""
+        return self._xy_events_to_real(self.args)
+
+    def _excitation_support_for_events(self, event_x_real, event_y_real):
+        """Build excitation support for an alternate event set (held-out scoring).
+
+        Reuses the fitted model's domain, spatial cutoff, sigma bounds, and the
+        same ``build_excitation_support`` path as training install. Does not
+        mutate ``self.args`` or the training support object.
+        """
+        mode = resolve_excitation_support_mode(
+            is_polygon_domain=self.prepared_domain.is_polygon,
+            excitation_support=self._excitation_support_arg)
+        domain_gdf = (self.prepared_domain.domain
+                      if self.prepared_domain.is_polygon else None)
+        return build_excitation_support(
+            mode=mode,
+            bounds=self.args['A_'],
+            domain_gdf=domain_gdf,
+            is_polygon_domain=self.prepared_domain.is_polygon,
+            crs=self.prepared_domain.crs,
+            spatial_window=self.args.get('spatial_window'),
+            min_sigma=self._min_sigma_arg,
+            max_sigma=self._max_sigma_arg,
+            event_x_real=np.asarray(event_x_real, dtype=float),
+            event_y_real=np.asarray(event_y_real, dtype=float),
+            mass_table=None,
+        )
 
     def _install_excitation_support(self, spatial_window=None):
         """Build/replace the single D-18 support object (and polygon table)."""

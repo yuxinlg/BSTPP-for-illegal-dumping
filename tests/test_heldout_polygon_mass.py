@@ -1,0 +1,206 @@
+"""Held-out scoring must rebuild the polygon mass table on test events.
+
+Bug: ``Hawkes_Model.log_expected_likelihood`` rebuilds excitation pairs for
+the test realization but reuses the training-event Hermite mass table. That
+crashes when train/test counts differ and silently mis-scores when they match
+but locations differ.
+
+Required: treat ``test_data`` as a separate realization under the fitted
+posterior; prepare a test-specific excitation-support object (same domain,
+cutoff, sigma range, interpolation settings) without mutating training state.
+Rectangle mode must stay unchanged.
+"""
+
+from __future__ import annotations
+
+import os
+
+os.environ.setdefault("JAX_PLATFORM_NAME", "cpu")
+
+import jax.numpy as jnp
+import numpy as np
+import numpyro.distributions as dist
+import pandas as pd
+import pytest
+from numpyro.infer import log_likelihood
+
+from bstpp.main import Hawkes_Model
+
+T_DAYS = 30.0
+A = np.array([[0.0, 200.0], [0.0, 200.0]])
+PRIORS = dict(
+    a_0=dist.Normal(0, 5),
+    alpha=dist.Beta(2, 2),
+    beta=dist.HalfNormal(1.0),
+    sigmax_2=dist.HalfNormal(40.0),
+)
+PARAMS = dict(
+    a_0=np.float32(0.0),
+    alpha=np.float32(0.3),
+    beta=np.float32(2.0),
+    sigmax_2=np.float32(20.0 ** 2),
+)
+
+
+def _events(n, seed, *, x_lo=20.0, x_hi=180.0, y_lo=20.0, y_hi=180.0):
+    rng = np.random.default_rng(seed)
+    return pd.DataFrame({
+        "X": rng.uniform(x_lo, x_hi, n),
+        "Y": rng.uniform(y_lo, y_hi, n),
+        "T": np.sort(rng.uniform(0.5, T_DAYS - 0.5, n)),
+    })
+
+
+def _polygon_model(data):
+    return Hawkes_Model(
+        data, A, T_DAYS, cox_background=False,
+        excitation_support="polygon",
+        min_sigma=5.0, max_sigma=40.0,
+        **PRIORS,
+    )
+
+
+def _rectangle_model(data):
+    return Hawkes_Model(
+        data, A, T_DAYS, cox_background=False,
+        excitation_support="rectangle",
+        min_sigma=5.0, max_sigma=40.0,
+        **PRIORS,
+    )
+
+
+def _inject_samples(model, params=PARAMS, n_draws=2):
+    model.samples = {
+        k: jnp.full((n_draws,), jnp.asarray(v, dtype=jnp.float32))
+        for k, v in params.items()
+    }
+
+
+def _support_fingerprint(support):
+    table = support.mass_table
+    return {
+        "mode": support.mode,
+        "min_sigma": support.min_sigma,
+        "max_sigma_real": support.max_sigma_real,
+        "spatial_window": support.spatial_window,
+        "table_id": None if table is None else table.provenance.get("table_id"),
+        "events_sha256": None if table is None else table.events_sha256,
+        "n_events": None if table is None else table.n_events,
+        "values": None if table is None else np.array(table.values, copy=True),
+        "slopes": None if table is None else np.array(table.slopes, copy=True),
+    }
+
+
+# -------------------------------------------------------------------- RED ----
+
+def test_heldout_polygon_unequal_counts_scores():
+    """Train n != test n must not crash; score must be finite."""
+    train = _polygon_model(_events(4, seed=1))
+    test = _events(7, seed=2)
+    _inject_samples(train)
+    got = train.log_expected_likelihood(test)
+    assert np.isfinite(got)
+
+
+def test_heldout_polygon_equal_counts_uses_test_location_masses():
+    """Equal n but different locations must use TEST event masses.
+
+    A model built directly on the test realization is the oracle: held-out
+    scoring under the train posterior must match that oracle at the same
+    fixed parameters. Reusing the train mass table (the bug) yields a
+    different compensator and therefore a different score.
+    """
+    train_data = _events(5, seed=10, x_lo=20.0, x_hi=80.0, y_lo=20.0, y_hi=80.0)
+    test_data = _events(5, seed=11, x_lo=120.0, x_hi=180.0, y_lo=120.0, y_hi=180.0)
+    assert not np.allclose(train_data[["X", "Y"]].to_numpy(),
+                           test_data[["X", "Y"]].to_numpy())
+
+    train = _polygon_model(train_data)
+    oracle = _polygon_model(test_data)
+    _inject_samples(train)
+    _inject_samples(oracle)
+
+    # Sanity: train-table scoring of test events differs from the oracle
+    # (documents the silent mis-score the bug produces when counts match).
+    from jax.scipy.special import logsumexp
+    from bstpp.utils import aligned_difference_pairs
+
+    wrong_args, _ = train._scale_xyt(
+        test_data, train.args.copy(), train.prepared_partitions.support_cells)
+    coords, t_vals, x_vals, y_vals = aligned_difference_pairs(
+        wrong_args["t_events"], wrong_args["xy_events"][0],
+        wrong_args["xy_events"][1], train.args["window"],
+        spatial_window=train.args.get("spatial_window"),
+        axis_scales=np.asarray(train.args["axis_scales"]),
+    )
+    wrong_args.update(coords=coords, t_vals=t_vals, x_vals=x_vals, y_vals=y_vals)
+    for k in ("batch_size", "num_samples", "num_warmup", "num_chains", "thinning"):
+        wrong_args.pop(k, None)
+    # Keep train excitation_support (the bug): train masses + test events.
+    wrong_ll = log_likelihood(train.model, train.samples, wrong_args)["loglik_factor"]
+    wrong_score = float(
+        (logsumexp(wrong_ll, axis=0) - jnp.log(wrong_ll.shape[0])).sum())
+
+    oracle_ll = log_likelihood(
+        oracle.model, oracle.samples, oracle.args)["loglik_factor"]
+    oracle_score = float(
+        (logsumexp(oracle_ll, axis=0) - jnp.log(oracle_ll.shape[0])).sum())
+    assert abs(wrong_score - oracle_score) > 1e-3, (
+        "fixture too weak: train-mass scoring already matches oracle")
+
+    got = train.log_expected_likelihood(test_data)
+    assert got == pytest.approx(oracle_score, abs=1e-4, rel=0)
+
+
+def test_heldout_polygon_scoring_does_not_mutate_training_support():
+    train = _polygon_model(_events(4, seed=20))
+    test = _events(6, seed=21)
+    _inject_samples(train)
+
+    before_args_id = id(train.args)
+    before_support = train.excitation_support
+    before_support_id = id(before_support)
+    before_table_id = id(before_support.mass_table)
+    before_fp = _support_fingerprint(before_support)
+    before_keys = set(train.args.keys())
+
+    train.log_expected_likelihood(test)
+    train.log_expected_likelihood(test)
+
+    assert id(train.args) == before_args_id
+    assert set(train.args.keys()) == before_keys
+    assert id(train.excitation_support) == before_support_id
+    assert train.args.get("excitation_support") is before_support
+    assert id(train.excitation_support.mass_table) == before_table_id
+    after_fp = _support_fingerprint(train.excitation_support)
+    assert after_fp["events_sha256"] == before_fp["events_sha256"]
+    assert after_fp["table_id"] == before_fp["table_id"]
+    assert after_fp["n_events"] == before_fp["n_events"]
+    np.testing.assert_array_equal(after_fp["values"], before_fp["values"])
+    np.testing.assert_array_equal(after_fp["slopes"], before_fp["slopes"])
+
+
+def test_heldout_rectangle_unequal_counts_unchanged():
+    """Rectangle mode must keep working and not build a polygon mass table."""
+    train_data = _events(4, seed=30)
+    test_data = _events(9, seed=31)
+    train = _rectangle_model(train_data)
+    oracle = _rectangle_model(test_data)
+    _inject_samples(train)
+    _inject_samples(oracle)
+
+    assert train.excitation_support.mode == "rectangle"
+    assert train.excitation_support.mass_table is None
+    support_id = id(train.excitation_support)
+
+    from jax.scipy.special import logsumexp
+    oracle_ll = log_likelihood(
+        oracle.model, oracle.samples, oracle.args)["loglik_factor"]
+    oracle_score = float(
+        (logsumexp(oracle_ll, axis=0) - jnp.log(oracle_ll.shape[0])).sum())
+
+    got = train.log_expected_likelihood(test_data)
+    assert np.isfinite(got)
+    assert got == pytest.approx(oracle_score, abs=1e-4, rel=0)
+    assert train.excitation_support.mass_table is None
+    assert id(train.excitation_support) == support_id
