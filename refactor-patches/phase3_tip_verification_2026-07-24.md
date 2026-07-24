@@ -1,55 +1,112 @@
-# Tip verification — Phase 3d/3e trail repair session (2026-07-24)
+# Tip verification — Phase 3 audit follow-up through A/B (2026-07-24)
 
-Tip at verification: `05da465` on branch `refactor`.
-Env: `illegal-dumping`, `JAX_PLATFORM_NAME=cpu`, `MPLBACKEND=Agg`.
+Tip at verification: `8580364` on branch `refactor`
+(`85803644f4244eac53593ebc3d9a2f988f4eb6da`).
 
-This note closes the repair session that (1) characterized missing 3d/3e
-acceptance records honestly, (2) fixed confirmed tip defects with RED→GREEN
-commits, and (3) landed Phase 3a/3c leftover contract repairs that were in
-scope for the same audit but are **not** Phase 3d/3e features.
+Env: conda `illegal-dumping`, `JAX_PLATFORM_NAME=cpu`, `MPLBACKEND=Agg`.
 
-## Repair commits since feature tips
+- python 3.12.13; jax 0.4.23 (`jax_enable_x64=False`); numpyro 0.15.0
+- numpy 1.26.4; scipy 1.11.4; geopandas 1.1.3
 
-See:
+This note supersedes the earlier tip snapshot at `05da465` for **current**
+acceptance status. Historical repair evidence at `05da465` remains valid for
+that tip; it is not re-described as evidence of the A/B contracts below.
 
+## Ownership summary (what belongs where)
+
+| Phase | Ownership recorded here |
+|---|---|
+| **3a** | Explicit `spatial_cov_crs` for tabular covariates; missing/mismatched CRS rejection; unchanged GeoDataFrame and array-domain paths. Earlier leftovers: finite horizon; polygonal domain; GeoDataFrame missing CRS. |
+| **3c** | Canonical `PreparedDomain.union_geometry` plumbing; union-consistent area semantics; equals/WKB/hash characterization; **BP** for disjoint/current valid regimes; **SC** for positively overlapping domain rows. |
+| **3d** | Exact built-in Gaussian restriction; `PolygonMassTable` compatibility validation; explicit `prepare_polygon_mass_table`; **API** hard-require prepared table at polygon construction (not BP); NumPy/SciPy float64 build without `jax.config.update`; held-out correction; transactional replacement-table path; shootout/wide-range/conservation/both-mode evidence. |
+| **3e** | Validate every supplied tolerance before precedence; atomic cutoff/provenance on `set_window`; transactional failure behavior; temporal-only polygon window reuse of installed table; spatial-window changes require compatible `mass_table=`. |
+
+Phase 3f and Stage 3 R=200 exit rerun: **not started**.
+
+## Commit series since `origin/refactor` (`0648659`)
+
+Honesty: distinguish original phase features (already on `origin/refactor`),
+later audit discoveries, genuine RED→GREEN repairs, API changes, and this
+documentation-only commit.
+
+### Cutoff / transactional `set_window` (Phase 3e repairs)
+
+| Commit | Class | Content |
+|---|---|---|
+| `8a22fd6` | test (RED) | Reject invalid shared `cutoff_tol` even when axis-specific override wins |
+| `2a7c558` | fix (IV) | Validate every raw non-`None` tolerance before precedence |
+| `33037f3` | test (RED) | `set_window` must leave observable state unchanged on validation/rebuild failure |
+| `798f551` | fix (SC) | Validate → prepare pairs/support/provenance locally → assign once |
+
+### Canonical domain plumbing (Phase 3c)
+
+| Commit | Class | Content |
+|---|---|---|
+| `2c7264a` | test | Characterize `PreparedDomain.union_geometry` equals/WKB/hash identity |
+| `2a67962` | refactor (BP/SC) | Partitions and excitation consume `union_geometry` (no downstream recompute) |
+
+### CRS tabular covariates (Phase 3a)
+
+| Commit | Class | Content |
+|---|---|---|
+| `5cd9355` | test (RED) | Tabular covariates require `spatial_cov_crs` when domain has CRS |
+| `adea3d3` | fix (IV/API) | Parse `spatial_cov_crs` via `CRS.from_user_input`; never infer domain CRS |
+
+### Polygon hard-require preparation (Phase 3d; **API change**)
+
+| Commit | Class | Content |
+|---|---|---|
+| `9342a19` | test (RED) | Polygon ctor requires prepared table; build must not toggle `jax_enable_x64` |
+| `ae27947` | fix (**API**, not BP) | `prepare_polygon_mass_table` (NumPy/SciPy float64); ctor hard-requires table |
+| `a8ec985` | test (RED) | `set_window` requires `mass_table=` on spatial-window change; transactional failure |
+| `8580364` | fix (API/SC) | Transactional `set_window(..., mass_table=)`; no silent rebuild |
+
+### Pre-`8580364` intermediate failure (not a tip failure)
+
+An intermediate polygon-suite run after the first `set_window` GREEN attempt
+failed with `AttributeError: 'Hawkes_Model' object has no attribute
+'excitation_support'` (21 failed / 58 passed). That failure is **evidence of
+the constructor/`set_window` defect before `8580364`**, not a final-tip
+failure. Tip `8580364` re-verified green (below).
+
+## Durable tip gates at `8580364`
+
+| Gate | Result | Exact command / artifact |
+|---|---|---|
+| Targeted polygon + 3d + 3e + shootout + wide-range | **96 passed** (~85s) | `JAX_PLATFORM_NAME=cpu python -m pytest tests/test_polygon_mass_prepare_api.py tests/test_polygon_mass_table_validation.py tests/test_heldout_polygon_mass.py tests/test_polygon_mass_backend_shootout.py tests/test_polygon_mass_wide_range.py tests/test_phase3d_excitation_support.py tests/test_phase3e_cutoffs.py -q --tb=line` |
+| Full suite | **277 passed**, 3 warnings (~623s) | `JAX_PLATFORM_NAME=cpu python -m pytest tests/ -q --tb=line` → `results/_full_suite_ab.txt` |
+| Collect-only | **277 tests** | `JAX_PLATFORM_NAME=cpu python -m pytest tests/ --collect-only -q` |
+| Four-config pins | **PIN_DIFFS 0 / MATCH** vs `pins_wt_2c2.json` | `refactor-patches/pin_check_v2.py` (candidate also saved as `results/_pins_ab_candidate.json`) |
+| `ruff check bstpp` | clean | — |
+| `ruff check bstpp tests` | **133** findings: **127 E402**, **3 E702**, **3 F401** — all inherited | — |
+| §12 smoke/confirmation | all selectors green | `refactor-patches/confirmation_8580364.md` |
+
+### Warnings at full suite (non-blocking)
+
+1. Two CRS tests emit pandas `DeprecationWarning` about overriding CRS via
+   attribute assignment (`test_tabular_cov_matching_spatial_cov_crs_accepted`,
+   `test_geodataframe_cov_path_unchanged_without_spatial_cov_crs`).
+2. Existing geographic-CRS area warning in
+   `tests/test_ingestion_contract.py::test_geographic_crs_contract_warning_is_nonvacuous`.
+
+### `jax_enable_x64`
+
+Confirmed unchanged across preparation and construction by
+`tests/test_polygon_mass_prepare_api.py::test_quad_table_build_does_not_toggle_jax_enable_x64`
+and
+`::test_prepare_polygon_mass_table_and_ctor_install_without_x64_toggle`
+(**2 passed**; see confirmation record).
+
+## Conditional SBC
+
+Unchanged-regime pins match; confirmation commands show no anomaly → **no**
+Stage 1/2 conditional SBC rerun for this tip. Stage 3 R=200 exit remains a
+Phase 3-tip obligation (not an A/B obligation). Phase 3f not started.
+
+## Phase records
+
+- `refactor-patches/phase3a/rebaseline_record.md`
+- `refactor-patches/phase3c/rebaseline_record.md`
 - `refactor-patches/phase3d/rebaseline_record.md`
 - `refactor-patches/phase3e/rebaseline_record.md`
-
-### Phase 3a leftovers (post-hoc; not a rewrite of the original 3a record)
-
-| Commit | Content |
-|---|---|
-| `5cea6c9` / `6e63efc` | Finite positive horizon → `horizon_invalid` |
-| `dde9b80` / `511ca5b` | Polygonal finite positive-area domain |
-| `5d357ed` / `c22aa51` | Missing covariate CRS when domain declares CRS |
-
-Clean 3a leftover group gate (ignore uncommitted 3c RED at the time):
-targeted 37; full suite **236 passed**; pins bit-identical; `ruff check bstpp`
-clean (agent shell `923302`).
-
-### Phase 3c leftover (union-consistent domain area)
-
-| Commit | Content |
-|---|---|
-| `26a4c3c` / `05da465` | `PreparedDomain.area_ratio` / `union_geometry` from set-union of domain rows (SC); disjoint/single-row unchanged |
-
-3c leftover group gate: targeted 16; full suite **240 passed**; pins
-bit-identical; `ruff check bstpp` clean (agent shell `923303`).
-
-## Tip gates
-
-| Gate | Result | Evidence |
-|---|---|---|
-| Collect-only | **240 tests collected** | tip `05da465` |
-| Full suite | **240 passed** (~12m07s) | 3c group gate `923303` (tip unchanged since) |
-| Four pins | **bit-identical** | final tip pass `923304` |
-| All targeted repair tests | **109 passed** (~1m20s) | final tip pass `923304` |
-| `ruff check bstpp` | clean | group gates + final tip pass |
-| `ruff check bstpp tests` | **133 findings, all inherited E402** (env-before-imports test pattern) except one pre-existing unused-import note in `tests/test_phase3d_excitation_support.py` (F401 `jax.numpy`); **zero findings** in new repair-session files `test_domain_union_area.py`, `test_polygon_mass_table_validation.py`, `test_heldout_polygon_mass.py`, `test_phase3e_cutoffs.py`, `test_data_contracts.py` | final tip pass `923304` |
-
-## Deferred (session decisions; not started)
-
-- General trigger-capability redesign for non-Gaussian polygon mass backends.
-- Power-law tolerance / `mean_lag_days`.
-- Phase 3f / SBC escalation without separate approval.
-- Do not amend/rebase/rewrite `edfce53`, `2ce665c`, or `8c4a702`.
+- `refactor-patches/confirmation_8580364.md`

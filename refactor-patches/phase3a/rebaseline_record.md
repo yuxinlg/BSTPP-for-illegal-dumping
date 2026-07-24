@@ -101,3 +101,41 @@ are deduplicated.
    update). 3a is complete pending the upstream pipeline fix of
    `total_days` (1460 → 1461), which lives in the analysis tree, not this
    package.
+
+## Post-hoc leftovers and tabular CRS (audit follow-up, 2026-07-24)
+
+These commits are **later audit discoveries / repairs**, not a rewrite of the
+original 3a feature commits above. They close contracts that the freeze tip
+audit (§5.2) correctly recorded as missing at `476c2a0`.
+
+### Domain / horizon leftovers (pre-A/B tip `05da465`)
+
+| Commit | Class | Content |
+|---|---|---|
+| `5cea6c9` / `6e63efc` | IV | Finite positive `T_max` / horizon → `horizon_invalid` |
+| `dde9b80` / `511ca5b` | IV | Polygonal, finite, positive-area domain geometry |
+| `5d357ed` / `c22aa51` | IV | Missing covariate CRS when domain declares CRS (GeoDataFrame path) |
+
+### Explicit `spatial_cov_crs` for tabular covariates (A; tip `adea3d3`)
+
+| Commit | Class | Content |
+|---|---|---|
+| `5cd9355` | test (RED) | Missing / matching / mismatched tabular CRS; GDF + array characterization |
+| `adea3d3` | fix (IV/API) | Public arg `spatial_cov_crs`; `CRS.from_user_input`; assign to constructed GeoDataFrame **before** `validate_covariates`; never infer by copying domain CRS; reject declared CRS ≠ domain CRS |
+
+**Contract (enforced):**
+
+- CSV / plain-`DataFrame` covariates with a CRS-bearing domain **require**
+  `spatial_cov_crs`.
+- GeoDataFrame covariates remain self-describing (no `spatial_cov_crs`
+  required); behavior unchanged when CRS already matches.
+- Array-domain tabular covariates remain numerically unchanged and do not
+  require the argument.
+
+**Not BP:** requiring `spatial_cov_crs` for the CRS-bearing-domain tabular path
+is an intentional API / invalid-input contract; valid GeoDataFrame and
+array-domain paths stay characterization-pinned.
+
+Gate evidence for the `spatial_cov_crs` pair is recorded at tip `8580364` in
+`refactor-patches/phase3_tip_verification_2026-07-24.md` (suite 277;
+pins MATCH).

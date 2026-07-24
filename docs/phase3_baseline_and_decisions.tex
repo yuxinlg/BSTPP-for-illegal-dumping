@@ -1675,4 +1675,53 @@ Boundary/window inventory & \texttt{docs/\allowbreak{}boundary\_\allowbreak{}and
   OP-8 (\texttt{args} removal commit) --- 3f design time.
 \end{itemize}
 
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\hypertarget{implementation-status-addendum-2026-07-24}{%
+\subsection{Implementation-status addendum (tip \texttt{8580364}, 2026-07-24)}\label{implementation-status-addendum-2026-07-24}}
+
+\textbf{Honesty.} Sections §5--§6 remain the freeze-tip audit of
+\texttt{476c2a0}; they are not rewritten retroactively. This addendum records
+what the Phase~3 implementation later enforced, with ownership and change class.
+Durable evidence: \texttt{refactor-patches/phase3\_tip\_verification\_2026-07-24.md},
+\texttt{refactor-patches/confirmation\_8580364.md}, and the per-phase
+\texttt{rebaseline\_record.md} files.
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Phase 3a (IV/API).} Tabular covariates with a CRS-bearing domain
+  require public \texttt{spatial\_cov\_crs} (\texttt{CRS.from\_user\_input});
+  missing/mismatched CRS rejected; GeoDataFrame and array-domain paths
+  unchanged. Earlier leftovers: finite horizon; polygonal domain; missing
+  GeoDataFrame covariate CRS.
+\item
+  \textbf{Phase 3c (BP/SC).} Canonical \texttt{PreparedDomain.union\_geometry}
+  plumbing and union-consistent area; characterization of equals/WKB/hash
+  identity; BP for disjoint/current valid regimes; SC for positively
+  overlapping domain rows.
+\item
+  \textbf{Phase 3d (feature + IV + API --- not BP for hard-require).} Exact
+  built-in Gaussian restriction; \texttt{PolygonMassTable} compatibility
+  validation; explicit \texttt{prepare\_polygon\_mass\_table} (NumPy/SciPy
+  float64; no \texttt{jax.config.update}); polygon constructors
+  \emph{hard-require} a compatible prepared table (API change --- do not
+  describe as behavior-preserving); held-out correction; transactional
+  replacement-table path; numerical shootout / wide-range / conservation /
+  both-mode evidence.
+\item
+  \textbf{Phase 3e (IV/SC).} Every supplied tolerance validated before
+  precedence; atomic transactional \texttt{set\_window} for cutoffs,
+  pairs, support, and provenance; temporal-only polygon window updates reuse
+  the installed table; spatial-window changes require a compatible
+  \texttt{mass\_table=} replacement.
+\item
+  \textbf{§12 smoke/confirmation at tip.} Family traces (Hawkes / Cox--Hawkes /
+  LGCP), rectangle and polygon excitation confirmation, fixed-cutoff /
+  \texttt{set\_window} confirmation, \texttt{jax\_enable\_x64} unchanged, and
+  plain-Hawkes NUTS fit smoke --- all green (see confirmation record).
+  Unchanged-regime pins: \texttt{PIN\_DIFFS 0 MATCH}. No conditional Stage~1/2
+  SBC rerun. Stage~3 R=200 exit and Phase~3f remain open tip obligations.
+\end{itemize}
+
 \end{document}

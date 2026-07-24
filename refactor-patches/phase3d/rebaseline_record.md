@@ -63,10 +63,10 @@ Terminal evidence: agent shell `297124` (2026-07-24).
 
 ## Tip context after later leftover repairs
 
-Subsequent Phase 3e / 3a / 3c leftover commits increased the collected suite
-size; see tip verification at `05da465` (240 collected/passed). Those
-commits are **not** Phase 3d and are recorded in their own phase folders /
-commit messages.
+Subsequent Phase 3e / 3a / 3c leftover commits and the A/B preparation /
+`set_window` API work increased the collected suite; tip verification at
+`8580364` records **277** collected/passed with pins MATCH. See that tip
+note for the full ownership table.
 
 ## Classification
 
@@ -77,3 +77,67 @@ commit messages.
   invalid likelihood configurations fail loud; valid rectangle custom
   triggers and matching supplied tables remain accepted. Rectangle golden
   pins stayed bit-identical through the repair group.
+
+## Explicit preparation API and hard-require table (A/B; tip `8580364`)
+
+**Not behavior-preserving.** Polygon construction previously could build a
+mass table synchronously (including process-global JAX precision mutation in
+older paths). The approved hard-require design is an **API / construction
+contract change**:
+
+| Commit | Class | Content |
+|---|---|---|
+| `9342a19` | test (RED) | Ctor without table fails clearly; `build_quad_table` must not toggle `jax_enable_x64` |
+| `ae27947` | fix (**API**) | Public `prepare_polygon_mass_table(...)`; host NumPy/SciPy float64 throughout quadrature/nodes/values/slopes; **no** `jax.config.update`; ctor validates/installs supplied table only — never rebuilds on incompatibility; error names `prepare_polygon_mass_table` |
+| `a8ec985` | test (RED) | Temporal-only `set_window` reuses table; spatial change requires `mass_table=`; failed replacement transactional |
+| `8580364` | fix (API/SC) | `Hawkes_Model.set_window(window, spatial_window=None, *, mass_table=None)`; validate candidate against prospective spatial window before mutation; commit only after local prepare succeeds |
+
+**Sigma semantics:** `min_sigma` / `max_sigma` are spatial standard deviations
+in real coordinate units; compatibility with a `sigmax_2` prior uses
+`sqrt(sigmax_2)`. Table interpolation convention and metadata preserved.
+
+**Compatibility identity** (validation covers at least): canonical
+`PreparedDomain.union_geometry` hash; event coordinates and row order; event
+count; realized spatial window; sigma range/knot grid/interpolation
+convention; panel height after unit conversion; quadrature order and
+backend/schema version; array shapes and finite values.
+`extra_provenance` remains descriptive unless it affects numerical
+construction.
+
+**Held-out:** rebuilds event-indexed state and prepares a table for the
+held-out realization via `prepare_polygon_mass_table` (does not reuse
+training table rows).
+
+**Rectangle mode:** unchanged; no `mass_table` required.
+
+### Numerical / both-mode evidence (tip `8580364`)
+
+Combined command (also recorded in tip verification):
+
+```bash
+JAX_PLATFORM_NAME=cpu python -m pytest \
+  tests/test_polygon_mass_prepare_api.py \
+  tests/test_polygon_mass_table_validation.py \
+  tests/test_heldout_polygon_mass.py \
+  tests/test_polygon_mass_backend_shootout.py \
+  tests/test_polygon_mass_wide_range.py \
+  tests/test_phase3d_excitation_support.py \
+  tests/test_phase3e_cutoffs.py -q --tb=line
+```
+
+Result: **96 passed**. Includes shootout, wide-range, conservation /
+rectangle-degeneracy, and both-mode property tests.
+
+§12 smoke/confirmation selectors (rectangle + polygon + family traces +
+fixed-cutoff/`set_window` + `jax_enable_x64` + plain-Hawkes NUTS smoke):
+`refactor-patches/confirmation_8580364.md` — all green.
+
+Full suite **277 passed**; pins **PIN_DIFFS 0 MATCH**; no conditional SBC
+rerun; Phase 3f not started.
+
+### Intermediate RED before `8580364`
+
+A mid-implementation suite failure
+(`AttributeError: ... no attribute 'excitation_support'`) is pre-`8580364`
+evidence of the ctor/`set_window` install-order defect, **not** a tip
+failure.

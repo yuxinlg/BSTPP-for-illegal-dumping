@@ -86,3 +86,25 @@ rerun stage 2 as-is, extend the SBC program with a polygon-domain
 configuration, or record the rectangle-regime bit-identity as discharging the
 trigger. Runtime for a stage-2 rerun is substantial (see
 `results/sbc_stage2/` logs).
+
+## Domain-row overlap / canonical union (audit follow-up, 2026-07-24)
+
+The freeze-era open question of “summed row areas vs union geometry” is
+**resolved** by an explicit union policy on `PreparedDomain`:
+
+| Commit | Class | Content |
+|---|---|---|
+| `26a4c3c` / `05da465` | SC | `PreparedDomain.area_ratio` / `union_geometry` from set-union of domain rows; disjoint/single-row numerically unchanged |
+| `2c7264a` | test | Characterization: `union_geometry` equals / WKB / hash identity |
+| `2a67962` | refactor (BP for valid disjoint regimes; SC for overlapping rows) | `prepare_partitions`, `attach_covariate_partitions`, and `build_excitation_support(..., union_geometry=)` consume `PreparedDomain.union_geometry`; no downstream `union_all` / `unary_union` recompute |
+
+**Semantics:**
+
+- Union-consistent area: never mix summed positive-area row contributions with
+  a different geometric support.
+- Overlapping domain rows: union geometry is authoritative (**SC** relative to
+  any prior row-sum interpretation).
+- Disjoint / single-row / current valid regimes: plumbing is **BP** (pins
+  MATCH at tip `8580364`).
+
+See tip verification `refactor-patches/phase3_tip_verification_2026-07-24.md`.

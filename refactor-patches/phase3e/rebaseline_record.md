@@ -67,3 +67,46 @@ fix and is recorded in `refactor-patches/phase3d/rebaseline_record.md`.
 - `set_window` provenance atomicity: **SC** for the public window API —
   realized cutoffs and `cutoff_provenance` update together. Rectangle golden
   pins stayed bit-identical through the repair group.
+
+## Every-tolerance validation + transactional `set_window` (audit + A/B)
+
+Later audit discoveries closed gaps relative to the original `2ce665c` tip
+behavior (partial tol validation; non-transactional `set_window`).
+
+### Shared `cutoff_tol` always validated (IV)
+
+| Commit | Class | Content |
+|---|---|---|
+| `8a22fd6` | test (RED) | Invalid shared `cutoff_tol` rejected even when both axis-specific tols override |
+| `2a7c558` | fix (IV) | Validate **every** raw non-`None` tolerance as finite and in `(0, 1)` before precedence |
+
+(Supersedes / extends the earlier post-hoc pair `fec8f78` / `5f5bb8d` for the
+shared-tol + axis-override case.)
+
+### Transactional cutoff / pairs / support updates (SC)
+
+| Commit | Class | Content |
+|---|---|---|
+| `33037f3` | test (RED) | Invalid input or forced rebuild failure leaves all observable state unchanged |
+| `798f551` | fix (SC) | Local validate → prepare pairs/support/cutoffs/provenance → assign once |
+
+### Polygon mass table interaction (with Phase 3d API; tip `8580364`)
+
+Temporal-only `set_window` (unchanged realized `spatial_window`) **reuses** the
+installed polygon mass table. A spatial-window change that would invalidate
+the table **requires** a compatible replacement via
+`set_window(..., mass_table=...)`; silent rebuild is forbidden. Candidate
+table is validated against the **prospective** spatial window before any
+mutation; on failure, cutoff/provenance/pairs/support/table state are
+unchanged (`a8ec985` RED / `8580364` GREEN — recorded primarily under Phase
+3d ownership, exercised here because they are `set_window` contracts).
+
+### Fixed-cutoff / `set_window` confirmation at tip
+
+Exact selectors and results:
+`refactor-patches/confirmation_8580364.md` (7 passed for fixed-cutoff /
+`set_window` group; full tip gates in
+`refactor-patches/phase3_tip_verification_2026-07-24.md`).
+
+Rectangle golden pins remained **MATCH**; no conditional SBC rerun; Phase 3f
+not started.
