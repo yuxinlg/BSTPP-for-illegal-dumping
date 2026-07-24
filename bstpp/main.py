@@ -1758,6 +1758,19 @@ class Hawkes_Model(Point_Process_Model):
             is_polygon_domain=self.prepared_domain.is_polygon,
             excitation_support=excitation_support)
 
+        # Polygon Hermite mass integrates Spatial_Symmetric_Gaussian only.
+        # Exact-type gate (not isinstance): a subclass may override the event
+        # kernel while the compensator remains Gaussian -- an invalid likelihood.
+        # Rectangle mode retains the existing custom-trigger interface.
+        if mode == "polygon" and spatial_trig is not Spatial_Symmetric_Gaussian:
+            raise TypeError(
+                "Polygon excitation_support currently requires the exact "
+                "Spatial_Symmetric_Gaussian spatial trigger (Hermite mass "
+                "backend is Gaussian-only). Got "
+                f"{getattr(spatial_trig, '__name__', repr(spatial_trig))}. "
+                "Use excitation_support='rectangle' for a custom spatial "
+                "trigger, or supply Spatial_Symmetric_Gaussian.")
+
         # Resolve bounds and truncate sigmax_2 BEFORE constructing triggers so
         # NUTS/SVI see interval support (no proposal clipping).
         if 'sigmax_2' not in self.args['priors']:
