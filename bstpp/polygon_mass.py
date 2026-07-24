@@ -376,6 +376,65 @@ def validate_polygon_mass_table(
                 f"supplied mass table {name} contains nonfinite values")
 
 
+BACKEND_SCHEMA_VERSION = "hybrid_quad_hermite_numpy_v1"
+# Central finite-difference step on log-sigma for float64 slope tables.
+_LOG_SIGMA_FD_EPS = 1e-6
+
+
+def _legendre_01(gl_order: int) -> tuple[np.ndarray, np.ndarray]:
+    glx, glw = np.polynomial.legendre.leggauss(int(gl_order))
+    return (glx + 1.0) / 2.0, glw / 2.0
+
+
+def _quad_masses_numpy(
+    log_sigma: float,
+    ev_xy: np.ndarray,
+    panels: np.ndarray,
+    mask: np.ndarray,
+    inside_flag: np.ndarray,
+    glx01: np.ndarray,
+    glw01: np.ndarray,
+    ws: float | None,
+) -> np.ndarray:
+    """Host float64 per-event Gaussian polygon mass at one log-sigma knot."""
+    from scipy.special import erf
+
+    sigma = float(np.exp(log_sigma))
+    xa, ya, xb, yb = (panels[..., 0], panels[..., 1],
+                      panels[..., 2], panels[..., 3])
+    xn = xa[..., None] + glx01 * (xb - xa)[..., None]
+    yn = ya[..., None] + glx01 * (yb - ya)[..., None]
+    sx = ev_xy[:, 0][:, None, None]
+    sy = ev_xy[:, 1][:, None, None]
+    phi = np.exp(-((xn - sx) ** 2) / (2.0 * sigma ** 2)) / (
+        sigma * np.sqrt(2.0 * np.pi))
+    cdf = 0.5 * (1.0 + erf((yn - sy) / (sigma * np.sqrt(2.0))))
+    quad = -np.sum(((phi * cdf) @ glw01) * (xb - xa) * mask, axis=-1)
+    if ws is None:
+        return np.asarray(quad, dtype=np.float64)
+    analytic = float(erf(ws / (np.sqrt(2.0) * sigma)) ** 2)
+    return np.asarray(inside_flag * analytic + quad, dtype=np.float64)
+
+
+def _quad_slopes_numpy(
+    log_sigma: float,
+    ev_xy: np.ndarray,
+    panels: np.ndarray,
+    mask: np.ndarray,
+    inside_flag: np.ndarray,
+    glx01: np.ndarray,
+    glw01: np.ndarray,
+    ws: float | None,
+    eps: float = _LOG_SIGMA_FD_EPS,
+) -> np.ndarray:
+    """dM / d log(sigma) via central differences in float64."""
+    up = _quad_masses_numpy(
+        log_sigma + eps, ev_xy, panels, mask, inside_flag, glx01, glw01, ws)
+    dn = _quad_masses_numpy(
+        log_sigma - eps, ev_xy, panels, mask, inside_flag, glx01, glw01, ws)
+    return (up - dn) / (2.0 * eps)
+
+
 def build_quad_table(
     poly,
     x: np.ndarray,
@@ -387,10 +446,11 @@ def build_quad_table(
     gl_order: int = DEFAULT_GL_ORDER,
     extra_provenance: Optional[dict] = None,
 ) -> PolygonMassTable:
-    """Build Hermite table with float64 quad values + AD slopes.
+    """Build Hermite table with host NumPy/SciPy float64 quadrature + slopes.
 
-    Temporarily enables JAX x64 for the build only; restores the caller's
-    flag so unrelated fitting stays on the process default precision.
+    ``sigma_min`` / ``sigma_max`` are spatial standard deviations in real
+    coordinate units (compatible with ``sqrt(sigmax_2)``). Does not mutate
+    process-global JAX config.
     """
     import time
 
@@ -403,26 +463,27 @@ def build_quad_table(
 
     x = np.asarray(x, dtype=np.float64)
     y = np.asarray(y, dtype=np.float64)
-    knots = log_knots(sigma_min, sigma_max)
+    knots = np.asarray(log_knots(sigma_min, sigma_max), dtype=np.float64)
+    glx01, glw01 = _legendre_01(gl_order)
+    glx01 = np.asarray(glx01, dtype=np.float64)
+    glw01 = np.asarray(glw01, dtype=np.float64)
 
-    prev_x64 = bool(jax.config.jax_enable_x64)
     t0 = time.perf_counter()
-    try:
-        jax.config.update("jax_enable_x64", True)
-        prep = prepare_quadrature(poly, x, y, float(h_panel), ws)
-        masses_fn, d_masses_fn, _ = make_quad_eval(int(gl_order), ws)
-        ej = jnp.asarray(prep.ev_xy, dtype=jnp.float64)
-        pj = jnp.asarray(prep.panels, dtype=jnp.float64)
-        mj = jnp.asarray(prep.mask, dtype=jnp.float64)
-        fj = jnp.asarray(prep.inside_flag, dtype=jnp.float64)
-        vals = np.array([np.asarray(masses_fn(lk, ej, pj, mj, fj))
-                         for lk in knots], dtype=np.float64).T
-        slopes = np.array([np.asarray(d_masses_fn(lk, ej, pj, mj, fj))
-                           for lk in knots], dtype=np.float64).T
-    finally:
-        jax.config.update("jax_enable_x64", prev_x64)
-
+    prep = prepare_quadrature(poly, x, y, float(h_panel), ws)
+    ev = np.asarray(prep.ev_xy, dtype=np.float64)
+    panels = np.asarray(prep.panels, dtype=np.float64)
+    mask = np.asarray(prep.mask, dtype=np.float64)
+    inside = np.asarray(prep.inside_flag, dtype=np.float64)
+    vals = np.array([
+        _quad_masses_numpy(float(lk), ev, panels, mask, inside, glx01, glw01, ws)
+        for lk in knots
+    ], dtype=np.float64).T
+    slopes = np.array([
+        _quad_slopes_numpy(float(lk), ev, panels, mask, inside, glx01, glw01, ws)
+        for lk in knots
+    ], dtype=np.float64).T
     build_s = time.perf_counter() - t0
+
     geom_hash = _geometry_sha256(poly)
     ev_hash = _events_sha256(x, y)
     table_id = hashlib.sha256(
@@ -431,6 +492,8 @@ def build_quad_table(
     ).hexdigest()
     prov: dict[str, Any] = {
         "backend": "hybrid_quad_hermite",
+        "backend_schema": BACKEND_SCHEMA_VERSION,
+        "sigma_parameterization": "standard_deviation",
         "sigma_min": float(sigma_min),
         "sigma_max": float(sigma_max),
         "n_knots": int(knots.shape[0]),
@@ -444,11 +507,14 @@ def build_quad_table(
         "build_seconds": build_s,
         "dtype_build": "float64",
         "n_events": int(len(x)),
+        "slope_method": "central_fd_log_sigma",
+        "slope_fd_eps": float(_LOG_SIGMA_FD_EPS),
     }
     if extra_provenance:
+        # Descriptive only unless it already participates in construction.
         prov.update(extra_provenance)
     return PolygonMassTable(
-        log_knots=np.asarray(knots, dtype=np.float64),
+        log_knots=knots,
         values=vals,
         slopes=slopes,
         sigma_min=float(sigma_min),
@@ -460,6 +526,48 @@ def build_quad_table(
         events_sha256=ev_hash,
         build_seconds=build_s,
         provenance=prov,
+    )
+
+
+def prepare_polygon_mass_table(
+    domain_geom,
+    event_x_real,
+    event_y_real,
+    *,
+    min_sigma: float,
+    max_sigma: float,
+    spatial_window: float | None = None,
+    crs=None,
+    panel_h_m: float = DEFAULT_PANEL_H_M,
+    gl_order: int = DEFAULT_GL_ORDER,
+    extra_provenance: Optional[dict] = None,
+) -> PolygonMassTable:
+    """Explicit public preparation API for polygon Hermite mass tables.
+
+    ``min_sigma`` and ``max_sigma`` are spatial standard deviations in real
+    coordinate units. When the model prior is expressed as ``sigmax_2``
+    (variance), the compatible interval is ``[min_sigma**2, max_sigma**2]``.
+
+    Builds entirely in host NumPy/SciPy float64. Does not mutate process-global
+    JAX precision. Online fitting may later consume the table at the process
+    default JAX precision.
+    """
+    from .excitation_support import metres_to_crs_units
+
+    if crs is not None and not getattr(crs, "is_geographic", False):
+        h_panel = float(metres_to_crs_units(float(panel_h_m), crs))
+    else:
+        h_panel = float(panel_h_m)
+    return build_quad_table(
+        domain_geom,
+        np.asarray(event_x_real, dtype=np.float64),
+        np.asarray(event_y_real, dtype=np.float64),
+        float(min_sigma),
+        float(max_sigma),
+        ws=None if spatial_window is None else float(spatial_window),
+        h_panel=h_panel,
+        gl_order=int(gl_order),
+        extra_provenance=extra_provenance,
     )
 
 

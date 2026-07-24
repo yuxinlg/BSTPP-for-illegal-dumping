@@ -1804,6 +1804,12 @@ class Hawkes_Model(Point_Process_Model):
                 "Use excitation_support='rectangle' for a custom spatial "
                 "trigger, or supply Spatial_Symmetric_Gaussian.")
 
+        if mode == "polygon" and mass_table is None:
+            raise ValueError(
+                "Polygon excitation_support requires a prepared mass_table "
+                "from bstpp.polygon_mass.prepare_polygon_mass_table(...); "
+                "the constructor does not build Hermite tables.")
+
         # Resolve bounds and truncate sigmax_2 BEFORE constructing triggers so
         # NUTS/SVI see interval support (no proposal clipping).
         if 'sigmax_2' not in self.args['priors']:

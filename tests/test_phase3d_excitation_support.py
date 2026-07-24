@@ -30,6 +30,7 @@ from bstpp.excitation_support import (
 from bstpp.main import Hawkes_Model
 from bstpp.polygon_mass import PolygonMassTable, knot_count
 from bstpp.trigger import Spatial_Symmetric_Gaussian
+from tests._polygon_prepare_helpers import prepare_table_for_model
 
 
 class _NonGaussianSpatial(Spatial_Symmetric_Gaussian):
@@ -152,10 +153,13 @@ def test_rectangle_modes_agree_on_array_domain():
         data, A, T_DAYS, cox_background=False,
         excitation_support="rectangle",
         min_sigma=5.0, max_sigma=80.0, **priors)
+    table = prepare_table_for_model(
+        data, A, min_sigma=5.0, max_sigma=80.0)
     m_poly = Hawkes_Model(
         data, A, T_DAYS, cox_background=False,
         excitation_support="polygon",
-        min_sigma=5.0, max_sigma=80.0, **priors)
+        min_sigma=5.0, max_sigma=80.0,
+        mass_table=table, **priors)
 
     params = dict(a_0=0.0, alpha=0.3, beta=2.0, sigmax_2=np.float32(20.0 ** 2))
 
@@ -176,10 +180,13 @@ def test_polygon_parenting_discards_outside_A():
     gdf = gpd.GeoDataFrame({"geometry": [L]})
     # one interior seed event
     data = pd.DataFrame({"X": [40.0], "Y": [40.0], "T": [1.0]})
+    table = prepare_table_for_model(
+        data, gdf, min_sigma=5.0, max_sigma=40.0)
     m = Hawkes_Model(
         data, gdf, T_DAYS, cox_background=False,
         excitation_support="polygon",
         min_sigma=5.0, max_sigma=40.0,
+        mass_table=table,
         **PRIORS)
     support = m.excitation_support
     assert support.candidate_in_support(40.0, 40.0)
@@ -191,10 +198,13 @@ def test_polygon_table_export_reload_roundtrip():
     A = np.array([[0.0, 200.0], [0.0, 200.0]])
     data = pd.DataFrame({
         "X": [50.0, 100.0], "Y": [50.0, 150.0], "T": [1.0, 2.0]})
+    table = prepare_table_for_model(
+        data, A, min_sigma=5.0, max_sigma=40.0)
     m = Hawkes_Model(
         data, A, T_DAYS, cox_background=False,
         excitation_support="polygon",
-        min_sigma=5.0, max_sigma=40.0, **PRIORS)
+        min_sigma=5.0, max_sigma=40.0,
+        mass_table=table, **PRIORS)
     with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "table.npz"
         m.export_polygon_mass_table(path)
@@ -271,11 +281,14 @@ def test_polygon_mode_accepts_exact_builtin_gaussian():
         a_0=dist.Normal(0, 5), alpha=dist.Beta(2, 2),
         beta=dist.HalfNormal(1.0), sigmax_2=dist.HalfNormal(40.0),
     )
+    table = prepare_table_for_model(
+        data, A, min_sigma=5.0, max_sigma=40.0)
     m = Hawkes_Model(
         data, A, T_DAYS, cox_background=False,
         excitation_support="polygon",
         min_sigma=5.0, max_sigma=40.0,
         spatial_trig=Spatial_Symmetric_Gaussian,
+        mass_table=table,
         **priors,
     )
     assert type(m.args["sp_trig"]) is Spatial_Symmetric_Gaussian

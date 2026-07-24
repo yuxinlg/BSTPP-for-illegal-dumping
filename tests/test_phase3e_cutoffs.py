@@ -45,6 +45,7 @@ from bstpp.cutoffs import (
 )
 from bstpp.main import Hawkes_Model
 from bstpp.preparation import T_INTERNAL
+from tests._polygon_prepare_helpers import prepare_table_for_model
 
 T_DAYS = 100.0
 PRIORS_INTERNAL = dict(
@@ -517,11 +518,14 @@ def test_set_window_polygon_success_and_failed_rebuild_leave_or_update_consisten
         "Y": rng.uniform(20.0, 180.0, 8),
         "T": np.sort(rng.uniform(0.5, T_DAYS - 0.5, 8)),
     })
+    table = prepare_table_for_model(
+        data, A, min_sigma=5.0, max_sigma=40.0, spatial_window=50.0)
     m = Hawkes_Model(
         data, A, T_DAYS, cox_background=False,
         excitation_support="polygon",
         min_sigma=5.0, max_sigma=40.0,
         window=20.0, spatial_window=50.0,
+        mass_table=table,
         **priors,
     )
     assert m.excitation_support.mode == "polygon"

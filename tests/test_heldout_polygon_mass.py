@@ -25,6 +25,7 @@ import pytest
 from numpyro.infer import log_likelihood
 
 from bstpp.main import Hawkes_Model
+from tests._polygon_prepare_helpers import prepare_table_for_model
 
 T_DAYS = 30.0
 A = np.array([[0.0, 200.0], [0.0, 200.0]])
@@ -52,10 +53,13 @@ def _events(n, seed, *, x_lo=20.0, x_hi=180.0, y_lo=20.0, y_hi=180.0):
 
 
 def _polygon_model(data):
+    table = prepare_table_for_model(
+        data, A, min_sigma=5.0, max_sigma=40.0)
     return Hawkes_Model(
         data, A, T_DAYS, cox_background=False,
         excitation_support="polygon",
         min_sigma=5.0, max_sigma=40.0,
+        mass_table=table,
         **PRIORS,
     )
 

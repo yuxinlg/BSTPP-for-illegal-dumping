@@ -79,6 +79,34 @@ def test_quad_table_build_does_not_toggle_jax_enable_x64(monkeypatch):
     assert bool(jax.config.jax_enable_x64) is prev
 
 
+def test_prepare_polygon_mass_table_and_ctor_install_without_x64_toggle(monkeypatch):
+    from tests._polygon_prepare_helpers import prepare_table_for_model
+
+    calls = []
+    real_update = jax.config.update
+
+    def _spy(key, value):
+        calls.append((key, value))
+        return real_update(key, value)
+
+    monkeypatch.setattr(jax.config, "update", _spy)
+    prev = bool(jax.config.jax_enable_x64)
+    data = _events()
+    table = prepare_table_for_model(
+        data, A, min_sigma=MIN_SIGMA, max_sigma=MAX_SIGMA)
+    m = Hawkes_Model(
+        data, A, T_DAYS, cox_background=False,
+        excitation_support="polygon",
+        min_sigma=MIN_SIGMA, max_sigma=MAX_SIGMA,
+        mass_table=table,
+        **PRIORS,
+    )
+    assert m.excitation_support.mass_table is table
+    x64_calls = [c for c in calls if c[0] == "jax_enable_x64"]
+    assert x64_calls == []
+    assert bool(jax.config.jax_enable_x64) is prev
+
+
 def test_rectangle_mode_unchanged_without_mass_table():
     m = Hawkes_Model(
         _events(), A, T_DAYS, cox_background=False,

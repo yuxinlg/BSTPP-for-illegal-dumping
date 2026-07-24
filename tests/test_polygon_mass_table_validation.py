@@ -20,6 +20,7 @@ import pandas as pd
 import pytest
 
 from bstpp.main import Hawkes_Model
+from tests._polygon_prepare_helpers import prepare_table_for_model
 
 T_DAYS = 30.0
 A = np.array([[0.0, 200.0], [0.0, 200.0]])
@@ -42,6 +43,10 @@ def _events(n, seed, *, x_lo=20.0, x_hi=180.0, y_lo=20.0, y_hi=180.0):
 
 def _polygon_model(data, *, mass_table=None, spatial_window=None,
                    min_sigma=5.0, max_sigma=40.0):
+    if mass_table is None:
+        mass_table = prepare_table_for_model(
+            data, A, min_sigma=min_sigma, max_sigma=max_sigma,
+            spatial_window=spatial_window)
     return Hawkes_Model(
         data, A, T_DAYS, cox_background=False,
         excitation_support="polygon",
@@ -53,8 +58,11 @@ def _polygon_model(data, *, mass_table=None, spatial_window=None,
 
 
 def _compatible_table():
-    m = _polygon_model(_events(4, seed=1))
-    return m, m.excitation_support.mass_table
+    data = _events(4, seed=1)
+    table = prepare_table_for_model(
+        data, A, min_sigma=5.0, max_sigma=40.0)
+    m = _polygon_model(data, mass_table=table)
+    return m, table
 
 
 def test_supplied_table_accepted_when_identities_match():
