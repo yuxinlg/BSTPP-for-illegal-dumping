@@ -323,6 +323,26 @@ def test_invalid_shared_cutoff_tol_rejected_with_physical_override():
         )
 
 
+@pytest.mark.parametrize("bad_tol", [-1.0, 0.0, 1.0, float("nan"), float("inf")])
+def test_invalid_shared_cutoff_tol_rejected_even_when_axis_specific_override(
+        bad_tol):
+    """Every raw non-None tolerance must be validated independently.
+
+    When both axis-specific tolerances are supplied they win precedence, but
+    an invalid shared ``cutoff_tol`` must still be rejected — it must not be
+    silently ignored because it is unused as the effective axis value.
+    """
+    with pytest.raises(ValueError, match="tol|tolerance"):
+        resolve_computational_cutoffs(
+            horizon_days=T_DAYS,
+            temporal_cutoff_tol=1e-3,
+            spatial_cutoff_tol=1e-4,
+            cutoff_tol=bad_tol,
+            design_mean_lag_days=2.0,
+            design_sigma=0.1,
+        )
+
+
 def test_hawkes_rejects_invalid_tol_with_physical_window():
     with pytest.raises(ValueError, match="tol|tolerance"):
         Hawkes_Model(
