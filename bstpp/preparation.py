@@ -94,7 +94,11 @@ class PreparedDomain:
     """Validated model geometry and the declared real/internal unit scales.
 
     ``bounds`` is the real-unit bounding rectangle A_ ([[x0,x1],[y0,y1]]);
-    ``area_ratio`` is |A| / |A_rect| (1 for rectangle domains);
+    ``area_ratio`` is |A| / |A_rect| (1 for rectangle domains), where |A|
+    is the set-union area of polygonal domain rows (Phase 3c / SC) -- never
+    a row-sum that double-counts positive-area overlap;
+    ``union_geometry`` is that set-union shapely geometry for polygon
+    domains (None for rectangle arrays);
     ``axis_scales`` are the per-axis REAL lengths of the bounding rectangle,
     the declared conversion constants at the internal/real unit boundary
     (consumed by the event-term atom and the excitation compensator only).
@@ -109,6 +113,7 @@ class PreparedDomain:
     axis_scales: jnp.ndarray
     crs: Optional[Any]
     is_polygon: bool
+    union_geometry: Optional[Any] = None
 
 
 def prepare_domain(A: Union[np.ndarray, gpd.GeoDataFrame]) -> PreparedDomain:
@@ -120,12 +125,25 @@ def prepare_domain(A: Union[np.ndarray, gpd.GeoDataFrame]) -> PreparedDomain:
     GeoDataFrames). Warning semantics, message, and trigger conditions are
     unchanged; stacklevel is raised by one to point at the same frame as
     before the extraction.
+
+    Phase 3c: polygonal ``area_ratio`` uses the set-union area of domain
+    rows (matching support clipping / parenting / polygon mass), not
+    ``GeoSeries.area.sum()``.
     """
+    union_geometry = None
     if type(A) is gpd.GeoDataFrame:
         A_ = np.stack((A.bounds.min(axis=0)[['minx', 'miny']],
                        A.bounds.max(axis=0)[['maxx', 'maxy']])).T
-        # proportion of area of rectangle A_ covered by A. Used for Hawkes integral.
-        area_ratio = A.area.sum() / ((A_[0, 1] - A_[0, 0]) * (A_[1, 1] - A_[1, 0]))
+        # Set-union of domain rows (SC): parenting, polygon mass, and
+        # prepare_partitions support clipping already use this geometry;
+        # area_ratio / A_area must match so overlapping rows are not
+        # double-counted. Disjoint multi-row and single-row cases are
+        # unchanged (sum(area) == union.area).
+        union_geometry = (
+            A.geometry.union_all() if hasattr(A.geometry, "union_all")
+            else A.geometry.unary_union)
+        rect_area = (A_[0, 1] - A_[0, 0]) * (A_[1, 1] - A_[1, 0])
+        area_ratio = float(union_geometry.area) / float(rect_area)
     else:  # A is rectangle specified by np.array
         area_ratio = 1
         A_ = A
@@ -176,6 +194,7 @@ def prepare_domain(A: Union[np.ndarray, gpd.GeoDataFrame]) -> PreparedDomain:
         axis_scales=axis_scales,
         crs=_crs,
         is_polygon=type(A) is gpd.GeoDataFrame,
+        union_geometry=union_geometry,
     )
 
 
