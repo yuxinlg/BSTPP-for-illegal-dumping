@@ -145,7 +145,7 @@ def add_month_grid_and_labels(ax, start_date, num_days,label_every_n_months=3):
 
 class Point_Process_Model:
     def __init__(self,model,data,A,T,offset_seasonal=0,spatial_cov=None,cov_names=None,
-                 cov_grid_size=None,standardize_cov=True,sp_var_mu=2.0,
+                 cov_grid_size=None,spatial_cov_crs=None,standardize_cov=True,sp_var_mu=2.0,
                  data_contracts='reject',**kwargs):
         """
         Spatiotemporal Point Process Model.
@@ -176,6 +176,12 @@ class Point_Process_Model:
             List of covariate names. Must all be columns in spatial_cov.
         cov_grid_size: list-like
             Spatial covariate grid (width, height).
+        spatial_cov_crs: CRS-like, optional
+            Declared CRS of CSV/plain-DataFrame covariate coordinates (parsed by
+            ``CRS.from_user_input``). Required when those tabular covariates are
+            paired with a CRS-bearing domain; must match the domain CRS.
+            GeoDataFrame covariates are self-describing and do not use this
+            argument. Array domains (no CRS) do not require it.
         standardize_cov: bool or str
             True (default): legacy count-weighted z-score over covariate
             cells. False: values preserved exactly as supplied.
@@ -325,7 +331,26 @@ class Point_Process_Model:
                                              (spatial_cov.loc[i,'X']-cov_grid_size[0]/2,
                                               spatial_cov.loc[i,'Y']+cov_grid_size[1]/2)]))
                 spatial_cov = gpd.GeoDataFrame(data=spatial_cov,geometry=polygons)
-                spatial_cov.crs = self.A.crs
+                # Tabular X/Y have no self-describing CRS. When the domain
+                # declares a CRS, require an explicit spatial_cov_crs and
+                # assign THAT value before validation -- never infer by
+                # copying the domain CRS.
+                domain_crs = self.prepared_domain.crs
+                if domain_crs is not None:
+                    if spatial_cov_crs is None:
+                        raise ValueError(
+                            "spatial_cov_crs is required when CSV/plain-"
+                            "DataFrame covariates are used with a CRS-"
+                            "bearing domain; declare the CRS of the "
+                            "tabular X/Y coordinates (e.g. "
+                            "spatial_cov_crs='EPSG:26918').")
+                    from pyproj.crs import CRS
+                    spatial_cov = spatial_cov.set_crs(
+                        CRS.from_user_input(spatial_cov_crs))
+                elif spatial_cov_crs is not None:
+                    from pyproj.crs import CRS
+                    spatial_cov = spatial_cov.set_crs(
+                        CRS.from_user_input(spatial_cov_crs))
 
             # Phase 3a data contracts, covariate leg: validated on the
             # normalized GeoDataFrame, before the legacy membership sjoin, so
