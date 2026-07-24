@@ -30,6 +30,7 @@ from .polygon_mass import (
     DEFAULT_PANEL_H_M,
     PolygonMassTable,
     build_quad_table,
+    validate_polygon_mass_table,
 )
 
 DEFAULT_MAX_SIGMA_KM = 5.0
@@ -312,12 +313,12 @@ def build_excitation_support(
     builder_meta: dict[str, Any] = {}
     if mode == "polygon":
         assert lo is not None and hi is not None
+        if crs is not None and not getattr(crs, "is_geographic", False):
+            h_panel = metres_to_crs_units(panel_h_m, crs)
+        else:
+            # CRS-less synthetic domains: treat panel_h_m as domain units
+            h_panel = float(panel_h_m)
         if table is None:
-            if crs is not None and not getattr(crs, "is_geographic", False):
-                h_panel = metres_to_crs_units(panel_h_m, crs)
-            else:
-                # CRS-less synthetic domains: treat panel_h_m as domain units
-                h_panel = float(panel_h_m)
             table = build_quad_table(
                 geom, event_x_real, event_y_real, lo, hi,
                 ws=spatial_window, h_panel=h_panel, gl_order=gl_order,
@@ -328,6 +329,18 @@ def build_excitation_support(
                     **{k: v for k, v in bound_meta.items()
                        if str(k).startswith("max_sigma")},
                 },
+            )
+        else:
+            validate_polygon_mass_table(
+                table,
+                domain_geom=geom,
+                event_x_real=event_x_real,
+                event_y_real=event_y_real,
+                spatial_window=spatial_window,
+                sigma_min=lo,
+                sigma_max=hi,
+                h_panel=h_panel,
+                gl_order=gl_order,
             )
         builder_meta = dict(table.provenance)
 

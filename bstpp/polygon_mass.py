@@ -271,6 +271,111 @@ def _events_sha256(x: np.ndarray, y: np.ndarray) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def validate_polygon_mass_table(
+    table: PolygonMassTable,
+    *,
+    domain_geom,
+    event_x_real: np.ndarray,
+    event_y_real: np.ndarray,
+    spatial_window: float | None,
+    sigma_min: float,
+    sigma_max: float,
+    h_panel: float,
+    gl_order: int,
+) -> None:
+    """Reject a supplied Hermite table that is not identity-compatible.
+
+    Equal event counts are not evidence of compatibility. Validates domain
+    geometry hash, event coordinates and row order, event count, spatial
+    window, sigma range and knot grid, build settings (h_panel, gl_order),
+    array shapes, and finite array values.
+    """
+    if not isinstance(table, PolygonMassTable):
+        raise TypeError(
+            f"mass_table must be a PolygonMassTable; got {type(table).__name__}")
+
+    x = np.asarray(event_x_real, dtype=float)
+    y = np.asarray(event_y_real, dtype=float)
+    if x.shape != y.shape or x.ndim != 1:
+        raise ValueError(
+            f"event_x_real/event_y_real must be 1-d and same shape; "
+            f"got {x.shape} and {y.shape}")
+    n = int(x.shape[0])
+
+    if int(table.n_events) != n:
+        raise ValueError(
+            f"supplied mass table n_events={table.n_events} does not match "
+            f"model event count {n}")
+
+    expected_events = _events_sha256(x, y)
+    if table.events_sha256 != expected_events:
+        raise ValueError(
+            "supplied mass table events_sha256 does not match the model event "
+            "coordinates and row order (equal counts are not sufficient)")
+
+    expected_geom = _geometry_sha256(domain_geom)
+    if table.geometry_sha256 != expected_geom:
+        raise ValueError(
+            "supplied mass table geometry_sha256 does not match the model "
+            "domain union geometry")
+
+    if spatial_window is None:
+        if table.spatial_window is not None:
+            raise ValueError(
+                f"supplied mass table spatial_window={table.spatial_window} "
+                "but the model has spatial_window=None")
+    else:
+        if table.spatial_window is None or not np.isfinite(table.spatial_window):
+            raise ValueError(
+                "supplied mass table spatial_window is missing/nonfinite but "
+                f"the model has spatial_window={spatial_window}")
+        if float(table.spatial_window) != float(spatial_window):
+            raise ValueError(
+                f"supplied mass table spatial_window={table.spatial_window} "
+                f"does not match model spatial_window={spatial_window}")
+
+    if not (np.isfinite(table.sigma_min) and np.isfinite(table.sigma_max)):
+        raise ValueError("supplied mass table sigma_min/sigma_max must be finite")
+    if float(table.sigma_min) != float(sigma_min) or float(table.sigma_max) != float(sigma_max):
+        raise ValueError(
+            f"supplied mass table sigma range [{table.sigma_min}, {table.sigma_max}] "
+            f"does not match model [{sigma_min}, {sigma_max}]")
+
+    expected_knots = log_knots(float(sigma_min), float(sigma_max))
+    if table.log_knots.shape != expected_knots.shape or not np.allclose(
+            table.log_knots, expected_knots, rtol=0.0, atol=0.0):
+        raise ValueError(
+            "supplied mass table log_knots do not match the sigma range knot grid")
+
+    if float(table.h_panel) != float(h_panel):
+        raise ValueError(
+            f"supplied mass table h_panel={table.h_panel} does not match "
+            f"build setting h_panel={h_panel}")
+    if int(table.gl_order) != int(gl_order):
+        raise ValueError(
+            f"supplied mass table gl_order={table.gl_order} does not match "
+            f"build setting gl_order={gl_order}")
+
+    k = int(expected_knots.shape[0])
+    if table.values.shape != (n, k) or table.slopes.shape != (n, k):
+        raise ValueError(
+            f"supplied mass table array shapes must be values/slopes=({n}, {k}); "
+            f"got values={table.values.shape}, slopes={table.slopes.shape}")
+    if table.log_knots.shape != (k,):
+        raise ValueError(
+            f"supplied mass table log_knots shape must be ({k},); "
+            f"got {table.log_knots.shape}")
+
+    for name, arr in (
+        ("log_knots", table.log_knots),
+        ("values", table.values),
+        ("slopes", table.slopes),
+    ):
+        if not np.all(np.isfinite(arr)):
+            raise ValueError(
+                f"supplied mass table {name} contains nonfinite values")
+
+
 def build_quad_table(
     poly,
     x: np.ndarray,
