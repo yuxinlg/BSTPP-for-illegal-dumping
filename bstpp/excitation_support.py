@@ -275,7 +275,12 @@ class ExcitationSupport:
 
 
 def domain_polygon_geometry(domain_gdf) -> Any:
-    """Unary union of a GeoDataFrame domain as a shapely geometry."""
+    """Unary union of a GeoDataFrame domain as a shapely geometry.
+
+    Prefer ``PreparedDomain.union_geometry`` at call sites that already have
+    a prepared domain; this helper remains for characterization and for
+    callers that only hold a raw GeoDataFrame.
+    """
     return unary_union(list(domain_gdf.geometry.values))
 
 
@@ -294,8 +299,13 @@ def build_excitation_support(
     panel_h_m: float = DEFAULT_PANEL_H_M,
     gl_order: int = DEFAULT_GL_ORDER,
     mass_table: PolygonMassTable | None = None,
+    union_geometry: Any | None = None,
 ) -> ExcitationSupport:
-    """Construct the support object; build Hermite tables in polygon mode."""
+    """Construct the support object; build Hermite tables in polygon mode.
+
+    For polygon domains, ``union_geometry`` must be the canonical
+    ``PreparedDomain.union_geometry`` (no independent unary_union here).
+    """
     if mode not in ("rectangle", "polygon"):
         raise ValueError(
             f"excitation_support must be 'rectangle' or 'polygon', got {mode!r}")
@@ -304,7 +314,11 @@ def build_excitation_support(
         mode=mode, min_sigma=min_sigma, max_sigma=max_sigma, crs=crs)
 
     if is_polygon_domain:
-        geom = domain_polygon_geometry(domain_gdf)
+        if union_geometry is None:
+            raise ValueError(
+                "union_geometry is required for polygon domains; pass "
+                "PreparedDomain.union_geometry")
+        geom = union_geometry
     else:
         A_ = np.asarray(bounds, dtype=float)
         geom = shapely_box(A_[0, 0], A_[1, 0], A_[0, 1], A_[1, 1])

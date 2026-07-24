@@ -295,8 +295,14 @@ def prepare_partitions(domain: PreparedDomain, horizon_days: float,
         clipped = comp_grid.loc[
             comp_grid['comp_grid_id'].isin(candidate_cells),
             ['comp_grid_id', 'geometry']].copy()
+        # Canonical domain geometry from PreparedDomain (no independent
+        # union_all recompute). Overlapping rows already resolved there.
+        if domain.union_geometry is None:
+            raise ValueError(
+                "PreparedDomain.union_geometry is required for polygon "
+                "domains (set by prepare_domain)")
         clipped['geometry'] = clipped.geometry.intersection(
-            domain.domain.geometry.union_all()).apply(_polygonal_part)
+            domain.union_geometry).apply(_polygonal_part)
         clipped['area'] = clipped.area / rect_area
         support_cells = clipped[clipped['area'] > SLIVER_AREA_INTERNAL
                                 ].reset_index(drop=True)
@@ -375,8 +381,16 @@ def attach_covariate_partitions(partitions: PreparedPartitions,
     # the plain-Hawkes compensator areas and background-sampler geometry,
     # and the "domain_area" standardization weights (rows aligned 1:1 with
     # cov_ind; zero-area rows KEPT so covariate indexing is unchanged).
-    domain_geom = (domain.domain.geometry.union_all() if domain.is_polygon
-                   else box(A_[0, 0], A_[1, 0], A_[0, 1], A_[1, 1]))
+    # Polygon domains consume PreparedDomain.union_geometry (canonical);
+    # rectangle arrays use the bounding box.
+    if domain.is_polygon:
+        if domain.union_geometry is None:
+            raise ValueError(
+                "PreparedDomain.union_geometry is required for polygon "
+                "domains (set by prepare_domain)")
+        domain_geom = domain.union_geometry
+    else:
+        domain_geom = box(A_[0, 0], A_[1, 0], A_[0, 1], A_[1, 1])
     cov_support = spatial_cov.copy()
     cov_support['geometry'] = (cov_support.geometry
                                .intersection(domain_geom)

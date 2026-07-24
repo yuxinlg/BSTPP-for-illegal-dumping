@@ -187,7 +187,7 @@ def test_prepare_partitions_support_area_matches_canonical_union(case):
 def test_excitation_support_domain_geom_matches_prepared_union():
     """Rectangle-mode GeoDataFrame: ExcitationSupport.domain_geom must match
     PreparedDomain.union_geometry (equals + WKB + hash). After plumbing it
-    should be the same object (no independent recompute).
+    must be the same object (no independent recompute).
     """
     from bstpp.polygon_mass import _geometry_sha256
 
@@ -200,6 +200,7 @@ def test_excitation_support_domain_geom_matches_prepared_union():
     )
     canon = m.prepared_domain.union_geometry
     geom = m.excitation_support.domain_geom
+    assert canon is geom, "excitation support must reuse canonical union_geometry"
     assert canon.equals(geom)
     assert canon.wkb == geom.wkb
     assert _geometry_sha256(canon) == _geometry_sha256(geom)

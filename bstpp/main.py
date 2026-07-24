@@ -1858,6 +1858,7 @@ class Hawkes_Model(Point_Process_Model):
             event_x_real=np.asarray(event_x_real, dtype=float),
             event_y_real=np.asarray(event_y_real, dtype=float),
             mass_table=None,
+            union_geometry=self.prepared_domain.union_geometry,
         )
 
     def _install_excitation_support(self, spatial_window=None):
@@ -1880,6 +1881,7 @@ class Hawkes_Model(Point_Process_Model):
             event_x_real=x_real,
             event_y_real=y_real,
             mass_table=self._mass_table_arg,
+            union_geometry=self.prepared_domain.union_geometry,
         )
         # User-supplied table is only valid for the first install; subsequent
         # set_window rebuilds must recompute when ws/events change.
@@ -1939,6 +1941,7 @@ class Hawkes_Model(Point_Process_Model):
             event_x_real=x_real,
             event_y_real=y_real,
             mass_table=self._mass_table_arg,
+            union_geometry=self.prepared_domain.union_geometry,
         )
 
         # Atomic commit: windows, pairs, support, and provenance together.
