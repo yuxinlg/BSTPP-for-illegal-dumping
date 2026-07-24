@@ -350,6 +350,31 @@ def test_crs_mismatch_rejected():
         _model(data, A=tri, mode="reject", spatial_cov=cov, cov_names=["v"])
 
 
+# ------------------------------------------------------------------- horizon
+@pytest.mark.parametrize("bad_T", [0.0, -1.0, float("nan"), float("inf")])
+def test_nonpositive_or_nonfinite_horizon_rejected(bad_T):
+    """T_max / horizon_days must be finite and positive before construction."""
+    data = _interior_data(n=5)
+    # Keep event times valid against a positive horizon so the failure is the
+    # horizon contract itself, not event_time_out_of_range.
+    if np.isfinite(bad_T) and bad_T <= 0.0:
+        data = data.copy()
+        data["T"] = 0.0
+    with pytest.raises(DataContractError, match="horizon_invalid"):
+        Hawkes_Model(
+            data, A_RECT, bad_T, cox_background=False,
+            excitation_support="rectangle",
+            data_contracts="reject", **PRIORS,
+        )
+
+
+def test_validate_events_rejects_nonfinite_horizon_directly():
+    checks = _checks_by_name(
+        validate_events(_interior_data(n=3), A_RECT, float("nan")))
+    assert "horizon_invalid" in checks
+    assert checks["horizon_invalid"].kind == "violation"
+
+
 # ------------------------------------------- held-out path: dropna made loud
 
 def _fitted_model():
