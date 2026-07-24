@@ -29,7 +29,6 @@ from .polygon_mass import (
     DEFAULT_GL_ORDER,
     DEFAULT_PANEL_H_M,
     PolygonMassTable,
-    build_quad_table,
     validate_polygon_mass_table,
 )
 
@@ -333,29 +332,21 @@ def build_excitation_support(
             # CRS-less synthetic domains: treat panel_h_m as domain units
             h_panel = float(panel_h_m)
         if table is None:
-            table = build_quad_table(
-                geom, event_x_real, event_y_real, lo, hi,
-                ws=spatial_window, h_panel=h_panel, gl_order=gl_order,
-                extra_provenance={
-                    "excitation_support": mode,
-                    "min_sigma": lo,
-                    "max_sigma_real": hi,
-                    **{k: v for k, v in bound_meta.items()
-                       if str(k).startswith("max_sigma")},
-                },
-            )
-        else:
-            validate_polygon_mass_table(
-                table,
-                domain_geom=geom,
-                event_x_real=event_x_real,
-                event_y_real=event_y_real,
-                spatial_window=spatial_window,
-                sigma_min=lo,
-                sigma_max=hi,
-                h_panel=h_panel,
-                gl_order=gl_order,
-            )
+            raise ValueError(
+                "Polygon excitation_support requires a prepared mass_table "
+                "from bstpp.polygon_mass.prepare_polygon_mass_table(...); "
+                "silent Hermite table construction is not allowed.")
+        validate_polygon_mass_table(
+            table,
+            domain_geom=geom,
+            event_x_real=event_x_real,
+            event_y_real=event_y_real,
+            spatial_window=spatial_window,
+            sigma_min=lo,
+            sigma_max=hi,
+            h_panel=h_panel,
+            gl_order=gl_order,
+        )
         builder_meta = dict(table.provenance)
 
     prov = {

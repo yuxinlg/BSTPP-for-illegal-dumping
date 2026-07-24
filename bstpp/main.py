@@ -1849,6 +1849,7 @@ class Hawkes_Model(Point_Process_Model):
         self.set_window(
             cutoff_prov.temporal.window_internal,
             cutoff_prov.spatial.spatial_window,
+            mass_table=mass_table if mode == "polygon" else None,
         )
         self.cutoff_provenance = cutoff_prov
 
@@ -1870,13 +1871,40 @@ class Hawkes_Model(Point_Process_Model):
 
         Reuses the fitted model's domain, spatial cutoff, sigma bounds, and the
         same ``build_excitation_support`` path as training install. Does not
-        mutate ``self.args`` or the training support object.
+        mutate ``self.args`` or the training support object. Polygon mode
+        prepares a held-out table via ``prepare_polygon_mass_table``.
         """
+        from shapely.geometry import box as shapely_box
+
+        from .polygon_mass import prepare_polygon_mass_table
+
         mode = resolve_excitation_support_mode(
             is_polygon_domain=self.prepared_domain.is_polygon,
             excitation_support=self._excitation_support_arg)
         domain_gdf = (self.prepared_domain.domain
                       if self.prepared_domain.is_polygon else None)
+        event_x_real = np.asarray(event_x_real, dtype=float)
+        event_y_real = np.asarray(event_y_real, dtype=float)
+        mass_table = None
+        if mode == "polygon":
+            from .excitation_support import resolve_sigma_bounds
+            lo, hi, _ = resolve_sigma_bounds(
+                mode=mode,
+                min_sigma=self._min_sigma_arg,
+                max_sigma=self._max_sigma_arg,
+                crs=self.prepared_domain.crs)
+            if self.prepared_domain.is_polygon:
+                geom = self.prepared_domain.union_geometry
+            else:
+                A_ = np.asarray(self.args['A_'], dtype=float)
+                geom = shapely_box(A_[0, 0], A_[1, 0], A_[0, 1], A_[1, 1])
+            mass_table = prepare_polygon_mass_table(
+                geom, event_x_real, event_y_real,
+                min_sigma=float(lo),
+                max_sigma=float(hi),
+                spatial_window=self.args.get('spatial_window'),
+                crs=self.prepared_domain.crs,
+            )
         return build_excitation_support(
             mode=mode,
             bounds=self.args['A_'],
@@ -1886,9 +1914,9 @@ class Hawkes_Model(Point_Process_Model):
             spatial_window=self.args.get('spatial_window'),
             min_sigma=self._min_sigma_arg,
             max_sigma=self._max_sigma_arg,
-            event_x_real=np.asarray(event_x_real, dtype=float),
-            event_y_real=np.asarray(event_y_real, dtype=float),
-            mass_table=None,
+            event_x_real=event_x_real,
+            event_y_real=event_y_real,
+            mass_table=mass_table,
             union_geometry=self.prepared_domain.union_geometry,
         )
 
@@ -1921,15 +1949,17 @@ class Hawkes_Model(Point_Process_Model):
         self.excitation_support = support
         self.excitation_provenance = dict(support.provenance)
 
-    def set_window(self, window, spatial_window=None):
+    def set_window(self, window, spatial_window=None, *, mass_table=None):
         """window: temporal computational cutoff, INTERNAL units.
         spatial_window: spatial computational cutoff, REAL length (D-21
-        square). Rebuilds pairs, the excitation support object (polygon
-        Hermite table is ws-dependent), and ``cutoff_provenance``
-        transactionally as a physical override of the realized cutoffs.
+        square). Rebuilds pairs and ``cutoff_provenance`` transactionally.
 
-        If validation or support rebuilding raises, all observable model
-        state is left unchanged.
+        Polygon mode: a temporal-only change (same realized spatial_window)
+        reuses the installed mass table. A changed spatial_window requires
+        ``mass_table=`` from ``prepare_polygon_mass_table`` matching the new
+        window; silent Hermite rebuild is not allowed. Candidate table,
+        pairs, support, and provenance are prepared locally and committed
+        only after validation succeeds.
         """
         window = float(window)
         if not (math.isfinite(window) and window > 0):
@@ -1939,6 +1969,48 @@ class Hawkes_Model(Point_Process_Model):
             if not (math.isfinite(spatial_window) and spatial_window > 0):
                 raise ValueError(
                     f"spatial_window must be finite and > 0; got {spatial_window}")
+
+        def _sw_equal(a, b):
+            if a is None and b is None:
+                return True
+            if a is None or b is None:
+                return False
+            return float(a) == float(b)
+
+        prev_sw = self.args.get('spatial_window')
+        spatial_changed = not _sw_equal(prev_sw, spatial_window)
+
+        mode = resolve_excitation_support_mode(
+            is_polygon_domain=self.prepared_domain.is_polygon,
+            excitation_support=self._excitation_support_arg)
+
+        table_arg = None
+        if mode == "polygon":
+            if spatial_changed:
+                if mass_table is None:
+                    raise ValueError(
+                        "Polygon set_window with a changed spatial_window "
+                        "requires mass_table= from "
+                        "bstpp.polygon_mass.prepare_polygon_mass_table(...) "
+                        "matching the new spatial_window; silent rebuild is "
+                        "not allowed.")
+                table_arg = mass_table
+            else:
+                # Temporal-only: reuse installed table unless a replacement
+                # is explicitly supplied.
+                if mass_table is not None:
+                    table_arg = mass_table
+                elif getattr(self, "excitation_support", None) is not None:
+                    table_arg = self.excitation_support.mass_table
+                else:
+                    table_arg = self._mass_table_arg
+                if table_arg is None:
+                    raise ValueError(
+                        "Polygon set_window requires an installed or supplied "
+                        "mass_table from prepare_polygon_mass_table(...).")
+        elif mass_table is not None:
+            raise ValueError(
+                "mass_table is only accepted for polygon excitation_support")
 
         # Prepare the full replacement state before mutating self.
         coords, t_vals, x_vals, y_vals = aligned_difference_pairs(
@@ -1954,9 +2026,6 @@ class Hawkes_Model(Point_Process_Model):
             window_internal=window,
             spatial_window=spatial_window,
         )
-        mode = resolve_excitation_support_mode(
-            is_polygon_domain=self.prepared_domain.is_polygon,
-            excitation_support=self._excitation_support_arg)
         x_real, y_real = self._event_xy_real()
         domain_gdf = (self.prepared_domain.domain
                       if self.prepared_domain.is_polygon else None)
@@ -1971,7 +2040,7 @@ class Hawkes_Model(Point_Process_Model):
             max_sigma=self._max_sigma_arg,
             event_x_real=x_real,
             event_y_real=y_real,
-            mass_table=self._mass_table_arg,
+            mass_table=table_arg,
             union_geometry=self.prepared_domain.union_geometry,
         )
 
@@ -1982,8 +2051,6 @@ class Hawkes_Model(Point_Process_Model):
         self.args['t_vals'] = t_vals
         self.args['x_vals'] = x_vals
         self.args['y_vals'] = y_vals
-        # User-supplied table is only valid for the first install; subsequent
-        # set_window rebuilds must recompute when ws/events change.
         self._mass_table_arg = None
         self.args['excitation_support'] = support
         self.excitation_support = support

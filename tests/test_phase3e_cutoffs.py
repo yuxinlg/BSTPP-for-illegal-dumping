@@ -504,7 +504,7 @@ def test_set_window_success_updates_pairs_cutoffs_support_consistently():
 
 def test_set_window_polygon_success_and_failed_rebuild_leave_or_update_consistently(
         monkeypatch):
-    """Polygon mode: success refreshes table/support; failed rebuild is a no-op."""
+    """Polygon mode: spatial change needs mass_table=; failed rebuild is a no-op."""
     A = np.array([[0.0, 200.0], [0.0, 200.0]])
     priors = dict(
         a_0=dist.Normal(0, 5),
@@ -536,13 +536,15 @@ def test_set_window_polygon_success_and_failed_rebuild_leave_or_update_consisten
         raise RuntimeError("forced polygon support rebuild failure")
 
     monkeypatch.setattr("bstpp.main.build_excitation_support", _boom)
+    new_table = prepare_table_for_model(
+        data, A, min_sigma=5.0, max_sigma=40.0, spatial_window=40.0)
     with pytest.raises(RuntimeError, match="forced polygon support rebuild"):
-        m.set_window(12.0, spatial_window=40.0)
+        m.set_window(12.0, spatial_window=40.0, mass_table=new_table)
     _assert_window_state_unchanged(before, m)
 
     # Successful polygon update after restoring the real builder.
     monkeypatch.undo()
-    m.set_window(12.0, spatial_window=40.0)
+    m.set_window(12.0, spatial_window=40.0, mass_table=new_table)
     after = _observable_window_state(m)
     assert after["window"] == pytest.approx(12.0)
     assert after["spatial_window"] == pytest.approx(40.0)
