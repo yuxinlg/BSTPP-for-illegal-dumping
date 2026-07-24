@@ -115,3 +115,91 @@ def test_model_A_area_and_support_use_union_canonical_geometry():
     parts = prepare_partitions(m.prepared_domain, T_DAYS, 0.0)
     support_area = float(parts.support_cells["area"].sum())
     assert support_area == pytest.approx(m.prepared_domain.area_ratio, rel=1e-6)
+
+
+# ---------- characterization: independent unions match PreparedDomain ------
+def _geom_cases():
+    from shapely.geometry import Polygon
+    return {
+        "single": gpd.GeoDataFrame(geometry=[box(0, 0, 1, 1)]),
+        "disjoint": gpd.GeoDataFrame(
+            geometry=[box(0, 0, 1, 1), box(2, 0, 3, 1)]),
+        "overlap": gpd.GeoDataFrame(
+            geometry=[box(0, 0, 2, 2), box(1, 1, 3, 3)]),
+        "mixed": gpd.GeoDataFrame(geometry=[
+            Polygon([(0, 0), (2, 0), (1, 2)]),
+            box(1.5, 0.5, 2.5, 1.5),
+        ]),
+    }
+
+
+def _independent_unions(gdf):
+    """Mirror the pre-plumbing downstream recomputation sites."""
+    from bstpp.excitation_support import domain_polygon_geometry
+    from bstpp.polygon_mass import _geometry_sha256
+
+    series_union = (
+        gdf.geometry.union_all() if hasattr(gdf.geometry, "union_all")
+        else gdf.geometry.unary_union)
+    return {
+        "prepared": prepare_domain(gdf).union_geometry,
+        "series_union_all": series_union,
+        "excitation_recompute": domain_polygon_geometry(gdf),
+        "hash_prepared": _geometry_sha256(prepare_domain(gdf).union_geometry),
+        "hash_series": _geometry_sha256(series_union),
+        "hash_excitation": _geometry_sha256(domain_polygon_geometry(gdf)),
+    }
+
+
+@pytest.mark.parametrize("case", ["single", "disjoint", "overlap", "mixed"])
+def test_independent_domain_unions_match_prepared_wkb_and_hash(case):
+    """Pre-plumbing characterization: downstream unary_union / union_all
+    recomputes currently equal PreparedDomain.union_geometry (equals + WKB
+    + geometry hash). Plumbing must preserve this identity numerically.
+    """
+    gdf = _geom_cases()[case]
+    u = _independent_unions(gdf)
+    canon = u["prepared"]
+    assert canon is not None
+    for name in ("series_union_all", "excitation_recompute"):
+        other = u[name]
+        assert canon.equals(other), f"{case}: equals failed vs {name}"
+        assert canon.wkb == other.wkb, f"{case}: WKB mismatch vs {name}"
+        assert float(canon.area) == pytest.approx(float(other.area))
+    assert u["hash_prepared"] == u["hash_series"] == u["hash_excitation"]
+
+
+@pytest.mark.parametrize("case", ["single", "disjoint", "overlap", "mixed"])
+def test_prepare_partitions_support_area_matches_canonical_union(case):
+    gdf = _geom_cases()[case]
+    dom = prepare_domain(gdf)
+    parts = prepare_partitions(dom, T_DAYS, 0.0)
+    support_area = float(parts.support_cells["area"].sum())
+    assert support_area == pytest.approx(dom.area_ratio, rel=1e-6)
+    # Absolute union area in real units recovers from area_ratio * rect.
+    rect_area = float(
+        (dom.bounds[0, 1] - dom.bounds[0, 0])
+        * (dom.bounds[1, 1] - dom.bounds[1, 0]))
+    assert support_area * rect_area == pytest.approx(
+        float(dom.union_geometry.area), rel=1e-6)
+
+
+def test_excitation_support_domain_geom_matches_prepared_union():
+    """Rectangle-mode GeoDataFrame: ExcitationSupport.domain_geom must match
+    PreparedDomain.union_geometry (equals + WKB + hash). After plumbing it
+    should be the same object (no independent recompute).
+    """
+    from bstpp.polygon_mass import _geometry_sha256
+
+    gdf = _geom_cases()["overlap"]
+    union = unary_union(list(gdf.geometry.values))
+    data = _events_in(union, n=5, seed=3)
+    m = Hawkes_Model(
+        data, gdf, T_DAYS, cox_background=False,
+        excitation_support="rectangle", **PRIORS,
+    )
+    canon = m.prepared_domain.union_geometry
+    geom = m.excitation_support.domain_geom
+    assert canon.equals(geom)
+    assert canon.wkb == geom.wkb
+    assert _geometry_sha256(canon) == _geometry_sha256(geom)
