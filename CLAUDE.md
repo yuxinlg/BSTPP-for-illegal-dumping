@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Fork of [imanring/BSTPP](https://github.com/imanring/BSTPP.git) — Bayesian spatiotemporal point processes (LGCP, Hawkes, Cox-Hawkes, with optional spatial covariates) on numpyro/JAX — adapted for Philadelphia illegal-dumping analysis. Model math is in the README; API doc in `docs/bstpp_API_doc.pdf`. Work happens on branch `audit-fixes` with a one-atomic-commit-per-fix discipline: commit bodies explain the bug, the fix, and the verification (read `git log` for precedent before committing).
+Fork of [imanring/BSTPP](https://github.com/imanring/BSTPP.git) — Bayesian spatiotemporal point processes (LGCP, Hawkes, Cox-Hawkes, with optional spatial covariates) on numpyro/JAX — adapted for Philadelphia illegal-dumping analysis. Model math is in the README; API doc in `docs/bstpp_API_doc.pdf`; the frozen Phase 3 contracts and acceptance matrix are in `docs/phase3_baseline_and_decisions.tex`. Work happens on branch `refactor` with small, atomic commits. Bug fixes follow the test-first sequence required below: commit the failing regression test before the implementation commit. Commit bodies explain the bug, the change, and the verification (read `git log` for precedent before committing).
 
 ## Environment and commands
 
@@ -25,9 +25,14 @@ Gotchas: `run_svi(num_steps, lr, ...)` — `lr` is a required positional; pass `
 
 ## Architecture
 
-- `bstpp/main.py` — `Point_Process_Model` base: the constructor rescales data to internal units, builds the temporal/seasonal/spatial grids, joins covariates, precomputes the excitation pairs and the `season_overlap` matrix, and assembles `self.args` (the single dict passed to the numpyro model). Subclasses `Hawkes_Model` / `LGCP_Model` pick the model function; also home to the simulators (`_sim_cox`, `_sim_hawkes_bg`, `_sim_offspring`, `simulate`) and metrics (`log_expected_likelihood`, `expected_AIC`).
+- `bstpp/main.py` — `Point_Process_Model` base and workflow orchestrator: validates/prepares the supplied data through the Phase 3 seams, assembles `self.args` (the numpyro-facing compatibility view), and retains fitted state. Subclasses `Hawkes_Model` / `LGCP_Model` pick the model function; also home to the simulators (`_sim_cox`, `_sim_hawkes_bg`, `_sim_offspring`, `simulate`) and metrics (`log_expected_likelihood`, `expected_AIC`).
+- `bstpp/data_contracts.py` — pre-construction validation/reporting for events, domain geometry, time horizon, covariates, CRS, and coverage. Reject mode must surface invalid inputs without silently dropping, repairing, or snapping rows.
+- `bstpp/preparation.py` + `bstpp/spatial_grid_helpers.py` — the three Phase 3b data-bearing objects (`ModelData`, `PreparedDomain`, `PreparedPartitions`) and the pure preparation steps for grids, clipped support, covariate refinement, membership, areas, and `season_overlap`. `ModelDomain`, `ReportingRegions`, and `ComputationPartition` remain deferred contracts, not classes.
+- `bstpp/decode_fields.py` + `bstpp/likelihood.py` — shared field decoding and likelihood atoms used by the numpyro models, simulation checks, and diagnostics.
+- `bstpp/excitation_support.py` + `bstpp/polygon_mass.py` — explicit rectangle/polygon excitation-support policy, sigma bounds/prior truncation, and the polygon Gaussian Hermite mass-table backend.
+- `bstpp/cutoffs.py` — Phase 3e real-day temporal conversion, computational cutoff resolution, omitted-mass calculations, and cutoff provenance.
 - `bstpp/inference_functions.py` — the numpyro model functions: `spatiotemporal_hawkes_model` (branches on `args['model']` = `'hawkes'` vs `'cox_hawkes'`) and `spatiotemporal_LGCP_model`. Likelihood = event term − compensator, emitted as one `loglik_factor` factor site plus `loglik`/`Itot_*` deterministics.
-- `bstpp/trigger.py` — pluggable excitation kernels (`Temporal_Exponential` samples `beta`; `Spatial_Symmetric_Gaussian` samples `sigmax_2`).
+- `bstpp/trigger.py` — pluggable excitation kernels (`Temporal_Exponential` and `Temporal_Power_Law` sample `beta`; `Spatial_Symmetric_Gaussian` samples `sigmax_2`). A trigger is usable only on paths that can evaluate both its event term and its matching compensator.
 - `bstpp/utils.py` — `aligned_difference_pairs`: O(n log n + P) construction of excitation pairs; its docstring IS the contract (receiver `coords[:,0]`, source `coords[:,1]`, strict `0 < dt <= window`, ordering not guaranteed).
 - `bstpp/vae_functions.py` + `bstpp/decoders/` — pretrained VAE decoders that stand in for GP priors on the background fields `f_t` (temporal, n_t=50), `f_a` (seasonal, n_s=24), `f_xy` (spatial, 25×25). The `.meta.txt` sidecar next to the seasonal decoder has honest UNKNOWN provenance fields — never fill them with invented values.
 - `scripts/recover_test.py` — simulate-and-recover harness (plumbing check, not SBC). Pass/fail scores identified targets only: `log_background = log(Itot_txy − Itot_excite)` and the plug-in excitation share; the mean-log `a0+fbar` row is a diagnostic with no verdict.
@@ -42,8 +47,18 @@ Gotchas: `run_svi(num_steps, lr, ...)` — `lr` is a required positional; pass `
 
 **Diagnostics vs likelihood.** `season_idx_of_t` (midpoint seasonal index), `rate_time`, `rate_t/Itot_t`, `rate_a/Itot_a` are marginal diagnostics only — the likelihood does not use them, `Itot_t·Itot_a·Itot_xy ≠ Itot_txy` by design, and `rate_xy` excludes the covariate term `b_0`.
 
+**Phase 3 audit status (2026-07-23).** The following prepared-data, event-indexed-state, polygon-support, and cutoff rules are binding contracts, but the Phase 3d/3e tip does not yet enforce all of them. Add a regression test that fails for the identified defect before changing production code; do not treat a rule's presence in this file as verification that the implementation satisfies it.
+
+**Prepared-data contract.** `T_max` / `horizon_days` must be finite and positive. A GeoDataFrame domain must have polygonal, finite, positive-area support. One explicit policy must govern positive-area overlap between domain rows: either reject it or union rows consistently; never mix summed row areas with union geometry. If the domain declares a CRS, covariates must declare the same CRS — a missing or different covariate CRS is incompatible. Invalid inputs are rejected before partition construction.
+
+**Event-indexed state.** Every object indexed by an event or parent must be prepared from the SAME realization, in the SAME row order, that the likelihood scores. This includes excitation pairs, `cov_ind`, event coordinates/times, and polygon mass-table rows. `log_expected_likelihood(test_data)` treats held-out data as a separate realization, not forward forecasting conditional on training history: it must rebuild all event-indexed state from `test_data` without mutating or reusing training-event state.
+
+**Polygon excitation support.** The current Hermite mass-table backend integrates `Spatial_Symmetric_Gaussian` only. Polygon mode must reject any custom/non-Gaussian spatial trigger until that trigger supplies a matching polygon-mass backend; evaluating one kernel in the event term and Gaussian mass in the compensator is an invalid likelihood. A supplied `PolygonMassTable` is valid only for the exact domain union, event coordinates and row order, spatial window, sigma range/grid, and build settings recorded in its metadata. Validate those identities, shapes, and finite values before reuse; equal row counts are not evidence of compatibility.
+
+**Cutoff semantics and provenance.** The tolerance formulas in `cutoffs.py` are kernel-specific: temporal omitted mass and `mean_lag_days` apply to `Temporal_Exponential`; spatial omitted mass applies to `Spatial_Symmetric_Gaussian` with the per-axis square cutoff. `Temporal_Power_Law.beta` is a shape parameter, not a mean lag. Do not apply the tolerance/scale interface to unsupported triggers; explicit physical `window` / `spatial_window` remains the compatible path. Validate every supplied tolerance as finite and in `(0, 1)` even when a physical cutoff wins precedence. Any public window change must update the realized cutoff and `cutoff_provenance` atomically.
+
 **Silent-failure traps already fixed once — don't reintroduce:**
-- `jax.ops.segment_sum` drops out-of-range indices silently: excitation pairs must always be built from the SAME event set the likelihood scores (`log_expected_likelihood` rebuilds pairs on held-out events and rejects test times outside `[0, T]`).
+- `jax.ops.segment_sum` drops out-of-range indices silently: excitation pairs and every other event-indexed object must always be built from the SAME event set the likelihood scores (`log_expected_likelihood` rebuilds held-out state and rejects test times outside `[0, T]`).
 - numpyro `Predictive` drops missing site names silently: the `run_svi` sites list is model-aware (`Itot_excite` only for hawkes/cox_hawkes).
 - Simulators must operate on `.copy()`s — never write columns into `self.A` / `self.spatial_cov`.
 - The `comp_grid.sjoin(A)` used for spatial mass has border duplicates, so `Ih` is not `Itot_xy` in general — mirror the simulator's own computation when checking it.
@@ -51,6 +66,8 @@ Gotchas: `run_svi(num_steps, lr, ...)` — `lr` is a required positional; pass `
 ## General testing conventions
 
 Tests are mostly regression pins: they typically map to a specific audit fix (see the docstring headers and matching commits). The standard pattern is to trace the model directly — `handlers.trace(handlers.seed(model.model, PRNGKey(0))).get_trace(model.args)`, with `handlers.substitute` for fixed-parameter comparisons — rather than running inference. When adding a fix + test, verify the test actually FAILS on the pre-fix code (temporarily revert, run, restore) before committing; state that in the commit body.
+
+A green full suite alone is not a Phase 3 acceptance record. For each checkpoint or semantic correction, preserve the targeted RED/GREEN evidence, run the full suite, run all four configurations in the machine-local golden-pin harness `refactor-patches/pin_check_v2.py`, and run `ruff`; record the exact commands, outputs, and change classification in the checkpoint acceptance/rebaseline document. The Phase 3d/3e records still need to be backfilled: label post-hoc evidence honestly and never claim a historical RED run that was not observed.
 
 ## Refactoring principles for BSTPP
  
@@ -107,6 +124,10 @@ mode, so **validation and testing rank above cleanliness.**
 - Prefer explicit generator objects (`np.random.default_rng(seed)`, or the
   passed JAX PRNGKey) over the global seed. Thread the key/rng through function
   arguments — do not reach for global RNG state inside functions.
+- Never mutate process-global JAX configuration (including
+  `jax_enable_x64`) inside model construction or a reusable library call.
+  Precision-sensitive polygon-table construction belongs in an explicit,
+  controlled preparation step.
 - Results must be **robust to seed**, not cherry-picked from one lucky seed
   (avoid "seed-hacking"). If a refactor changes the RNG call order, expect
   numeric drift and re-baseline deliberately, documenting why.
@@ -124,7 +145,9 @@ mode, so **validation and testing rank above cleanliness.**
 - Default to **functions**; reach for classes only when they hide real
   complexity (persistent fitted state, the sklearn-style `.fit()/.predict()`
   contract, many independent instances). Keep the extensible **Trigger** module
-  a clean, minimal interface so users can drop in their own trigger functions.
+  a clean, minimal interface so users can drop in their own trigger functions,
+  but never advertise a trigger on a support mode that cannot compute its
+  matching compensator.
 - **Kill duplication (DRY):** repeated near-identical blocks → a loop over a
   dict/config. No numbers baked into variable names.
 - **No magic numbers:** name every constant (thresholds, default β/σ, grid
