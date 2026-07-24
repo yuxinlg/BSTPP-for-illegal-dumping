@@ -97,12 +97,18 @@ def temporal_omitted_mass(window: float, beta: float) -> float:
     return float(math.exp(-window / beta))
 
 
+def _validate_cutoff_tol(eps: float, *, name: str) -> float:
+    """Require a finite omitted-mass tolerance in (0, 1)."""
+    eps = float(eps)
+    if not (math.isfinite(eps) and 0.0 < eps < 1.0):
+        raise ValueError(f"{name} must be finite and in (0, 1); got {eps}")
+    return eps
+
+
 def temporal_cutoff_from_tol(eps: float, beta: float) -> float:
     """w = beta * ln(1/eps) for target omitted mass eps in (0, 1)."""
-    eps = float(eps)
+    eps = _validate_cutoff_tol(eps, name="temporal tol")
     beta = float(beta)
-    if not (math.isfinite(eps) and 0.0 < eps < 1.0):
-        raise ValueError(f"temporal tol must be in (0, 1); got {eps}")
     if not (math.isfinite(beta) and beta > 0):
         raise ValueError(f"beta must be finite and > 0; got {beta}")
     return float(beta * math.log(1.0 / eps))
@@ -127,10 +133,8 @@ def spatial_omitted_mass(spatial_window: float, sigma: float) -> float:
 
 def spatial_cutoff_from_tol(eps: float, sigma: float) -> float:
     """w_s = sqrt(2) * sigma * erfinv(sqrt(1 - eps)) for the square cutoff."""
-    eps = float(eps)
+    eps = _validate_cutoff_tol(eps, name="spatial tol")
     sigma = float(sigma)
-    if not (math.isfinite(eps) and 0.0 < eps < 1.0):
-        raise ValueError(f"spatial tol must be in (0, 1); got {eps}")
     if not (math.isfinite(sigma) and sigma > 0):
         raise ValueError(f"sigma must be finite and > 0; got {sigma}")
     retained = math.sqrt(1.0 - eps)
@@ -213,6 +217,12 @@ def resolve_computational_cutoffs(
 
     eps_t = temporal_cutoff_tol if temporal_cutoff_tol is not None else cutoff_tol
     eps_s = spatial_cutoff_tol if spatial_cutoff_tol is not None else cutoff_tol
+    # Validate every supplied tolerance even when a physical cutoff wins
+    # precedence and the tol is only retained in provenance.
+    if eps_t is not None:
+        _validate_cutoff_tol(eps_t, name="temporal cutoff tol")
+    if eps_s is not None:
+        _validate_cutoff_tol(eps_s, name="spatial cutoff tol")
 
     # ---- temporal ----
     design_beta_internal: Optional[float] = None
