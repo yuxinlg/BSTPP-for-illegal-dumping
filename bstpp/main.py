@@ -1804,11 +1804,14 @@ class Hawkes_Model(Point_Process_Model):
             design_mean_lag_days=design_mean_lag_days,
             design_sigma=design_sigma,
         )
-        self.cutoff_provenance = cutoff_prov
+        # Install realized windows first; public set_window rewrites provenance
+        # as a physical override, so restore the OP-6 construction record
+        # (tolerance vs physical selection) afterward.
         self.set_window(
             cutoff_prov.temporal.window_internal,
             cutoff_prov.spatial.spatial_window,
         )
+        self.cutoff_provenance = cutoff_prov
 
     @staticmethod
     def _xy_events_to_real(args):
@@ -1880,12 +1883,18 @@ class Hawkes_Model(Point_Process_Model):
     def set_window(self, window, spatial_window=None):
         """window: temporal computational cutoff, INTERNAL units.
         spatial_window: spatial computational cutoff, REAL length (D-21
-        square). Rebuilds pairs and the excitation support object (polygon
-        Hermite table is ws-dependent). Does not rewrite cutoff_provenance
-        from the constructor's OP-6 resolution -- call resolve + assign
-        explicitly if cutoffs are re-selected."""
+        square). Rebuilds pairs, the excitation support object (polygon
+        Hermite table is ws-dependent), and ``cutoff_provenance`` atomically
+        as a physical override of the realized cutoffs.
+        """
         super().set_window(window, spatial_window)
         self._install_excitation_support(self.args.get('spatial_window'))
+        ws = self.args.get('spatial_window')
+        self.cutoff_provenance = resolve_computational_cutoffs(
+            horizon_days=float(self.T),
+            window_internal=float(self.args['window']),
+            spatial_window=float(ws) if ws is not None else None,
+        )
 
     def export_polygon_mass_table(self, path):
         """Export the polygon-mode Hermite table for later refit reload."""
