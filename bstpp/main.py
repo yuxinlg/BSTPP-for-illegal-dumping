@@ -1564,14 +1564,20 @@ class Point_Process_Model:
     def set_window(self, window, spatial_window=None):
         """window: temporal truncation, INTERNAL units. spatial_window:
         spatial truncation, REAL length (real-space square of half-width ws;
-        see aligned_difference_pairs / within_real_box_window)."""
+        see aligned_difference_pairs / within_real_box_window).
+
+        Validates inputs and rebuilds pairs in local state; assigns only after
+        the replacement pairs are prepared successfully.
+        """
         window = float(window)
+        if not (math.isfinite(window) and window > 0):
+            raise ValueError(f"window must be finite and > 0; got {window}")
         if spatial_window is not None:
             spatial_window = float(spatial_window)
-        self.args['window'] = window
-        self.args['spatial_window'] = spatial_window
+            if not (math.isfinite(spatial_window) and spatial_window > 0):
+                raise ValueError(
+                    f"spatial_window must be finite and > 0; got {spatial_window}")
 
-        # Recompute pairs with both windows (spatial one in REAL units)
         coords, t_vals, x_vals, y_vals = aligned_difference_pairs(
             self.args['t_events'],
             self.args['xy_events'][0],
@@ -1581,6 +1587,8 @@ class Point_Process_Model:
             axis_scales=np.asarray(self.args['axis_scales'])
         )
 
+        self.args['window'] = window
+        self.args['spatial_window'] = spatial_window
         self.args['coords'] = coords
         self.args['t_vals'] = t_vals
         self.args['x_vals'] = x_vals
@@ -1884,17 +1892,69 @@ class Hawkes_Model(Point_Process_Model):
         """window: temporal computational cutoff, INTERNAL units.
         spatial_window: spatial computational cutoff, REAL length (D-21
         square). Rebuilds pairs, the excitation support object (polygon
-        Hermite table is ws-dependent), and ``cutoff_provenance`` atomically
-        as a physical override of the realized cutoffs.
+        Hermite table is ws-dependent), and ``cutoff_provenance``
+        transactionally as a physical override of the realized cutoffs.
+
+        If validation or support rebuilding raises, all observable model
+        state is left unchanged.
         """
-        super().set_window(window, spatial_window)
-        self._install_excitation_support(self.args.get('spatial_window'))
-        ws = self.args.get('spatial_window')
-        self.cutoff_provenance = resolve_computational_cutoffs(
-            horizon_days=float(self.T),
-            window_internal=float(self.args['window']),
-            spatial_window=float(ws) if ws is not None else None,
+        window = float(window)
+        if not (math.isfinite(window) and window > 0):
+            raise ValueError(f"window must be finite and > 0; got {window}")
+        if spatial_window is not None:
+            spatial_window = float(spatial_window)
+            if not (math.isfinite(spatial_window) and spatial_window > 0):
+                raise ValueError(
+                    f"spatial_window must be finite and > 0; got {spatial_window}")
+
+        # Prepare the full replacement state before mutating self.
+        coords, t_vals, x_vals, y_vals = aligned_difference_pairs(
+            self.args['t_events'],
+            self.args['xy_events'][0],
+            self.args['xy_events'][1],
+            window=window,
+            spatial_window=spatial_window,
+            axis_scales=np.asarray(self.args['axis_scales'])
         )
+        cutoff_provenance = resolve_computational_cutoffs(
+            horizon_days=float(self.T),
+            window_internal=window,
+            spatial_window=spatial_window,
+        )
+        mode = resolve_excitation_support_mode(
+            is_polygon_domain=self.prepared_domain.is_polygon,
+            excitation_support=self._excitation_support_arg)
+        x_real, y_real = self._event_xy_real()
+        domain_gdf = (self.prepared_domain.domain
+                      if self.prepared_domain.is_polygon else None)
+        support = build_excitation_support(
+            mode=mode,
+            bounds=self.args['A_'],
+            domain_gdf=domain_gdf,
+            is_polygon_domain=self.prepared_domain.is_polygon,
+            crs=self.prepared_domain.crs,
+            spatial_window=spatial_window,
+            min_sigma=self._min_sigma_arg,
+            max_sigma=self._max_sigma_arg,
+            event_x_real=x_real,
+            event_y_real=y_real,
+            mass_table=self._mass_table_arg,
+        )
+
+        # Atomic commit: windows, pairs, support, and provenance together.
+        self.args['window'] = window
+        self.args['spatial_window'] = spatial_window
+        self.args['coords'] = coords
+        self.args['t_vals'] = t_vals
+        self.args['x_vals'] = x_vals
+        self.args['y_vals'] = y_vals
+        # User-supplied table is only valid for the first install; subsequent
+        # set_window rebuilds must recompute when ws/events change.
+        self._mass_table_arg = None
+        self.args['excitation_support'] = support
+        self.excitation_support = support
+        self.excitation_provenance = dict(support.provenance)
+        self.cutoff_provenance = cutoff_provenance
 
     def export_polygon_mass_table(self, path):
         """Export the polygon-mode Hermite table for later refit reload."""
