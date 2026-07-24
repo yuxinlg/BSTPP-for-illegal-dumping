@@ -167,6 +167,17 @@ def validate_events(data, A, T_max, n_xy=25) -> list:
     only (deterministic membership per D-22 handles them).
     """
     checks = []
+    try:
+        T_val = float(T_max)
+    except (TypeError, ValueError):
+        T_val = float("nan")
+    if not (np.isfinite(T_val) and T_val > 0.0):
+        checks.append(ContractCheck(
+            "horizon_invalid", "violation",
+            f"model horizon T_max / horizon_days must be finite and positive; "
+            f"got {T_max!r}"))
+        return checks
+
     missing = [c for c in EVENT_COLUMNS if c not in data.columns]
     if missing:
         checks.append(ContractCheck(
