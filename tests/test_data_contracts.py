@@ -360,6 +360,78 @@ def test_missing_covariate_crs_rejected_when_domain_has_crs():
         _model(data, A=tri, mode="reject", spatial_cov=cov, cov_names=["v"])
 
 
+# ------------------------------------ tabular spatial_cov_crs (CSV/DataFrame) --
+COV_GRID = (10.0, 10.0)
+
+
+def _tabular_cov_df(vals=(1.0, 2.0)):
+    """Plain DataFrame covariates with X/Y cell centers covering A_RECT."""
+    return pd.DataFrame({
+        "X": [15.0, 25.0],
+        "Y": [10.0, 10.0],
+        "v": list(vals),
+    })
+
+
+def test_tabular_cov_missing_spatial_cov_crs_rejected_when_domain_has_crs():
+    """CSV/DataFrame covariates + CRS-bearing domain require spatial_cov_crs."""
+    tri = _triangle_gdf(crs="EPSG:2272")
+    data = _triangle_data()
+    with pytest.raises(ValueError, match="spatial_cov_crs"):
+        _model(
+            data, A=tri, mode="reject",
+            spatial_cov=_tabular_cov_df(), cov_names=["v"],
+            cov_grid_size=COV_GRID,
+        )
+
+
+def test_tabular_cov_matching_spatial_cov_crs_accepted():
+    tri = _triangle_gdf(crs="EPSG:2272")
+    data = _triangle_data()
+    m = _model(
+        data, A=tri, mode="reject",
+        spatial_cov=_tabular_cov_df(), cov_names=["v"],
+        cov_grid_size=COV_GRID,
+        spatial_cov_crs="EPSG:2272",
+    )
+    assert m.spatial_cov.crs == tri.crs
+    assert "num_cov" in m.args
+
+
+def test_tabular_cov_mismatched_spatial_cov_crs_rejected():
+    tri = _triangle_gdf(crs="EPSG:2272")
+    data = _triangle_data()
+    with pytest.raises(DataContractError, match="crs_mismatch"):
+        _model(
+            data, A=tri, mode="reject",
+            spatial_cov=_tabular_cov_df(), cov_names=["v"],
+            cov_grid_size=COV_GRID,
+            spatial_cov_crs="EPSG:3857",
+        )
+
+
+def test_geodataframe_cov_path_unchanged_without_spatial_cov_crs():
+    """Self-describing GeoDataFrame covariates do not require spatial_cov_crs."""
+    tri = _triangle_gdf(crs="EPSG:2272")
+    cov = _cov_layer(crs="EPSG:2272")
+    data = _triangle_data()
+    m = _model(data, A=tri, mode="reject", spatial_cov=cov, cov_names=["v"])
+    assert m.spatial_cov.crs == tri.crs
+
+
+def test_array_domain_tabular_cov_unchanged_without_spatial_cov_crs():
+    """Array domains declare no CRS; tabular covariates need no spatial_cov_crs."""
+    data = _interior_data()
+    m = _model(
+        data, A=A_RECT, mode="reject",
+        spatial_cov=_tabular_cov_df(), cov_names=["v"],
+        cov_grid_size=COV_GRID,
+    )
+    assert "num_cov" in m.args
+    # No domain CRS to propagate; constructed layer may be CRS-less.
+    assert m.prepared_domain.crs is None
+
+
 # ------------------------------------------------------------------- horizon
 @pytest.mark.parametrize("bad_T", [0.0, -1.0, float("nan"), float("inf")])
 def test_nonpositive_or_nonfinite_horizon_rejected(bad_T):
