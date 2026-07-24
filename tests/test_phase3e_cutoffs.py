@@ -285,3 +285,50 @@ def test_tolerance_selected_cutoffs_agree_across_three_legs():
         np.array([ws]), np.array([0.0]), ws)[0])
     assert not bool(within_real_box_window(
         np.array([ws * 1.01]), np.array([0.0]), ws)[0])
+
+
+# -------------------------------- invalid tolerance validation (any precedence) --
+@pytest.mark.parametrize("bad_tol", [-1.0, 0.0, 1.0, float("nan"), float("inf")])
+def test_invalid_temporal_tol_rejected_even_when_physical_wins(bad_tol):
+    """Supplied tol must be finite and in (0, 1) even if physical cutoff wins."""
+    with pytest.raises(ValueError, match="tol|tolerance"):
+        resolve_computational_cutoffs(
+            horizon_days=T_DAYS,
+            window_internal=25.0,
+            temporal_cutoff_tol=bad_tol,
+            design_mean_lag_days=2.0,
+        )
+
+
+@pytest.mark.parametrize("bad_tol", [-0.5, 0.0, 1.0, float("nan")])
+def test_invalid_spatial_tol_rejected_even_when_physical_wins(bad_tol):
+    with pytest.raises(ValueError, match="tol|tolerance"):
+        resolve_computational_cutoffs(
+            horizon_days=T_DAYS,
+            spatial_window=0.5,
+            spatial_cutoff_tol=bad_tol,
+            design_sigma=0.1,
+        )
+
+
+def test_invalid_shared_cutoff_tol_rejected_with_physical_override():
+    with pytest.raises(ValueError, match="tol|tolerance"):
+        resolve_computational_cutoffs(
+            horizon_days=T_DAYS,
+            window_internal=25.0,
+            spatial_window=0.5,
+            cutoff_tol=-1.0,
+            design_mean_lag_days=2.0,
+            design_sigma=0.1,
+        )
+
+
+def test_hawkes_rejects_invalid_tol_with_physical_window():
+    with pytest.raises(ValueError, match="tol|tolerance"):
+        Hawkes_Model(
+            _data(), np.array([[0.0, 1.0], [0.0, 1.0]]), T_DAYS,
+            cox_background=False,
+            window=25.0,
+            temporal_cutoff_tol=-1.0,
+            **PRIORS_INTERNAL,
+        )
