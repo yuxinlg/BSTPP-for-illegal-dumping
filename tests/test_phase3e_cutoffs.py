@@ -332,3 +332,43 @@ def test_hawkes_rejects_invalid_tol_with_physical_window():
             temporal_cutoff_tol=-1.0,
             **PRIORS_INTERNAL,
         )
+
+
+# -------------------------------- set_window / provenance atomicity --------
+def test_set_window_updates_cutoff_provenance_atomically():
+    """Public window mutation must refresh realized cutoffs and provenance."""
+    m = Hawkes_Model(
+        _data(), np.array([[0.0, 1.0], [0.0, 1.0]]), T_DAYS,
+        cox_background=False,
+        window=25.0, spatial_window=0.4,
+        **PRIORS_INTERNAL,
+    )
+    assert m.cutoff_provenance.temporal.window_internal == pytest.approx(25.0)
+    assert m.cutoff_provenance.spatial.spatial_window == pytest.approx(0.4)
+
+    m.set_window(10.0, spatial_window=0.2)
+
+    assert m.args["window"] == pytest.approx(10.0)
+    assert m.args["spatial_window"] == pytest.approx(0.2)
+    assert m.cutoff_provenance.temporal.window_internal == pytest.approx(10.0)
+    assert m.cutoff_provenance.temporal.window_days == pytest.approx(
+        internal_to_days(10.0, T_DAYS))
+    assert m.cutoff_provenance.temporal.selection == "physical"
+    assert m.cutoff_provenance.spatial.spatial_window == pytest.approx(0.2)
+    assert m.cutoff_provenance.spatial.selection == "physical"
+    assert m.cutoff_provenance.spatial.geometry == "per_axis_square"
+
+
+def test_set_window_temporal_only_preserves_spatial_provenance_consistency():
+    m = Hawkes_Model(
+        _data(), np.array([[0.0, 1.0], [0.0, 1.0]]), T_DAYS,
+        cox_background=False,
+        window=25.0, spatial_window=0.4,
+        **PRIORS_INTERNAL,
+    )
+    m.set_window(12.0)  # spatial_window defaults to None in API
+    assert m.args["window"] == pytest.approx(12.0)
+    assert m.args["spatial_window"] is None
+    assert m.cutoff_provenance.temporal.window_internal == pytest.approx(12.0)
+    assert m.cutoff_provenance.spatial.spatial_window is None
+    assert m.cutoff_provenance.spatial.selection == "default_untruncated"
