@@ -215,14 +215,19 @@ def resolve_computational_cutoffs(
             "Pass temporal_cutoff_days or window, not both "
             "(days vs legacy internal units).")
 
+    # Validate every raw non-None tolerance independently before precedence.
+    # Axis-specific values may override shared cutoff_tol as the effective
+    # eps, but an invalid unused shared tol must still be rejected; likewise
+    # validate even when a physical cutoff wins and the tol is provenance-only.
+    if cutoff_tol is not None:
+        _validate_cutoff_tol(cutoff_tol, name="cutoff_tol")
+    if temporal_cutoff_tol is not None:
+        _validate_cutoff_tol(temporal_cutoff_tol, name="temporal cutoff tol")
+    if spatial_cutoff_tol is not None:
+        _validate_cutoff_tol(spatial_cutoff_tol, name="spatial cutoff tol")
+
     eps_t = temporal_cutoff_tol if temporal_cutoff_tol is not None else cutoff_tol
     eps_s = spatial_cutoff_tol if spatial_cutoff_tol is not None else cutoff_tol
-    # Validate every supplied tolerance even when a physical cutoff wins
-    # precedence and the tol is only retained in provenance.
-    if eps_t is not None:
-        _validate_cutoff_tol(eps_t, name="temporal cutoff tol")
-    if eps_s is not None:
-        _validate_cutoff_tol(eps_s, name="spatial cutoff tol")
 
     # ---- temporal ----
     design_beta_internal: Optional[float] = None
