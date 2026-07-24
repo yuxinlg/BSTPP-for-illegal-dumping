@@ -29,6 +29,20 @@ from bstpp.excitation_support import (
 )
 from bstpp.main import Hawkes_Model
 from bstpp.polygon_mass import PolygonMassTable, knot_count
+from bstpp.trigger import Spatial_Symmetric_Gaussian
+
+
+class _NonGaussianSpatial(Spatial_Symmetric_Gaussian):
+    """Subclass that overrides the event kernel (still Gaussian compensator).
+
+    Used to prove polygon mode must reject anything other than the exact
+    built-in Spatial_Symmetric_Gaussian class: isinstance would incorrectly
+    admit this while the Hermite mass backend remains Gaussian-only.
+    """
+
+    def compute_trigger(self, pars, pairs_and_dxdy):
+        coords, dx_vals, dy_vals = pairs_and_dxdy
+        return coords, dx_vals * 0 + 1.0
 
 T_DAYS = 30.0
 PRIORS = dict(
@@ -202,3 +216,67 @@ def test_rectangle_mode_trace_unchanged_without_bounds():
 def test_wider_max_sigma_increases_knot_count():
     assert knot_count(10.0, 500.0) == 64
     assert knot_count(10.0, 5000.0) > 64
+
+
+# -------------------------------- polygon spatial-trigger compatibility ----
+def test_polygon_mode_rejects_non_exact_gaussian_spatial_trigger():
+    """Polygon Hermite mass integrates Spatial_Symmetric_Gaussian only.
+
+    A subclass that overrides the event kernel must be rejected: otherwise
+    the event term and compensator evaluate different spatial kernels.
+    Exact-type check required (not isinstance).
+    """
+    A = np.array([[0.0, 200.0], [0.0, 200.0]])
+    data = pd.DataFrame({
+        "X": [50.0, 100.0], "Y": [50.0, 150.0], "T": [1.0, 2.0]})
+    priors = dict(
+        a_0=dist.Normal(0, 5), alpha=dist.Beta(2, 2),
+        beta=dist.HalfNormal(1.0), sigmax_2=dist.HalfNormal(40.0),
+    )
+    with pytest.raises(TypeError, match="Spatial_Symmetric_Gaussian"):
+        Hawkes_Model(
+            data, A, T_DAYS, cox_background=False,
+            excitation_support="polygon",
+            min_sigma=5.0, max_sigma=40.0,
+            spatial_trig=_NonGaussianSpatial,
+            **priors,
+        )
+
+
+def test_rectangle_mode_still_accepts_custom_spatial_trigger():
+    """Rectangle mode keeps the existing custom-trigger interface."""
+    A = np.array([[0.0, 200.0], [0.0, 200.0]])
+    data = pd.DataFrame({
+        "X": [50.0, 100.0], "Y": [50.0, 150.0], "T": [1.0, 2.0]})
+    priors = dict(
+        a_0=dist.Normal(0, 5), alpha=dist.Beta(2, 2),
+        beta=dist.HalfNormal(1.0), sigmax_2=dist.HalfNormal(40.0),
+    )
+    m = Hawkes_Model(
+        data, A, T_DAYS, cox_background=False,
+        excitation_support="rectangle",
+        spatial_trig=_NonGaussianSpatial,
+        **priors,
+    )
+    assert type(m.args["sp_trig"]) is _NonGaussianSpatial
+    assert m.excitation_support.mode == "rectangle"
+    assert m.excitation_support.mass_table is None
+
+
+def test_polygon_mode_accepts_exact_builtin_gaussian():
+    A = np.array([[0.0, 200.0], [0.0, 200.0]])
+    data = pd.DataFrame({
+        "X": [50.0, 100.0], "Y": [50.0, 150.0], "T": [1.0, 2.0]})
+    priors = dict(
+        a_0=dist.Normal(0, 5), alpha=dist.Beta(2, 2),
+        beta=dist.HalfNormal(1.0), sigmax_2=dist.HalfNormal(40.0),
+    )
+    m = Hawkes_Model(
+        data, A, T_DAYS, cox_background=False,
+        excitation_support="polygon",
+        min_sigma=5.0, max_sigma=40.0,
+        spatial_trig=Spatial_Symmetric_Gaussian,
+        **priors,
+    )
+    assert type(m.args["sp_trig"]) is Spatial_Symmetric_Gaussian
+    assert m.excitation_support.mass_table is not None
