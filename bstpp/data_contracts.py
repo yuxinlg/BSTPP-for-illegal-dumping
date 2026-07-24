@@ -321,7 +321,13 @@ def validate_covariates(spatial_cov, cov_names, A, points_xy=None) -> list:
                 "design matrix and kills the likelihood)", idx))
 
     A_crs = A.crs if (gpd is not None and isinstance(A, gpd.GeoDataFrame)) else None
-    if A_crs is not None and spatial_cov.crs is not None \
+    if A_crs is not None and spatial_cov.crs is None:
+        checks.append(ContractCheck(
+            "crs_missing", "violation",
+            f"domain declares CRS ({A_crs}) but covariates have no CRS; "
+            "assign/reproject covariates to the domain CRS upstream "
+            "(legacy behavior: silently assigns the domain CRS)"))
+    elif A_crs is not None and spatial_cov.crs is not None \
             and A_crs != spatial_cov.crs:
         checks.append(ContractCheck(
             "crs_mismatch", "violation",
