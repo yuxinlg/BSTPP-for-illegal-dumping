@@ -375,6 +375,23 @@ def test_validate_events_rejects_nonfinite_horizon_directly():
     assert checks["horizon_invalid"].kind == "violation"
 
 
+def test_nonpolygonal_domain_rejected_by_validate_domain():
+    from shapely.geometry import LineString, Point
+    from bstpp.data_contracts import validate_domain
+    for geom in (LineString([(10, 5), (30, 15)]), Point(10, 5)):
+        checks = _checks_by_name(
+            validate_domain(gpd.GeoDataFrame(geometry=[geom])))
+        assert "domain_not_polygonal" in checks, geom.geom_type
+        assert checks["domain_not_polygonal"].kind == "violation"
+
+
+def test_nonpolygonal_domain_rejected_at_construction():
+    from shapely.geometry import LineString
+    dom = gpd.GeoDataFrame(geometry=[LineString([(10, 5), (30, 15)])])
+    with pytest.raises(DataContractError, match="domain_not_polygonal"):
+        _model(_interior_data(n=5), A=dom, mode="reject")
+
+
 # ------------------------------------------- held-out path: dropna made loud
 
 def _fitted_model():
