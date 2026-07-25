@@ -367,8 +367,13 @@ class Point_Process_Model:
                 len(data), data_contracts).checks)
 
             spatial_cov['cov_ind'] = np.arange(len(spatial_cov))
-            #find covariate cell index for each point
-            self.points.crs = spatial_cov.crs
+            # Align points CRS for the covariate sjoin without the deprecated
+            # attribute override (GeoDataFrame.crs = ...). Points already carry
+            # the domain CRS from _scale_xyt when the domain declares one;
+            # validate_covariates has already required CRS equality, so a
+            # matching CRS needs no write. Only set when points are CRS-less.
+            if self.points.crs is None and spatial_cov.crs is not None:
+                self.points = self.points.set_crs(spatial_cov.crs)
             # D-22 unique membership, covariate leg: an event exactly on a
             # shared covariate-polygon edge joins every incident polygon;
             # ties resolve deterministically to the LARGEST cov_ind,
