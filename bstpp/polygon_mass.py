@@ -47,6 +47,27 @@ DEFAULT_GL_ORDER = 16
 TAU_ABS = 5.39e-4
 TAU_DERIV = 5.39e-4
 
+# Compatibility contract constants (builder + validator share these names).
+# Schema v2: nested extra_provenance, exact le-f64 event identity, required
+# metadata fields. Legacy v1 / decimal-.9g tables are intentionally incompatible.
+BACKEND_ID = "hybrid_quad_hermite"
+BACKEND_SCHEMA_VERSION = "hybrid_quad_hermite_numpy_v2"
+SIGMA_PARAMETERIZATION = "standard_deviation"
+INTERPOLATION_CONVENTION = "c1_cubic_hermite_uniform_log_sigma"
+SLOPE_METHOD = "central_fd_log_sigma"
+SLOPE_FD_EPS = 1e-6
+EVENTS_HASH_ALGORITHM = "sha256_le_f64_xy_v1"
+
+_REQUIRED_COMPAT_PROVENANCE_KEYS = (
+    "backend",
+    "backend_schema",
+    "sigma_parameterization",
+    "interpolation_convention",
+    "slope_method",
+    "slope_fd_eps",
+    "events_hash_algorithm",
+)
+
 
 def knot_count(sigma_min: float, sigma_max: float) -> int:
     """Knot count covering [sigma_min, sigma_max] at validated log spacing."""
@@ -241,9 +262,17 @@ class PolygonMassTable:
         ws = float(data["spatial_window"])
         import json
         meta_path = path.with_suffix(path.suffix + ".meta.json")
-        prov = {}
-        if meta_path.exists():
-            prov = json.loads(meta_path.read_text(encoding="utf-8"))
+        if not meta_path.exists():
+            raise ValueError(
+                "PolygonMassTable sidecar metadata is missing "
+                f"({meta_path.name}); legacy tables without "
+                f"{BACKEND_SCHEMA_VERSION} provenance are incompatible. "
+                "Rebuild with bstpp.polygon_mass.prepare_polygon_mass_table(...).")
+        prov = json.loads(meta_path.read_text(encoding="utf-8"))
+        if not isinstance(prov, dict):
+            raise ValueError(
+                "PolygonMassTable sidecar provenance must be a JSON object")
+        _validate_compat_provenance(prov)
         return PolygonMassTable(
             log_knots=np.asarray(data["log_knots"], dtype=np.float64),
             values=np.asarray(data["values"], dtype=np.float64),
@@ -266,9 +295,82 @@ def _geometry_sha256(poly) -> str:
 
 
 def _events_sha256(x: np.ndarray, y: np.ndarray) -> str:
-    payload = b"".join(
-        f"{float(xi):.9g},{float(yi):.9g};".encode() for xi, yi in zip(x, y))
+    """Exact event-identity hash over little-endian float64 coordinates.
+
+    Includes both arrays, their shapes, row order, and the algorithm tag.
+    Never uses rounded decimal formatting (legacy ``.9g`` hashes are
+    incompatible with ``EVENTS_HASH_ALGORITHM``).
+    """
+    x_arr = np.asarray(x, dtype=np.float64)
+    y_arr = np.asarray(y, dtype=np.float64)
+    if x_arr.shape != y_arr.shape or x_arr.ndim != 1:
+        raise ValueError(
+            f"event x/y must be 1-d and same shape; got {x_arr.shape} and "
+            f"{y_arr.shape}")
+    x_le = np.ascontiguousarray(x_arr, dtype="<f8")
+    y_le = np.ascontiguousarray(y_arr, dtype="<f8")
+    shape_x = np.asarray(x_le.shape, dtype="<i8")
+    shape_y = np.asarray(y_le.shape, dtype="<i8")
+    payload = (
+        EVENTS_HASH_ALGORITHM.encode("ascii")
+        + b"\0"
+        + shape_x.tobytes()
+        + shape_y.tobytes()
+        + x_le.tobytes()
+        + y_le.tobytes()
+    )
     return hashlib.sha256(payload).hexdigest()
+
+
+def _validate_compat_provenance(prov: dict) -> None:
+    """Reject missing/malformed/legacy compatibility metadata.
+
+    ``prov['extra']`` is descriptive only and is never consulted here.
+    """
+    missing = [k for k in _REQUIRED_COMPAT_PROVENANCE_KEYS if k not in prov]
+    if missing:
+        raise ValueError(
+            "supplied mass table provenance is missing required compatibility "
+            f"field(s) {missing}; legacy or incomplete tables are incompatible "
+            f"with {BACKEND_SCHEMA_VERSION}. Rebuild with "
+            "bstpp.polygon_mass.prepare_polygon_mass_table(...).")
+
+    checks = (
+        ("backend", BACKEND_ID, str),
+        ("backend_schema", BACKEND_SCHEMA_VERSION, str),
+        ("sigma_parameterization", SIGMA_PARAMETERIZATION, str),
+        ("interpolation_convention", INTERPOLATION_CONVENTION, str),
+        ("slope_method", SLOPE_METHOD, str),
+        ("events_hash_algorithm", EVENTS_HASH_ALGORITHM, str),
+    )
+    for key, expected, caster in checks:
+        raw = prov[key]
+        if raw is None or (isinstance(raw, str) and raw.strip() == ""):
+            raise ValueError(
+                f"supplied mass table provenance field {key!r} is missing or "
+                f"malformed; incompatible with {BACKEND_SCHEMA_VERSION}")
+        try:
+            got = caster(raw)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"supplied mass table provenance field {key!r} is malformed "
+                f"({raw!r})") from exc
+        if got != expected:
+            raise ValueError(
+                f"supplied mass table {key}={got!r} is incompatible with the "
+                f"current builder/evaluator contract {key}={expected!r}")
+
+    raw_eps = prov["slope_fd_eps"]
+    try:
+        eps = float(raw_eps)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"supplied mass table slope_fd_eps is malformed ({raw_eps!r})"
+        ) from exc
+    if not np.isfinite(eps) or float(eps) != float(SLOPE_FD_EPS):
+        raise ValueError(
+            f"supplied mass table slope_fd_eps={raw_eps!r} is incompatible "
+            f"with slope_fd_eps={SLOPE_FD_EPS}")
 
 
 def validate_polygon_mass_table(
@@ -285,17 +387,26 @@ def validate_polygon_mass_table(
 ) -> None:
     """Reject a supplied Hermite table that is not identity-compatible.
 
-    Equal event counts are not evidence of compatibility. Validates domain
-    geometry hash, event coordinates and row order, event count, spatial
-    window, sigma range and knot grid, build settings (h_panel, gl_order),
-    array shapes, and finite array values.
+    Equal event counts are not evidence of compatibility. Validates required
+    compatibility provenance (backend, schema, sigma parameterization,
+    interpolation convention, slope method/settings, event-hash algorithm),
+    domain geometry hash, exact float64 event identity and row order, event
+    count, spatial window, sigma range and knot grid, build settings
+    (h_panel, gl_order), array shapes, and finite array values.
+    Descriptive ``provenance['extra']`` is ignored for compatibility.
     """
     if not isinstance(table, PolygonMassTable):
         raise TypeError(
             f"mass_table must be a PolygonMassTable; got {type(table).__name__}")
 
-    x = np.asarray(event_x_real, dtype=float)
-    y = np.asarray(event_y_real, dtype=float)
+    if not isinstance(table.provenance, dict):
+        raise ValueError(
+            "supplied mass table provenance must be a dict; legacy tables "
+            f"without {BACKEND_SCHEMA_VERSION} metadata are incompatible")
+    _validate_compat_provenance(table.provenance)
+
+    x = np.asarray(event_x_real, dtype=np.float64)
+    y = np.asarray(event_y_real, dtype=np.float64)
     if x.shape != y.shape or x.ndim != 1:
         raise ValueError(
             f"event_x_real/event_y_real must be 1-d and same shape; "
@@ -376,11 +487,6 @@ def validate_polygon_mass_table(
                 f"supplied mass table {name} contains nonfinite values")
 
 
-BACKEND_SCHEMA_VERSION = "hybrid_quad_hermite_numpy_v1"
-# Central finite-difference step on log-sigma for float64 slope tables.
-_LOG_SIGMA_FD_EPS = 1e-6
-
-
 def _legendre_01(gl_order: int) -> tuple[np.ndarray, np.ndarray]:
     glx, glw = np.polynomial.legendre.leggauss(int(gl_order))
     return (glx + 1.0) / 2.0, glw / 2.0
@@ -425,7 +531,7 @@ def _quad_slopes_numpy(
     glx01: np.ndarray,
     glw01: np.ndarray,
     ws: float | None,
-    eps: float = _LOG_SIGMA_FD_EPS,
+    eps: float = SLOPE_FD_EPS,
 ) -> np.ndarray:
     """dM / d log(sigma) via central differences in float64."""
     up = _quad_masses_numpy(
@@ -450,7 +556,9 @@ def build_quad_table(
 
     ``sigma_min`` / ``sigma_max`` are spatial standard deviations in real
     coordinate units (compatible with ``sqrt(sigmax_2)``). Does not mutate
-    process-global JAX config.
+    process-global JAX config. Descriptive ``extra_provenance`` is stored
+    under nested ``provenance['extra']`` and never overwrites builder-owned
+    compatibility fields.
     """
     import time
 
@@ -491,9 +599,10 @@ def build_quad_table(
          + vals.tobytes().hex()[:64]).encode()
     ).hexdigest()
     prov: dict[str, Any] = {
-        "backend": "hybrid_quad_hermite",
+        "backend": BACKEND_ID,
         "backend_schema": BACKEND_SCHEMA_VERSION,
-        "sigma_parameterization": "standard_deviation",
+        "sigma_parameterization": SIGMA_PARAMETERIZATION,
+        "interpolation_convention": INTERPOLATION_CONVENTION,
         "sigma_min": float(sigma_min),
         "sigma_max": float(sigma_max),
         "n_knots": int(knots.shape[0]),
@@ -503,16 +612,21 @@ def build_quad_table(
         "gl_order": int(gl_order),
         "geometry_sha256": geom_hash,
         "events_sha256": ev_hash,
+        "events_hash_algorithm": EVENTS_HASH_ALGORITHM,
         "table_id": table_id,
         "build_seconds": build_s,
         "dtype_build": "float64",
         "n_events": int(len(x)),
-        "slope_method": "central_fd_log_sigma",
-        "slope_fd_eps": float(_LOG_SIGMA_FD_EPS),
+        "slope_method": SLOPE_METHOD,
+        "slope_fd_eps": float(SLOPE_FD_EPS),
     }
-    if extra_provenance:
-        # Descriptive only unless it already participates in construction.
-        prov.update(extra_provenance)
+    if extra_provenance is not None:
+        if not isinstance(extra_provenance, dict):
+            raise TypeError(
+                "extra_provenance must be a dict of descriptive metadata; "
+                f"got {type(extra_provenance).__name__}")
+        # Copy; nest under extra so callers cannot overwrite reserved fields.
+        prov["extra"] = dict(extra_provenance)
     return PolygonMassTable(
         log_knots=knots,
         values=vals,
