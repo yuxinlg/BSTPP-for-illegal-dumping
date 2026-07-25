@@ -51,6 +51,30 @@ def test_polygon_construction_without_mass_table_fails():
         )
 
 
+def test_explicit_polygon_missing_table_fails_before_base_constructor(
+        monkeypatch):
+    """Missing-table error must precede expensive Point_Process_Model init."""
+    from bstpp.main import Point_Process_Model
+
+    base_calls = []
+
+    def _boom(self, *args, **kwargs):
+        base_calls.append(True)
+        raise AssertionError(
+            "Point_Process_Model.__init__ must not run when "
+            "excitation_support='polygon' and mass_table is missing")
+
+    monkeypatch.setattr(Point_Process_Model, "__init__", _boom)
+    with pytest.raises(ValueError, match="prepare_polygon_mass_table"):
+        Hawkes_Model(
+            _events(), A, T_DAYS, cox_background=False,
+            excitation_support="polygon",
+            min_sigma=MIN_SIGMA, max_sigma=MAX_SIGMA,
+            **PRIORS,
+        )
+    assert base_calls == []
+
+
 def test_quad_table_build_does_not_toggle_jax_enable_x64(monkeypatch):
     """Table construction must not call jax.config.update for jax_enable_x64."""
     from shapely.geometry import box
