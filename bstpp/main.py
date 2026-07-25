@@ -587,6 +587,14 @@ class Point_Process_Model:
         y_events_total/=(y_range[1]-y_range[0])
 
         xy_events_total=np.array((x_events_total,y_events_total)).transpose()
+        # Exact float64 real-unit event coordinates (row order matches
+        # xy_events). Mass-table identity must use these, not a roundtrip
+        # through float32 axis_scales which can alias distinct events.
+        args["xy_events_real"] = np.asarray(
+            (np.asarray(data["X"], dtype=np.float64),
+             np.asarray(data["Y"], dtype=np.float64)),
+            dtype=np.float64,
+        )
 
         geometry = gpd.points_from_xy(data.X, data.Y,crs=field_support.crs)
         points = gpd.GeoDataFrame(data=data,geometry=geometry)
@@ -1858,7 +1866,16 @@ class Hawkes_Model(Point_Process_Model):
 
     @staticmethod
     def _xy_events_to_real(args):
-        """Map internal xy_events in ``args`` back to real CRS coordinates."""
+        """Event locations in real CRS units for mass-table / support identity.
+
+        Prefers the float64 ``xy_events_real`` snapshot taken at ingestion
+        (exact row-order identity for PolygonMassTable). Falls back to the
+        affine roundtrip through ``xy_events`` / ``axis_scales`` only when
+        that snapshot is absent.
+        """
+        if "xy_events_real" in args:
+            xy_real = np.asarray(args["xy_events_real"], dtype=np.float64)
+            return xy_real[0], xy_real[1]
         A_ = np.asarray(args['A_'], dtype=float)
         scales = np.asarray(args['axis_scales'], dtype=float)
         xy = np.asarray(args['xy_events'])

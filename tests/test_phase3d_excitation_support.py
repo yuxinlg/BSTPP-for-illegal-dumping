@@ -243,12 +243,17 @@ def test_polygon_mode_rejects_non_exact_gaussian_spatial_trigger():
         a_0=dist.Normal(0, 5), alpha=dist.Beta(2, 2),
         beta=dist.HalfNormal(1.0), sigmax_2=dist.HalfNormal(40.0),
     )
+    # Missing-table preflight precedes trigger checks; supply a table so the
+    # exact-type gate is the failure under test.
+    table = prepare_table_for_model(
+        data, A, min_sigma=5.0, max_sigma=40.0)
     with pytest.raises(TypeError, match="Spatial_Symmetric_Gaussian"):
         Hawkes_Model(
             data, A, T_DAYS, cox_background=False,
             excitation_support="polygon",
             min_sigma=5.0, max_sigma=40.0,
             spatial_trig=_NonGaussianSpatial,
+            mass_table=table,
             **priors,
         )
 
