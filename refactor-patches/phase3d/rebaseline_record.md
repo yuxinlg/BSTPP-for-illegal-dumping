@@ -141,3 +141,28 @@ A mid-implementation suite failure
 (`AttributeError: ... no attribute 'excitation_support'`) is pre-`8580364`
 evidence of the ctor/`set_window` install-order defect, **not** a tip
 failure.
+
+## Reaudit strengthening (after tip `a7c0bd7`; tip `0eeaebd`)
+
+**Reaudit finding:** acceptance text claimed compatibility checks that
+`validate_polygon_mass_table` did not enforce; `extra_provenance` could
+overwrite reserved fields; event identity used lossy ``.9g`` formatting;
+missing-table errors arrived after expensive base construction; API docs
+still said tables were built at construction.
+
+| Commit | Class | Content |
+|---|---|---|
+| `1c3c39b` | test (RED) | Missing/malformed/wrong compat metadata; nested extra protection; ``.9g`` collision; legacy schema |
+| `ce5508f` | fix | Schema **v2** constants; nested `extra`; binary le-f64 event hash; validate+load reject legacy/falsified metadata |
+| `12e57c9` | test (RED) | Explicit polygon + missing table must not enter `Point_Process_Model.__init__` |
+| `238fbd3` | fix | Earliest preflight for `excitation_support="polygon"` |
+| `0eeaebd` | fix | `xy_events_real` float64 ingestion snapshot so exact hashes match prepare inputs; migrate non-Gaussian trigger test to supply a table |
+
+**Intentional incompatibilities (not BP):**
+
+- Legacy `hybrid_quad_hermite_numpy_v1` sidecars / missing required metadata.
+- Decimal-``.9g`` event hashes (including distinct float64 events that collided).
+- Falsified reserved fields via `extra_provenance` (ignored; nested under `extra` only).
+
+Durable commands/results: `refactor-patches/reaudit_verification_0eeaebd.md`
+(full suite **299 passed**; pins **PIN_DIFFS 0 MATCH**; polygon group **118 passed**).

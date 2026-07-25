@@ -1757,8 +1757,12 @@ class Hawkes_Model(Point_Process_Model):
             bounds are active the sigmax_2 prior is truncated to
             [min_sigma**2, max_sigma**2] with interval support for NUTS/SVI.
         mass_table: PolygonMassTable, optional
-            Prebuilt Hermite table to reuse on refit (must match events/geometry/
-            sigma range / spatial_window); otherwise built at construction.
+            Prepared Hermite table from
+            ``bstpp.polygon_mass.prepare_polygon_mass_table`` (required when
+            ``excitation_support='polygon'``). Validated against prepared
+            domain/events/windows after construction; never built
+            synchronously here. Legacy tables lacking the current schema or
+            exact event-hash metadata are rejected as incompatible.
         sp_var_mu: float
             Fixed log-amplitude multiplier applied to the spatial VAE decoder output; see
             Point_Process_Model for calibration guidance. Default 2.0.

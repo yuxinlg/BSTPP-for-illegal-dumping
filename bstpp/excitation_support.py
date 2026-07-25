@@ -300,9 +300,12 @@ def build_excitation_support(
     mass_table: PolygonMassTable | None = None,
     union_geometry: Any | None = None,
 ) -> ExcitationSupport:
-    """Construct the support object; build Hermite tables in polygon mode.
+    """Construct the support object; validate a supplied table in polygon mode.
 
-    For polygon domains, ``union_geometry`` must be the canonical
+    Polygon Hermite tables are prepared explicitly with
+    ``bstpp.polygon_mass.prepare_polygon_mass_table`` and supplied here for
+    compatibility validation and installation — this function never builds
+    tables. For polygon domains, ``union_geometry`` must be the canonical
     ``PreparedDomain.union_geometry`` (no independent unary_union here).
     """
     if mode not in ("rectangle", "polygon"):

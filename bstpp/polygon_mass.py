@@ -665,6 +665,13 @@ def prepare_polygon_mass_table(
     Builds entirely in host NumPy/SciPy float64. Does not mutate process-global
     JAX precision. Online fitting may later consume the table at the process
     default JAX precision.
+
+    Descriptive ``extra_provenance`` is copied under nested
+    ``provenance['extra']`` and cannot overwrite builder-owned compatibility
+    fields. Tables are schema
+    ``hybrid_quad_hermite_numpy_v2`` with exact little-endian float64 event
+    identity; legacy v1 / decimal-``.9g`` hashes are intentionally
+    incompatible and must be rebuilt.
     """
     from .excitation_support import metres_to_crs_units
 
