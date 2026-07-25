@@ -1760,6 +1760,16 @@ class Hawkes_Model(Point_Process_Model):
             to the internal ``beta`` sample site. Legacy ``beta=`` (internal)
             remains accepted; do not pass both.
         """
+        # Earliest valid preflight: explicit polygon mode without a table must
+        # fail before expensive Point_Process_Model data/decoder preparation.
+        # Full compatibility validation still runs after canonical domain/event
+        # preparation when a table is supplied.
+        if excitation_support == "polygon" and mass_table is None:
+            raise ValueError(
+                "Polygon excitation_support requires a prepared mass_table "
+                "from bstpp.polygon_mass.prepare_polygon_mass_table(...); "
+                "the constructor does not build Hermite tables.")
+
         self.model = spatiotemporal_hawkes_model
         if cox_background:
             name = 'cox_hawkes'
@@ -1804,19 +1814,12 @@ class Hawkes_Model(Point_Process_Model):
                 "Use excitation_support='rectangle' for a custom spatial "
                 "trigger, or supply Spatial_Symmetric_Gaussian.")
 
-        if mode == "polygon" and mass_table is None:
-            raise ValueError(
-                "Polygon excitation_support requires a prepared mass_table "
-                "from bstpp.polygon_mass.prepare_polygon_mass_table(...); "
-                "the constructor does not build Hermite tables.")
-
         # Resolve bounds and truncate sigmax_2 BEFORE constructing triggers so
         # NUTS/SVI see interval support (no proposal clipping).
         if 'sigmax_2' not in self.args['priors']:
             raise ValueError(
                 "Hawkes_Model requires a user-supplied sigmax_2 prior "
                 "(numpyro Distribution in squared real units).")
-        # Probe bounds without building the table yet (cheap).
         from .excitation_support import resolve_sigma_bounds
         lo, hi, _ = resolve_sigma_bounds(
             mode=mode, min_sigma=min_sigma, max_sigma=max_sigma,
