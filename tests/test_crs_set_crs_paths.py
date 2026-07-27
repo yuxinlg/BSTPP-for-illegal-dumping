@@ -153,3 +153,25 @@ def test_public_crs_mismatch_rejected_without_allow_override():
             spatial_cov=cov, cov_names=["v"],
             data_contracts="reject", **PRIORS,
         )
+
+
+def test_attach_covariate_partitions_mismatch_is_loud_invariant():
+    """CRS mismatch must not be concealed via set_crs(..., allow_override=True).
+
+    Public validate_covariates already rejects mismatches. If a mismatched
+    pair still reaches attach_covariate_partitions, fail loudly instead of
+    silently rewriting partition CRS.
+    """
+    from bstpp.preparation import attach_covariate_partitions
+
+    tri = _triangle_gdf(crs="EPSG:2272")
+    dom = prepare_domain(tri)
+    parts = prepare_partitions(dom, T_DAYS, 0.0)
+    assert parts.comp_grid.crs == tri.crs
+    cov = _cov_layer(crs="EPSG:3857")
+    cov = cov.copy()
+    cov["cov_ind"] = np.arange(len(cov))
+    with pytest.raises((RuntimeError, ValueError), match="CRS|crs"):
+        attach_covariate_partitions(
+            parts, dom, cov, ["v"], True, "cox_hawkes")
+
