@@ -298,3 +298,87 @@ def test_polygon_mode_accepts_exact_builtin_gaussian():
     )
     assert type(m.args["sp_trig"]) is Spatial_Symmetric_Gaussian
     assert m.excitation_support.mass_table is not None
+
+
+# --------------------- post-hoc regression for 0eeaebd (float64 snapshot) --
+def test_xy_events_real_preserves_float64_against_float32_axis_scales():
+    """Post-hoc regression for ``0eeaebd`` (parent ``ce5508f`` fails).
+
+    ``PreparedDomain.axis_scales`` is a JAX float32 array. Mapping internal
+    ``xy_events`` back through those scales changes at least one original
+    float64 coordinate on this offset/scale domain. Polygon preparation and
+    ``_event_xy_real`` must use the ingestion float64 snapshot instead.
+    """
+    # Domain chosen so float64 (x-ox)/(x1-ox) * float32(axis_scales[0]) + ox
+    # differs from x (see parent ce5508f affine fallback).
+    A = np.array(
+        [[2607925.96103126, 2637613.72396247],
+         [4757272.11199708, 4947053.35197739]],
+        dtype=np.float64,
+    )
+    x0 = np.float64(2617742.1695774216)
+    y0 = np.float64(4800000.0)
+    assert A[0, 0] < x0 < A[0, 1] and A[1, 0] < y0 < A[1, 1]
+
+    from bstpp.preparation import prepare_domain
+
+    dom = prepare_domain(A)
+    assert dom.axis_scales.dtype == np.dtype("float32")
+    A_ = np.asarray(dom.bounds, dtype=np.float64)
+    scales = np.asarray(dom.axis_scales, dtype=float)
+    xi = (float(x0) - A_[0, 0]) / (A_[0, 1] - A_[0, 0])
+    x_roundtrip = xi * scales[0] + A_[0, 0]
+    assert float(x_roundtrip) != float(x0)
+
+    rng = np.random.default_rng(0)
+    n = 8
+    xs = np.concatenate(
+        [[x0], rng.uniform(A[0, 0] + 500.0, A[0, 1] - 500.0, n - 1)]
+    ).astype(np.float64)
+    ys = np.concatenate(
+        [[y0], rng.uniform(A[1, 0] + 500.0, A[1, 1] - 500.0, n - 1)]
+    ).astype(np.float64)
+    data = pd.DataFrame({
+        "X": xs,
+        "Y": ys,
+        "T": np.sort(rng.uniform(0.5, T_DAYS - 0.5, n)),
+    })
+    min_sigma, max_sigma = 5.0, 40.0
+    table = prepare_table_for_model(
+        data, A, min_sigma=min_sigma, max_sigma=max_sigma)
+    # Table identity was built from the original ordered float64 coordinates.
+    np.testing.assert_array_equal(
+        np.asarray(data["X"], dtype=np.float64), xs)
+    np.testing.assert_array_equal(
+        np.asarray(data["Y"], dtype=np.float64), ys)
+
+    priors = dict(
+        a_0=dist.Normal(0, 5), alpha=dist.Beta(2, 2),
+        beta=dist.HalfNormal(1.0), sigmax_2=dist.HalfNormal(40.0),
+    )
+    m = Hawkes_Model(
+        data, A, T_DAYS, cox_background=False,
+        excitation_support="polygon",
+        min_sigma=min_sigma, max_sigma=max_sigma,
+        mass_table=table,
+        **priors,
+    )
+    xr, yr = m._event_xy_real()
+    np.testing.assert_array_equal(np.asarray(xr, dtype=np.float64), xs)
+    np.testing.assert_array_equal(np.asarray(yr, dtype=np.float64), ys)
+    assert "xy_events_real" in m.args
+
+    # A representable float64 tweak changes event identity and must reject.
+    xs_bad = xs.copy()
+    xs_bad[0] = np.nextafter(xs_bad[0], xs_bad[0] + 1.0)
+    assert xs_bad[0] != xs[0]
+    data_bad = data.copy()
+    data_bad["X"] = xs_bad
+    with pytest.raises(ValueError, match="events_sha256|event"):
+        Hawkes_Model(
+            data_bad, A, T_DAYS, cox_background=False,
+            excitation_support="polygon",
+            min_sigma=min_sigma, max_sigma=max_sigma,
+            mass_table=table,
+            **priors,
+        )

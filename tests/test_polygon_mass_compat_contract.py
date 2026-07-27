@@ -130,6 +130,7 @@ def test_package_exports_canonical_compat_constants():
 @pytest.mark.parametrize(
     "key,bad,match",
     [
+        # String-valued compatibility fields: missing / empty / wrong.
         ("backend", _MISSING, "backend"),
         ("backend", "", "backend"),
         ("backend", "forged_backend", "backend"),
@@ -138,16 +139,21 @@ def test_package_exports_canonical_compat_constants():
         ("backend_schema", "hybrid_quad_hermite_numpy_v0_legacy",
          "backend_schema|schema"),
         ("sigma_parameterization", _MISSING, "sigma_parameterization"),
+        ("sigma_parameterization", "", "sigma_parameterization"),
         ("sigma_parameterization", "variance", "sigma_parameterization"),
         ("interpolation_convention", _MISSING, "interpolation"),
+        ("interpolation_convention", "", "interpolation"),
         ("interpolation_convention", "linear_log_sigma", "interpolation"),
         ("slope_method", _MISSING, "slope_method"),
+        ("slope_method", "", "slope_method"),
         ("slope_method", "pchip", "slope_method"),
-        ("slope_fd_eps", _MISSING, "slope_fd_eps|slope"),
-        ("slope_fd_eps", 1e-3, "slope_fd_eps|slope"),
         ("events_hash_algorithm", _MISSING, "events_hash|hash"),
+        ("events_hash_algorithm", "", "events_hash|hash"),
         ("events_hash_algorithm", "sha256_decimal_9g_legacy",
          "events_hash|hash"),
+        # slope_fd_eps: missing / incompatible numeric (nonnumeric below).
+        ("slope_fd_eps", _MISSING, "slope_fd_eps|slope"),
+        ("slope_fd_eps", 1e-3, "slope_fd_eps|slope"),
     ],
 )
 def test_compat_metadata_missing_malformed_or_wrong_rejected(key, bad, match):
@@ -167,6 +173,25 @@ def test_compat_metadata_missing_malformed_or_wrong_rejected(key, bad, match):
 
     bad_table = _with_prov(table, **{key: bad})
     with pytest.raises(ValueError, match=match):
+        _validate(bad_table, data)
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "not-a-number",
+        None,
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        object(),
+    ],
+)
+def test_slope_fd_eps_nonnumeric_or_nonfinite_rejected(bad):
+    """slope_fd_eps is covered separately from the string-field matrix."""
+    data, table = _base_table()
+    bad_table = _with_prov(table, slope_fd_eps=bad)
+    with pytest.raises(ValueError, match="slope_fd_eps|slope"):
         _validate(bad_table, data)
 
 
