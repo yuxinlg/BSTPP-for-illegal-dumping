@@ -444,19 +444,30 @@ def attach_covariate_partitions(partitions: PreparedPartitions,
 
     if model in ['lgcp', 'cox_hawkes']:
         # Prefer set_crs over deprecated GeoDataFrame.crs attribute assignment.
+        # Matching CRS: no-op. CRS-less partitions: adopt covariate CRS.
+        # Mismatch must never reach here after validate_covariates; do not
+        # conceal it with allow_override=True.
         if partitions.comp_grid.crs is None and spatial_cov.crs is not None:
             partitions.comp_grid = partitions.comp_grid.set_crs(spatial_cov.crs)
         elif (spatial_cov.crs is not None
               and partitions.comp_grid.crs != spatial_cov.crs):
-            partitions.comp_grid = partitions.comp_grid.set_crs(
-                spatial_cov.crs, allow_override=True)
+            raise RuntimeError(
+                "invariant violated: CRS mismatch reached "
+                "attach_covariate_partitions "
+                f"(comp_grid CRS={partitions.comp_grid.crs!r}, "
+                f"spatial_cov CRS={spatial_cov.crs!r}); "
+                "validate_covariates must reject this before attach")
         if partitions.support_cells.crs is None and spatial_cov.crs is not None:
             partitions.support_cells = partitions.support_cells.set_crs(
                 spatial_cov.crs)
         elif (spatial_cov.crs is not None
               and partitions.support_cells.crs != spatial_cov.crs):
-            partitions.support_cells = partitions.support_cells.set_crs(
-                spatial_cov.crs, allow_override=True)
+            raise RuntimeError(
+                "invariant violated: CRS mismatch reached "
+                "attach_covariate_partitions "
+                f"(support_cells CRS={partitions.support_cells.crs!r}, "
+                f"spatial_cov CRS={spatial_cov.crs!r}); "
+                "validate_covariates must reject this before attach")
         # 3c-3 (D-7, SC): common refinement C_c ∩ A_m ∩ A -- the overlay
         # runs on the CLIPPED support cells (A_m ∩ A from 3c-1), so every
         # refinement piece is inside the domain and the supplied A is
