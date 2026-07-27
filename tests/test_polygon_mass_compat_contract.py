@@ -295,3 +295,90 @@ def test_legacy_v1_schema_rejected_as_incompatible():
         table, backend_schema="hybrid_quad_hermite_numpy_v1")
     with pytest.raises(ValueError, match="backend_schema|schema|incompatible"):
         _validate(legacy, data)
+
+
+# ---------------------- NPZ / sidecar self-consistency (tamper) ------------
+
+def _export_table(tmp_path, *, spatial_window=None):
+    data = _events(n=3, seed=7)
+    from bstpp.preparation import prepare_domain
+
+    dom = prepare_domain(A)
+    geom = shapely_box(dom.bounds[0, 0], dom.bounds[1, 0],
+                       dom.bounds[0, 1], dom.bounds[1, 1])
+    table = prepare_polygon_mass_table(
+        geom,
+        data["X"].to_numpy(dtype=np.float64),
+        data["Y"].to_numpy(dtype=np.float64),
+        min_sigma=MIN_SIGMA,
+        max_sigma=MAX_SIGMA,
+        spatial_window=spatial_window,
+        extra_provenance={"run_id": "sidecar-tamper"},
+    )
+    path = tmp_path / "table.npz"
+    table.export_npz(path)
+    meta_path = Path(str(path) + ".meta.json")
+    return path, meta_path, table
+
+
+def _tamper_meta(meta_path, key, value):
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    if value is _MISSING:
+        meta.pop(key, None)
+    else:
+        meta[key] = value
+    meta_path.write_text(json.dumps(meta, indent=2, sort_keys=True) + "\n",
+                         encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "key,bad,match",
+    [
+        ("sigma_min", 9.0, "sigma_min"),
+        ("sigma_min", "not-a-float", "sigma_min"),
+        ("sigma_min", _MISSING, "sigma_min"),
+        ("sigma_max", 99.0, "sigma_max"),
+        ("sigma_max", None, "sigma_max"),
+        ("spatial_window", 40.0, "spatial_window"),
+        ("spatial_window", "null-as-string", "spatial_window"),
+        ("h_panel", 1.0, "h_panel"),
+        ("h_panel", "bad", "h_panel"),
+        ("gl_order", 8, "gl_order"),
+        ("gl_order", 16.5, "gl_order"),
+        ("geometry_sha256", "0" * 64, "geometry_sha256"),
+        ("geometry_sha256", "", "geometry_sha256"),
+        ("events_sha256", "f" * 64, "events_sha256"),
+        ("events_sha256", 12345, "events_sha256"),
+        ("n_knots", 1, "n_knots"),
+        ("n_knots", "35", "n_knots"),
+        ("n_events", 99, "n_events"),
+        ("n_events", None, "n_events"),
+    ],
+)
+def test_load_rejects_sidecar_npz_field_mismatch(tmp_path, key, bad, match):
+    """Sidecar must agree with NPZ for every duplicated identity/numeric field."""
+    path, meta_path, table = _export_table(tmp_path)
+    assert table.spatial_window is None
+    assert table.provenance.get("spatial_window") is None
+    assert table.provenance["extra"]["run_id"] == "sidecar-tamper"
+    _tamper_meta(meta_path, key, bad)
+    with pytest.raises(ValueError, match=match):
+        PolygonMassTable.load_npz(path)
+
+
+def test_load_rejects_spatial_window_none_vs_finite_mismatch(tmp_path):
+    """NPZ stores NaN for None; sidecar null must not disagree with a finite NPZ."""
+    path, meta_path, table = _export_table(tmp_path, spatial_window=25.0)
+    assert table.spatial_window == 25.0
+    _tamper_meta(meta_path, "spatial_window", None)
+    with pytest.raises(ValueError, match="spatial_window"):
+        PolygonMassTable.load_npz(path)
+
+
+def test_load_accepts_consistent_spatial_window_none(tmp_path):
+    path, meta_path, table = _export_table(tmp_path, spatial_window=None)
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    assert meta["spatial_window"] is None
+    loaded = PolygonMassTable.load_npz(path)
+    assert loaded.spatial_window is None
+    assert loaded.provenance["extra"]["run_id"] == "sidecar-tamper"
