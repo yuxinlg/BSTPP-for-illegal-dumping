@@ -259,7 +259,6 @@ class PolygonMassTable:
     def load_npz(path: str | Path) -> "PolygonMassTable":
         path = Path(path)
         data = np.load(path, allow_pickle=False)
-        ws = float(data["spatial_window"])
         import json
         meta_path = path.with_suffix(path.suffix + ".meta.json")
         if not meta_path.exists():
@@ -273,20 +272,154 @@ class PolygonMassTable:
             raise ValueError(
                 "PolygonMassTable sidecar provenance must be a JSON object")
         _validate_compat_provenance(prov)
+
+        log_knots = np.asarray(data["log_knots"], dtype=np.float64)
+        values = np.asarray(data["values"], dtype=np.float64)
+        slopes = np.asarray(data["slopes"], dtype=np.float64)
+        sigma_min = float(data["sigma_min"])
+        sigma_max = float(data["sigma_max"])
+        ws_npz = float(data["spatial_window"])
+        spatial_window = None if np.isnan(ws_npz) else ws_npz
+        h_panel = float(data["h_panel"])
+        gl_order = int(data["gl_order"])
+        geometry_sha256 = str(data["geometry_sha256"])
+        events_sha256 = str(data["events_sha256"])
+        _assert_sidecar_matches_npz(
+            prov,
+            sigma_min=sigma_min,
+            sigma_max=sigma_max,
+            spatial_window=spatial_window,
+            h_panel=h_panel,
+            gl_order=gl_order,
+            geometry_sha256=geometry_sha256,
+            events_sha256=events_sha256,
+            n_knots=int(log_knots.shape[0]),
+            n_events=int(values.shape[0]),
+        )
         return PolygonMassTable(
-            log_knots=np.asarray(data["log_knots"], dtype=np.float64),
-            values=np.asarray(data["values"], dtype=np.float64),
-            slopes=np.asarray(data["slopes"], dtype=np.float64),
-            sigma_min=float(data["sigma_min"]),
-            sigma_max=float(data["sigma_max"]),
-            spatial_window=None if np.isnan(ws) else ws,
-            h_panel=float(data["h_panel"]),
-            gl_order=int(data["gl_order"]),
-            geometry_sha256=str(data["geometry_sha256"]),
-            events_sha256=str(data["events_sha256"]),
+            log_knots=log_knots,
+            values=values,
+            slopes=slopes,
+            sigma_min=sigma_min,
+            sigma_max=sigma_max,
+            spatial_window=spatial_window,
+            h_panel=h_panel,
+            gl_order=gl_order,
+            geometry_sha256=geometry_sha256,
+            events_sha256=events_sha256,
             build_seconds=float(prov.get("build_seconds", np.nan)),
             provenance=prov,
         )
+
+
+def _sidecar_exact_float(prov: dict, key: str) -> float:
+    if key not in prov:
+        raise ValueError(
+            f"sidecar provenance missing {key} required for NPZ consistency")
+    raw = prov[key]
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        raise ValueError(
+            f"sidecar {key}={raw!r} is malformed; must be a JSON number "
+            "matching the NPZ artifact exactly")
+    val = float(raw)
+    if not np.isfinite(val):
+        raise ValueError(
+            f"sidecar {key}={raw!r} is nonfinite; must match the NPZ artifact")
+    return val
+
+
+def _sidecar_exact_int(prov: dict, key: str) -> int:
+    if key not in prov:
+        raise ValueError(
+            f"sidecar provenance missing {key} required for NPZ consistency")
+    raw = prov[key]
+    # Reject bool (subclass of int) and non-integral floats / strings.
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        raise ValueError(
+            f"sidecar {key}={raw!r} is malformed; must be a JSON integer "
+            "matching the NPZ artifact exactly")
+    return int(raw)
+
+
+def _sidecar_exact_str(prov: dict, key: str) -> str:
+    if key not in prov:
+        raise ValueError(
+            f"sidecar provenance missing {key} required for NPZ consistency")
+    raw = prov[key]
+    if not isinstance(raw, str) or raw.strip() == "":
+        raise ValueError(
+            f"sidecar {key}={raw!r} is malformed; must be a non-empty string "
+            "matching the NPZ artifact exactly")
+    return raw
+
+
+def _assert_sidecar_matches_npz(
+    prov: dict,
+    *,
+    sigma_min: float,
+    sigma_max: float,
+    spatial_window: float | None,
+    h_panel: float,
+    gl_order: int,
+    geometry_sha256: str,
+    events_sha256: str,
+    n_knots: int,
+    n_events: int,
+) -> None:
+    """Reject contradictions between JSON sidecar and NPZ arrays/scalars.
+
+    Does not silently prefer either source. Nested ``extra`` is ignored.
+    ``table_id`` is descriptive only and is not recomputed here.
+    """
+    for key, expected in (
+        ("sigma_min", float(sigma_min)),
+        ("sigma_max", float(sigma_max)),
+        ("h_panel", float(h_panel)),
+    ):
+        got = _sidecar_exact_float(prov, key)
+        if got != expected:
+            raise ValueError(
+                f"sidecar {key}={got!r} contradicts NPZ {key}={expected!r}")
+
+    if "spatial_window" not in prov:
+        raise ValueError(
+            "sidecar provenance missing spatial_window required for NPZ "
+            "consistency")
+    raw_ws = prov["spatial_window"]
+    if spatial_window is None:
+        if raw_ws is not None:
+            raise ValueError(
+                f"sidecar spatial_window={raw_ws!r} contradicts NPZ "
+                "spatial_window=None (NaN sentinel)")
+    else:
+        if isinstance(raw_ws, bool) or not isinstance(raw_ws, (int, float)):
+            raise ValueError(
+                f"sidecar spatial_window={raw_ws!r} is malformed; must be a "
+                "JSON number matching the NPZ artifact exactly")
+        got_ws = float(raw_ws)
+        if not np.isfinite(got_ws) or got_ws != float(spatial_window):
+            raise ValueError(
+                f"sidecar spatial_window={raw_ws!r} contradicts NPZ "
+                f"spatial_window={spatial_window!r}")
+
+    for key, expected in (
+        ("gl_order", int(gl_order)),
+        ("n_knots", int(n_knots)),
+        ("n_events", int(n_events)),
+    ):
+        got = _sidecar_exact_int(prov, key)
+        if got != expected:
+            raise ValueError(
+                f"sidecar {key}={got!r} contradicts NPZ {key}={expected!r}")
+
+    for key, expected in (
+        ("geometry_sha256", str(geometry_sha256)),
+        ("events_sha256", str(events_sha256)),
+    ):
+        got = _sidecar_exact_str(prov, key)
+        if got != expected:
+            raise ValueError(
+                f"sidecar {key}={got!r} contradicts NPZ {key}={expected!r}")
 
 
 def _geometry_sha256(poly) -> str:
