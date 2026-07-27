@@ -166,3 +166,11 @@ still said tables were built at construction.
 
 Durable commands/results: `refactor-patches/reaudit_verification_0eeaebd.md`
 (full suite **299 passed**; pins **PIN_DIFFS 0 MATCH**; polygon group **118 passed**).
+
+## Remaining reaudit (after `e706107`; production tip `2cf326d`)
+
+NPZ/sidecar self-consistency on load; post-hoc malformed-string + float64
+snapshot coverage for `0eeaebd`; focused CRS coverage and loud
+`allow_override` removal for `e706107`. Durable commands/results:
+`refactor-patches/reaudit_verification_2cf326d.md` (full suite **338 passed,
+1 warning**; pins **PIN_DIFFS 0 MATCH**; polygon group **150 passed**).
