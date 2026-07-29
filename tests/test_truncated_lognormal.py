@@ -153,3 +153,99 @@ def test_sample_matches_value_scale_not_log_scale():
     # Median of a unit-centered LogNormal truncated to [0.25, 4] is O(1),
     # not O(log) near 0 / negative.
     assert float(np.median(draws)) > 0.2
+
+
+def _scipy_log_z(loc, scale, low, high):
+    """High-precision reference: log(F(high) - F(low)) via SciPy float64.
+
+    Uses CDF or survival consistently with the production branch choice so
+    far-tail intervals do not underflow to a zero probability difference.
+    """
+    from scipy.stats import lognorm
+    from scipy.special import log_ndtr
+
+    a = (np.log(high) - loc) / scale
+    b = (np.log(low) - loc) / scale
+    use_sf = 0.5 * (a + b) > 0
+    if use_sf:
+        log_p_hi = float(log_ndtr(-b))
+        log_p_lo = float(log_ndtr(-a))
+    else:
+        log_p_hi = float(log_ndtr(a))
+        log_p_lo = float(log_ndtr(b))
+    x = log_p_lo - log_p_hi
+    if x > -np.log(2.0):
+        log_one_m = float(np.log(-np.expm1(x)))
+    else:
+        log_one_m = float(np.log1p(-np.exp(x)))
+    # Cross-check against ordinary probability arithmetic when it is safe.
+    dist = lognorm(s=scale, scale=np.exp(loc))
+    p = (dist.sf(low) - dist.sf(high)) if use_sf else (dist.cdf(high) - dist.cdf(low))
+    if p > 0.0 and np.isfinite(np.log(p)):
+        return float(np.log(p))
+    return log_p_hi + log_one_m
+
+
+@pytest.mark.parametrize(
+    "loc,scale,low,high,abs_tol",
+    [
+        (0.0, 0.5, 0.01, 4.0, 5e-5),       # typical two-sided
+        (0.0, 1.0, 1e-6, 1e-3, 5e-5),      # lower-tail mass
+        (0.0, 0.5, 3.0, 5.0, 5e-5),        # right half (SF branch)
+        (-2.0, 0.5, 0.01, 0.05, 5e-5),     # far left on value scale
+        (0.0, 1.0, 0.999, 1.001, 2e-4),    # narrow — cancellation stress
+        (0.0, 0.5, 0.25, 0.25001, 2e-3),   # extremely narrow (float32 ULP)
+    ],
+)
+def test_log_z_matches_scipy_reference(loc, scale, low, high, abs_tol):
+    d = TruncatedLogNormal(
+        jnp.asarray(loc, dtype=jnp.float32),
+        jnp.asarray(scale, dtype=jnp.float32),
+        jnp.asarray(low, dtype=jnp.float32),
+        jnp.asarray(high, dtype=jnp.float32),
+    )
+    got = float(d._log_z())
+    want = _scipy_log_z(loc, scale, low, high)
+    assert np.isfinite(got) and np.isfinite(want)
+    assert got == pytest.approx(want, rel=0, abs=abs_tol)
+
+
+def test_log_z_float32_narrow_interval_finite():
+    d = TruncatedLogNormal(
+        jnp.float32(0.0), jnp.float32(1.0),
+        jnp.float32(0.999), jnp.float32(1.001),
+    )
+    lz = d._log_z()
+    assert jnp.isfinite(lz)
+    want = _scipy_log_z(0.0, 1.0, 0.999, 1.001)
+    assert float(lz) == pytest.approx(want, rel=0, abs=2e-4)
+
+
+def test_truncate_sigmax_2_halfnormal_and_truncated_normal_branches():
+    """Every supported pre-truncated adapter branch used by the prior adapter."""
+    hn = truncate_sigmax_2_prior(dist.HalfNormal(1.0), 0.1, 2.0)
+    assert isinstance(hn, (dist.Distribution,))
+    draws = hn.sample(random.PRNGKey(8), sample_shape=(16,))
+    assert bool(jnp.all(jnp.isfinite(draws)))
+
+    tn = truncate_sigmax_2_prior(
+        dist.TruncatedNormal(0.0, 1.0, low=0.0, high=10.0), 0.2, 1.5)
+    draws2 = tn.sample(random.PRNGKey(9), sample_shape=(16,))
+    assert bool(jnp.all(jnp.isfinite(draws2)))
+
+    ln = truncate_sigmax_2_prior(dist.LogNormal(0.0, 0.5), 0.1, 2.0)
+    assert isinstance(ln, TruncatedLogNormal)
+    tln = truncate_sigmax_2_prior(ln, 0.2, 1.5)
+    assert isinstance(tln, TruncatedLogNormal)
+
+
+@pytest.mark.parametrize(
+    "low,high",
+    [
+        (1.0, 1.0),     # equal
+        (2.0, 1.0),     # reversed
+    ],
+)
+def test_invalid_bounds_raise_with_validate_args(low, high):
+    with pytest.raises((ValueError, AssertionError)):
+        TruncatedLogNormal(0.0, 1.0, low, high, validate_args=True)
