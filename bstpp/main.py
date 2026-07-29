@@ -1528,6 +1528,30 @@ class Point_Process_Model:
             parameters['b_0'] = self.args['spatial_cov'] @ parameters['w']
         return parameters
 
+    def _filter_simulated_points_to_domain(self, points):
+        """Keep each simulated point once via authoritative domain membership.
+
+        Polygon domains filter against ``PreparedDomain.union_geometry``
+        (``covers``, including boundary). This prevents the historical
+        ``sjoin(self.A)`` duplication when input domain rows overlap.
+        Rectangle/array domains retain the legacy ``sjoin(self.A)`` path
+        (``self.A`` is the computational grid there).
+        """
+        cols = ['X', 'Y', 'T', 'geometry']
+        if self.prepared_domain.is_polygon:
+            union = self.prepared_domain.union_geometry
+            if union is None:
+                raise ValueError(
+                    "PreparedDomain.union_geometry is required for polygon "
+                    "domain simulation filtering")
+            mask = np.fromiter(
+                (union.covers(g) for g in points.geometry),
+                dtype=bool,
+                count=len(points),
+            )
+            return points.loc[mask, cols]
+        return points.sjoin(self.A[['geometry']])[cols]
+
     def _sim_cox(self, parameters, rng=None):
         """Exact sampler for the factorized Cox background, in internal units.
 
@@ -2554,8 +2578,8 @@ class Hawkes_Model(Point_Process_Model):
         points = gpd.GeoDataFrame(data=sample,geometry=geometry,columns=['X','Y','T'])
         #filter to time window
         points['T'] = (points['T']*self.T/self.args['T'])
-        #filter to spatial window
-        return points.sjoin(self.A[['geometry']])[['X','Y','T','geometry']]
+        #filter to spatial domain (canonical union for polygon domains)
+        return self._filter_simulated_points_to_domain(points)
 
 
 class LGCP_Model(Point_Process_Model):
@@ -2642,4 +2666,5 @@ class LGCP_Model(Point_Process_Model):
         # _sim_cox samples boundary cells over the FULL cell and documents that
         # "simulate()'s A-filter" clips them -- a promise this method previously
         # did not keep (returned points could fall outside a non-rectangular A).
-        return points.sjoin(self.A[['geometry']])[['X','Y','T','geometry']]
+        # Polygon domains use PreparedDomain.union_geometry (not row-wise A).
+        return self._filter_simulated_points_to_domain(points)
