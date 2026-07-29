@@ -2413,4 +2413,43 @@ Full suite: \texttt{403 passed, 1 skipped, 2 warnings}.
 Four rectangle golden pins vs \texttt{refactor-patches/baselines-2026-07/pins.json}: \texttt{PIN\_DIFFS 0 MATCH}; \texttt{jax\_enable\_x64} remained \texttt{False} throughout production-gate and suite runs.
 Document build: \texttt{pdflatex phase3\_record.tex} failed on this machine with MiKTeX 22.10 / L3 \texttt{<2022-09-28>} (\texttt{The key property '.initial:e' is unknown} at the opening section); content edits are recorded here pending a toolchain capable of building the pandoc-style longtables.
 
+\paragraph{Continuation (2026-07-29) --- corrections on audited tip \texttt{04799d9}.}
+\textbf{Audited base tip:} \texttt{04799d9} (A-21 continuation documentation tip; includes the \texttt{938e32b}+follow-up series).
+\textbf{Implementation commits:} \texttt{e37ef50} (RED one-sided/non-Normal prior), \texttt{ac6101c} (GREEN prior adapter), \texttt{c4b38ff} (RED rectangle grid-edge simulate), \texttt{58d4e07} (GREEN rectangle bounds membership); documentation/annotation in this series tip.
+
+\subparagraph{One-sided pre-truncated Normal prior handling (CF of declared truncation).}
+Under pinned NumPyro 0.15, \texttt{LeftTruncatedDistribution} exposes \texttt{.low} but not \texttt{.high}, and \texttt{RightTruncatedDistribution} exposes \texttt{.high} but not \texttt{.low}.
+The adapter previously assumed both attributes and raised \texttt{AttributeError} on one-sided wrappers.
+Correction: treat a missing lower bound as \(-\infty\) and a missing upper bound as \(+\infty\); intersect with the newly declared \([\texttt{min\_sigma}^2,\texttt{max\_sigma}^2]\); reject empty, equal, reversed, or nonfinite-invalid intersections with the existing \texttt{ValueError} convention; preserve Normal \texttt{loc}/\texttt{scale}.
+Imposing truncation on a user prior remains \textbf{SC} (D-28); correcting the already-declared truncation implementation is \textbf{CF}.
+
+\subparagraph{Explicit rejection of truncated non-Normal bases (CF; no API broadening).}
+Generic truncated wrappers also wrap Cauchy, Student-t, Logistic, and other families that expose \texttt{loc}/\texttt{scale}.
+The prior adapter now accepts a pre-truncated wrapper through the TruncatedNormal branch \emph{only} when \texttt{base\_dist} is genuinely \texttt{numpyro.distributions.Normal}; truncated Cauchy / Student-t fail loudly with \texttt{TypeError} rather than silently becoming TruncatedNormal.
+Supported families remain HalfNormal, LogNormal, TruncatedNormal (Normal base), and TruncatedLogNormal --- no new prior family.
+
+\subparagraph{Rectangle computational-grid simulation duplication (CF; D-30 adjacent).}
+Polygon public simulate already filtered via \texttt{PreparedDomain.union\_geometry}, but rectangle/array domains still used \texttt{points.sjoin(self.A)} where \texttt{self.A} is the \(25\times 25\) computational grid.
+A physical point on an internal grid edge matched two cells (two output rows); a vertex matched four.
+Correction: shared \texttt{PreparedDomain.covers\_xy} --- closed interval membership against authoritative \texttt{prepared\_domain.bounds} for rectangle/array domains; \texttt{union.covers} for polygons.
+Public-path tests cover internal edge/vertex, each outer edge and corners, outside exclusion, interior points, Hawkes and LGCP rectangle modes, one retained row per generated in-domain event, and no regression for polygon / single-row / disjoint cases.
+No \texttt{drop\_duplicates}; public output schema unchanged.
+Adjacent audit (not fixed here): rectangle no-covariate background sampling still draws per computational cell (\texttt{geo\_df = self.A}) by design; field/covariate membership continues to use max-id dedup (D-22); \texttt{\_plot\_grid} overlay remains plotting-only.
+
+\subparagraph{Production slope-description correction (DOC).}
+Production \texttt{bstpp.polygon\_mass} builds knot slopes by central finite differences (\texttt{SLOPE\_METHOD = central\_fd\_log\_sigma}); the module docstring incorrectly attributed forward-mode AD to production.
+Corrected to distinguish production (host NumPy/SciPy + central FD) from historical shootout/experimental JAX forward-mode AD builders.
+No change to \texttt{PRODUCTION\_TAU\_ABS}\(=10^{-5}\), \texttt{TAU\_DERIV}, \(K{=}64\), \texttt{panel\_h\_m}=20, \texttt{gl\_order}=16, or the production builder.
+Historical shootout records are left as historical.
+
+\subparagraph{Verification evidence (2026-07-29 continuation, analysis machine).}
+Targeted RED: one-sided TruncatedNormal / non-Normal bases (6 failing); rectangle internal edge/vertex / multi-event / LGCP edge (4 failing).
+Targeted GREEN after CF: both new suites plus prior/excitation-support, public Hawkes/LGCP simulate, polygon/rectangle domain, held-out scoring, polygon mass prepare/compat/production-gate, and window-mutation tests --- all pass.
+Ruff: clean on touched \texttt{bstpp} modules and changed tests; \texttt{git diff --check} clean; \texttt{compileall} clean on touched modules.
+Full suite: \texttt{427 passed, 1 skipped, 2 warnings}.
+Four rectangle golden pins vs \texttt{refactor-patches/baselines-2026-07/pins.json}: \texttt{PIN\_DIFFS 0 MATCH}; \texttt{jax\_enable\_x64} remained \texttt{False}.
+No JAX global-state or x64 behavior change.
+Public simulation now returns every retained physical event exactly once on both polygon-union and rectangle-bounds paths.
+Document build: same MiKTeX 22.10 / L3 toolchain failure as recorded above; content edits recorded pending a capable toolchain.
+
 \end{document}

@@ -1,8 +1,12 @@
 """Polygon excitation mass: offline float64 quadrature + online Hermite tables.
 
 Phase 3d / OP-9 hybrid backend. The likelihood evaluates ONLY the C1 cubic
-Hermite lookup; fixed-node boundary quadrature builds knot values and
-forward-mode AD slopes offline in float64 and must never run inside NUTS/SVI.
+Hermite lookup. Production tables are built offline by
+``prepare_polygon_mass_table`` / ``build_quad_table`` using host NumPy/SciPy
+float64 boundary quadrature and central finite-difference knot slopes
+(``SLOPE_METHOD = central_fd_log_sigma``); that preparation must never run
+inside NUTS/SVI. Historical shootout/experimental builders may use JAX
+forward-mode AD slopes; those are not the production path.
 
 Target mass (real-unit sigma, optional fixed spatial_window w_s)::
 
