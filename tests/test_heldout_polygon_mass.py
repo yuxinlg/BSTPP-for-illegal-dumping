@@ -1,14 +1,11 @@
-"""Held-out scoring must rebuild the polygon mass table on test events.
+"""Held-out polygon scoring requires an explicit held-out mass table (pre-3f).
 
-Bug: ``Hawkes_Model.log_expected_likelihood`` rebuilds excitation pairs for
-the test realization but reuses the training-event Hermite mass table. That
-crashes when train/test counts differ and silently mis-scores when they match
-but locations differ.
-
-Required: treat ``test_data`` as a separate realization under the fitted
-posterior; prepare a test-specific excitation-support object (same domain,
-cutoff, sigma range, interpolation settings) without mutating training state.
-Rectangle mode must stay unchanged.
+Scientific reading (D-32): held-out data are a complete standalone realization;
+event-indexed state (pairs, mass-table rows) is rebuilt from that realization.
+Acquisition contract (D-26, superseding silent rebuild): polygon mode
+hard-requires ``mass_table=`` prepared for the held-out events — never built
+implicitly; a training-event table must not be accepted for a different
+realization. Rectangle mode is unaffected.
 """
 
 from __future__ import annotations
@@ -17,13 +14,16 @@ import os
 
 os.environ.setdefault("JAX_PLATFORM_NAME", "cpu")
 
+import geopandas as gpd
 import jax.numpy as jnp
 import numpy as np
 import numpyro.distributions as dist
 import pandas as pd
 import pytest
 from numpyro.infer import log_likelihood
+from shapely.geometry import box
 
+from bstpp.data_contracts import DataContractError
 from bstpp.main import Hawkes_Model
 from tests._polygon_prepare_helpers import prepare_table_for_model
 
@@ -95,25 +95,42 @@ def _support_fingerprint(support):
     }
 
 
+def _heldout_table(test_data):
+    return prepare_table_for_model(
+        test_data, A, min_sigma=5.0, max_sigma=40.0)
+
+
 # -------------------------------------------------------------------- RED ----
 
-def test_heldout_polygon_unequal_counts_scores():
-    """Train n != test n must not crash; score must be finite."""
+def test_heldout_polygon_without_mass_table_raises():
     train = _polygon_model(_events(4, seed=1))
     test = _events(7, seed=2)
     _inject_samples(train)
-    got = train.log_expected_likelihood(test)
+    with pytest.raises(ValueError, match="mass_table"):
+        train.log_expected_likelihood(test)
+
+
+def test_heldout_polygon_training_table_rejected():
+    """A table built on training events must not score a different realization."""
+    train_data = _events(5, seed=10)
+    test_data = _events(5, seed=11)
+    train = _polygon_model(train_data)
+    _inject_samples(train)
+    with pytest.raises(ValueError, match="mass table|events|sha256|compat"):
+        train.log_expected_likelihood(
+            test_data, mass_table=train.excitation_support.mass_table)
+
+
+def test_heldout_polygon_unequal_counts_scores_with_explicit_table():
+    train = _polygon_model(_events(4, seed=1))
+    test = _events(7, seed=2)
+    _inject_samples(train)
+    got = train.log_expected_likelihood(test, mass_table=_heldout_table(test))
     assert np.isfinite(got)
 
 
 def test_heldout_polygon_equal_counts_uses_test_location_masses():
-    """Equal n but different locations must use TEST event masses.
-
-    A model built directly on the test realization is the oracle: held-out
-    scoring under the train posterior must match that oracle at the same
-    fixed parameters. Reusing the train mass table (the bug) yields a
-    different compensator and therefore a different score.
-    """
+    """Equal n but different locations must use TEST event masses."""
     train_data = _events(5, seed=10, x_lo=20.0, x_hi=80.0, y_lo=20.0, y_hi=80.0)
     test_data = _events(5, seed=11, x_lo=120.0, x_hi=180.0, y_lo=120.0, y_hi=180.0)
     assert not np.allclose(train_data[["X", "Y"]].to_numpy(),
@@ -124,8 +141,6 @@ def test_heldout_polygon_equal_counts_uses_test_location_masses():
     _inject_samples(train)
     _inject_samples(oracle)
 
-    # Sanity: train-table scoring of test events differs from the oracle
-    # (documents the silent mis-score the bug produces when counts match).
     from jax.scipy.special import logsumexp
     from bstpp.utils import aligned_difference_pairs
 
@@ -140,7 +155,6 @@ def test_heldout_polygon_equal_counts_uses_test_location_masses():
     wrong_args.update(coords=coords, t_vals=t_vals, x_vals=x_vals, y_vals=y_vals)
     for k in ("batch_size", "num_samples", "num_warmup", "num_chains", "thinning"):
         wrong_args.pop(k, None)
-    # Keep train excitation_support (the bug): train masses + test events.
     wrong_ll = log_likelihood(train.model, train.samples, wrong_args)["loglik_factor"]
     wrong_score = float(
         (logsumexp(wrong_ll, axis=0) - jnp.log(wrong_ll.shape[0])).sum())
@@ -152,7 +166,8 @@ def test_heldout_polygon_equal_counts_uses_test_location_masses():
     assert abs(wrong_score - oracle_score) > 1e-3, (
         "fixture too weak: train-mass scoring already matches oracle")
 
-    got = train.log_expected_likelihood(test_data)
+    got = train.log_expected_likelihood(
+        test_data, mass_table=_heldout_table(test_data))
     assert got == pytest.approx(oracle_score, abs=1e-4, rel=0)
 
 
@@ -168,8 +183,8 @@ def test_heldout_polygon_scoring_does_not_mutate_training_support():
     before_fp = _support_fingerprint(before_support)
     before_keys = set(train.args.keys())
 
-    train.log_expected_likelihood(test)
-    train.log_expected_likelihood(test)
+    train.log_expected_likelihood(test, mass_table=_heldout_table(test))
+    train.log_expected_likelihood(test, mass_table=_heldout_table(test))
 
     assert id(train.args) == before_args_id
     assert set(train.args.keys()) == before_keys
@@ -185,7 +200,7 @@ def test_heldout_polygon_scoring_does_not_mutate_training_support():
 
 
 def test_heldout_rectangle_unequal_counts_unchanged():
-    """Rectangle mode must keep working and not build a polygon mass table."""
+    """Rectangle mode must keep working and not require a mass table."""
     train_data = _events(4, seed=30)
     test_data = _events(9, seed=31)
     train = _rectangle_model(train_data)
@@ -208,3 +223,41 @@ def test_heldout_rectangle_unequal_counts_unchanged():
     assert got == pytest.approx(oracle_score, abs=1e-4, rel=0)
     assert train.excitation_support.mass_table is None
     assert id(train.excitation_support) == support_id
+
+
+def test_heldout_nonfinite_rejected():
+    train = _rectangle_model(_events(4, seed=40))
+    _inject_samples(train)
+    bad = _events(3, seed=41)
+    bad.loc[1, "X"] = np.nan
+    with pytest.raises(DataContractError, match="nonfinite|non-numeric"):
+        train.log_expected_likelihood(bad)
+
+
+def test_heldout_cov_ind_length_validated():
+    """cov_ind must match the held-out event count; partial coverage fails loud."""
+    domain = gpd.GeoDataFrame(geometry=[box(0, 0, 200, 200)])
+    cov = gpd.GeoDataFrame(
+        {"v": [1.0]},
+        geometry=[box(0, 0, 100, 200)],  # covers only half the domain
+    )
+    train_data = _events(4, seed=50, x_lo=10, x_hi=90, y_lo=10, y_hi=190)
+    train = Hawkes_Model(
+        train_data, domain, T_DAYS, cox_background=False,
+        excitation_support="rectangle",
+        spatial_cov=cov, cov_names=["v"],
+        data_contracts="report",  # allow domain gap so held-out can miss cov
+        **PRIORS,
+    )
+    _inject_samples(
+        train,
+        params=dict(PARAMS, w=np.float32(0.0), b_0=np.float32(0.0)),
+    )
+    # Held-out point outside the covariate footprint → incomplete cov_ind.
+    test = pd.DataFrame({
+        "X": [50.0, 150.0],
+        "Y": [100.0, 100.0],
+        "T": [1.0, 2.0],
+    })
+    with pytest.raises(ValueError, match="cov_ind"):
+        train.log_expected_likelihood(test)

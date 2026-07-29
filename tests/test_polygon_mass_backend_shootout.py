@@ -194,19 +194,41 @@ def test_table_matches_oracle_at_knots_and_is_c1():
         np.testing.assert_allclose(dlo, dhi, rtol=0, atol=1e-5)
 
 
-def test_table_bounds_and_offknot_accuracy():
+def test_legacy_oracle_pchip_k40_offknot_characterization():
+    """Historical characterization of the *rejected* oracle-built/PCHIP K=40
+    candidate (``build_table``, not the adopted quad-built K=64 path).
+
+    Uses the preregistered shootout value gate
+    ``LEGACY_SHOOTOUT_TAU_ABS = 5.39e-4``. This is **not** a production
+    acceptance test and does **not** claim to satisfy
+    ``PRODUCTION_TAU_ABS = 1e-5``.
+    """
     prep = _small_table(K=40)
+    assert prep.values.shape[1] == 40
     masses_fn, _, _ = shoot.make_table_eval()
     lk, vj, sj = (jnp.asarray(prep.log_knots), jnp.asarray(prep.values),
                   jnp.asarray(prep.slopes))
     rng = np.random.default_rng(3)
     sig = np.exp(rng.uniform(prep.log_knots[0], prep.log_knots[-1], 12))
+    max_abs_err = 0.0
     for s in sig:
         got = np.asarray(masses_fn(np.log(s), lk, vj, sj))
         assert (got >= -1e-12).all() and (got <= 1 + 1e-12).all()
         want = np.array([shoot.oracle_mass(CONCAVE, sx, sy, s)
                          for sx, sy in [(50, 40), (150, 75), (10, 10)]])
-        np.testing.assert_allclose(got, want, rtol=0, atol=shoot.TAU_ABS)
+        err = float(np.max(np.abs(got - want)))
+        max_abs_err = max(max_abs_err, err)
+        np.testing.assert_allclose(
+            got, want, rtol=0, atol=shoot.LEGACY_SHOOTOUT_TAU_ABS)
+    print(
+        f"\n[legacy oracle/PCHIP K=40 off-knot characterization] "
+        f"max_abs_mass_err={max_abs_err:.6e} "
+        f"(legacy_tau={shoot.LEGACY_SHOOTOUT_TAU_ABS}; "
+        f"NOT production_tau={shoot.PRODUCTION_TAU_ABS})\n"
+    )
+    assert max_abs_err <= shoot.LEGACY_SHOOTOUT_TAU_ABS
+    # Document that this candidate does not meet the production gate.
+    assert max_abs_err > shoot.PRODUCTION_TAU_ABS
 
 
 def test_table_extrapolation_prohibited():
@@ -253,8 +275,8 @@ _CONFIRM_CASES = [
 # Documented numerical allowance for the finite-cutoff bound
 # 0 <= M <= erf(w_s/(√2 σ))^2 <= 1. Knot values from the quad builder obey
 # the bound to ~1e-12; between knots cubic Hermite can overshoot by ~1e-9
-# (observed) to ~1e-6 (margin). This is NOT a relaxation of TAU_ABS /
-# TAU_DERIV — those oracle gates stay at 5.39e-4.
+# (observed) to ~1e-6 (margin). This is NOT a relaxation of
+# PRODUCTION_TAU_ABS / TAU_DERIV — those gates stay separate.
 _BOUND_ROUNDING = 1e-6
 _CONT_EPS = 1e-9  # knot-side probe for C1 continuity
 
@@ -344,7 +366,8 @@ def test_finite_cutoff_hybrid_table_confirmation():
             err = got - want
             signed_errs.append(err)
             max_abs_err = max(max_abs_err, float(np.abs(err).max()))
-            np.testing.assert_allclose(got, want, rtol=0, atol=shoot.TAU_ABS)
+            np.testing.assert_allclose(
+                got, want, rtol=0, atol=shoot.PRODUCTION_TAU_ABS)
 
         # ---- derivative vs converged FD; distinguish FD floor ----
         deriv_sigmas = np.unique(np.concatenate([
@@ -377,8 +400,8 @@ def test_finite_cutoff_hybrid_table_confirmation():
 
         # ---- analytic interior fast path vs oracle and erf^2 ----
         # At knots the builder stores the analytic retained-square mass
-        # exactly; off-knot Hermite stays within TAU_ABS of both the oracle
-        # and erf(w_s/(√2 σ))^2 (the retained-square closed form).
+        # exactly; off-knot Hermite stays within PRODUCTION_TAU_ABS of both
+        # the oracle and erf(w_s/(√2 σ))^2 (the retained-square closed form).
         for i, lab in enumerate(labels):
             if "interior" not in lab:
                 continue
@@ -395,9 +418,9 @@ def test_finite_cutoff_hybrid_table_confirmation():
                                           s, WS_CONFIRM)
                 analytic = float(erf(WS_CONFIRM / (np.sqrt(2.0) * s)) ** 2)
                 np.testing.assert_allclose(got_i, ora_i, rtol=0,
-                                           atol=shoot.TAU_ABS)
+                                           atol=shoot.PRODUCTION_TAU_ABS)
                 np.testing.assert_allclose(got_i, analytic, rtol=0,
-                                           atol=shoot.TAU_ABS)
+                                           atol=shoot.PRODUCTION_TAU_ABS)
                 np.testing.assert_allclose(ora_i, analytic, rtol=0, atol=1e-12)
 
         # ---- float32 online evaluation (tables built f64, cast for eval) ----
@@ -411,7 +434,8 @@ def test_finite_cutoff_hybrid_table_confirmation():
                              for sx, sy in zip(x, y)])
             f32_max_abs_err = max(f32_max_abs_err,
                                   float(np.abs(got32 - want).max()))
-            np.testing.assert_allclose(got32, want, rtol=0, atol=shoot.TAU_ABS)
+            np.testing.assert_allclose(
+                got32, want, rtol=0, atol=shoot.PRODUCTION_TAU_ABS)
         for s in deriv_sigmas:
             dgot32 = np.asarray(d_fn(np.float32(np.log(s)), lk32, vj32, sj32))
             for i, (sx, sy) in enumerate(zip(x, y)):
@@ -448,7 +472,7 @@ def test_finite_cutoff_hybrid_table_confirmation():
         f"ws={WS_CONFIRM} K={K} h={h_panel} GL={gl_order}\n"
         f"  cases={case_records}\n"
         f"  max_abs_mass_err={max_abs_err:.6e} "
-        f"(tau={shoot.TAU_ABS})\n"
+        f"(production_tau={shoot.PRODUCTION_TAU_ABS})\n"
         f"  max_abs_dM_dlogsigma_err={max_deriv_err:.6e} "
         f"(tau={shoot.TAU_DERIV}, fd_floor_max={max_deriv_floor:.6e})\n"
         f"  signed_err_minmax="
@@ -459,7 +483,55 @@ def test_finite_cutoff_hybrid_table_confirmation():
         f"  runtime_s={elapsed:.3f} PASS\n"
     )
     # stash for optional decision.md consumers reading capsys
-    assert max_abs_err <= shoot.TAU_ABS
+    assert max_abs_err <= shoot.PRODUCTION_TAU_ABS
     assert max_deriv_err <= shoot.TAU_DERIV
-    assert f32_max_abs_err <= shoot.TAU_ABS
+    assert f32_max_abs_err <= shoot.PRODUCTION_TAU_ABS
     assert f32_max_deriv_err <= shoot.TAU_DERIV
+
+
+def test_uncut_quad_built_k64_offknot_production_gate():
+    """Adopted production path: uncut ``build_quad_table`` K=64, h=20, GL-16.
+
+    Off-knot Hermite masses must satisfy ``PRODUCTION_TAU_ABS = 1e-5``.
+    Complements the finite-cutoff confirmation so both uncut and
+    ``spatial_window``-aware production builders enforce the declared gate.
+    """
+    K = 64
+    h_panel, gl_order = 20.0, 16
+    # Same geometries/events as the finite-cutoff confirmation, but uncut.
+    cases = [
+        (RECT_WS,
+         np.array([50.0, 1000.0]),
+         np.array([50.0, 1000.0]),
+         ("rect_boundary", "rect_interior")),
+        (CONCAVE_WS,
+         np.array([850.0]),
+         np.array([850.0]),
+         ("concave_boundary",)),
+    ]
+    masses_fn, _, _ = shoot.make_table_eval()
+    max_abs_err = 0.0
+    for poly, x, y, _labels in cases:
+        table = shoot.build_quad_table(
+            poly, x, y, K, None, h=h_panel, gl_order=gl_order)
+        assert table.values.shape[1] == K
+        assert table.values.dtype == np.float64
+        lk = jnp.asarray(table.log_knots)
+        vj = jnp.asarray(table.values)
+        sj = jnp.asarray(table.slopes)
+        for s in _confirm_sigmas(table.log_knots):
+            shoot.validate_sigma_in_range(s, table.log_knots)
+            got = np.asarray(masses_fn(np.log(s), lk, vj, sj))
+            want = np.array([shoot.oracle_mass(poly, sx, sy, s, None)
+                             for sx, sy in zip(x, y)])
+            err = float(np.max(np.abs(got - want)))
+            max_abs_err = max(max_abs_err, err)
+            np.testing.assert_allclose(
+                got, want, rtol=0, atol=shoot.PRODUCTION_TAU_ABS)
+    print(
+        f"\n[uncut quad-built K=64 production gate] "
+        f"K={K} h={h_panel} GL={gl_order} ws=None\n"
+        f"  max_abs_mass_err={max_abs_err:.6e} "
+        f"(production_tau={shoot.PRODUCTION_TAU_ABS})\n"
+    )
+    assert max_abs_err <= shoot.PRODUCTION_TAU_ABS

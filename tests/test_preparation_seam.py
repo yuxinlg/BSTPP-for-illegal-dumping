@@ -182,8 +182,9 @@ def test_covariate_partitions_adapter_identity_plain_hawkes():
     assert m.args["spatial_cov"] is parts.cov_values
     assert m.args["cov_area"] is parts.cov_area
     assert parts.cov_gdf is m.spatial_cov
-    # standardized design matrix: mean 0, unit variance over cells
-    np.testing.assert_allclose(parts.cov_values.mean(axis=0), 0.0, atol=1e-12)
+    # Default standardize_cov=None preserves supplied values (OP-3/OP-4).
+    assert parts.standardization["method"] == "none"
+    np.testing.assert_array_equal(parts.cov_values, cov[["v"]].values)
 
 
 # ------------------------------------------------- binding invariant 10.b.7

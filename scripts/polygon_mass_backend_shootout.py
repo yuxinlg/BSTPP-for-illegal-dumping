@@ -84,8 +84,18 @@ OUT_DIR = REPO / "results" / "polygon_mass_backend_shootout"
 
 SIGMA_REGISTERED = [10.0, 20.0, 50.0, 100.0, 200.0, 500.0]
 SIGMA_RANGE = (10.0, 500.0)
-TAU_ABS = 5.39e-4            # 0.1 * eps_s(3 sigma), D-21 square tail
-TAU_DERIV = 5.39e-4          # provisional; reported separately (see report)
+# Mass-value accuracy gates (pre-3f / A-21).
+# Historical shootout preregistered gate (retained for retrospective
+# characterization of rejected oracle-built/PCHIP candidates only):
+LEGACY_SHOOTOUT_TAU_ABS = 5.39e-4
+# Current production gate for the adopted quad-built K=64 Hermite path:
+PRODUCTION_TAU_ABS = 1e-5
+# Alias used by production confirmation tests of the adopted backend.
+TAU_ABS = PRODUCTION_TAU_ABS
+# Derivative gate remains provisional (OP-12) and is NOT tied to tau_abs.
+# The adopted K=64 shootout derivative error was ~1.6e-5; do not move this
+# gate to 1e-5 as part of the mass-value decision.
+TAU_DERIV = 5.39e-4
 TAU_FLOOR = 1e-7             # explained deviation: 0.1*eps_s(sigma) -> 0 when the
                              # fixed cutoff retains ~all mass; floored at the
                              # float32 scale instead of an unachievable 1e-300.
@@ -506,9 +516,17 @@ def eps_s(ws_over_sigma: np.ndarray | float) -> np.ndarray | float:
 
 
 def tau_for(sigma: float, ws: float | None) -> float:
+    """Historical shootout scoring gate (preregistered LEGACY_SHOOTOUT_TAU_ABS).
+
+    Production confirmation tests use PRODUCTION_TAU_ABS directly and do not
+    call this helper. Re-running this experiment script must not silently
+    rewrite history under the newer production gate.
+    """
     if ws is None:
-        return TAU_ABS
-    return float(min(TAU_ABS, max(0.1 * eps_s(ws / sigma), TAU_FLOOR)))
+        return LEGACY_SHOOTOUT_TAU_ABS
+    return float(min(
+        LEGACY_SHOOTOUT_TAU_ABS,
+        max(0.1 * eps_s(ws / sigma), TAU_FLOOR)))
 
 
 def run_quad_built_tables() -> None:
@@ -638,7 +656,11 @@ def main() -> None:
                    "gl_order": ORACLE_GL_ORDER,
                    "module": "scripts/polygon_mass_diagnostic.py (unchanged)"},
         "select_seed": SELECT_SEED, "offgrid_seed": OFFGRID_SEED,
-        "fd_h": FD_H, "tau_abs": TAU_ABS, "tau_deriv": TAU_DERIV,
+        "fd_h": FD_H,
+        "tau_abs_legacy_shootout": LEGACY_SHOOTOUT_TAU_ABS,
+        "tau_abs_production": PRODUCTION_TAU_ABS,
+        "tau_abs": LEGACY_SHOOTOUT_TAU_ABS,  # historical key; shootout scoring
+        "tau_deriv": TAU_DERIV,
         "tau_floor": TAU_FLOOR, "representative_ws_m": REPRESENTATIVE_WS,
         "panel_configs": PANEL_CONFIGS, "knot_counts": KNOT_COUNTS,
         "eval_batch": EVAL_BATCH,
@@ -781,7 +803,10 @@ def main() -> None:
     f32_err = float(np.abs(got32 - oracle_vals[label][:, idx32]).max())
     run_config["float32_spot_check"] = {
         "backend": f"quad_h{h:g}_q{q}", "region": label,
-        "max_abs_err": f32_err, "passes_tau": bool(f32_err < TAU_ABS)}
+        "max_abs_err": f32_err,
+        "passes_legacy_shootout_tau": bool(f32_err < LEGACY_SHOOTOUT_TAU_ABS),
+        "passes_production_tau": bool(f32_err < PRODUCTION_TAU_ABS),
+    }
 
     summary = pd.DataFrame(rows)
     summary.to_csv(OUT_DIR / "summary.csv", index=False)

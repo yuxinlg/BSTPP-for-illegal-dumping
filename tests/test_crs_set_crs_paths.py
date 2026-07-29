@@ -173,4 +173,4 @@ def test_attach_covariate_partitions_mismatch_is_loud_invariant():
     cov["cov_ind"] = np.arange(len(cov))
     with pytest.raises((RuntimeError, ValueError), match="CRS|crs"):
         attach_covariate_partitions(
-            parts, dom, cov, ["v"], True, "cox_hawkes")
+            parts, dom, cov, ["v"], None, "cox_hawkes")

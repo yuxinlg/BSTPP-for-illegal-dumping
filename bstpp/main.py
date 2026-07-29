@@ -38,7 +38,7 @@ from .data_contracts import (validate_events, validate_covariates,
                              DataContractError)
 from .preparation import (ModelData, prepare_domain, prepare_partitions,
                           attach_covariate_partitions,
-                          finalize_integration_arrays)
+                          finalize_integration_arrays, T_INTERNAL)
 from .excitation_support import (
     build_excitation_support,
     resolve_excitation_support_mode,
@@ -49,6 +49,10 @@ from .cutoffs import (
     resolve_computational_cutoffs,
     scale_temporal_prior_to_internal,
 )
+
+# Sentinel for set_window: omitted arguments leave the current value unchanged.
+# Explicit None clears / restores the untruncated default (distinct from omit).
+_UNSET = object()
 
 
 def _load_decoder(name):
@@ -145,7 +149,7 @@ def add_month_grid_and_labels(ax, start_date, num_days,label_every_n_months=3):
 
 class Point_Process_Model:
     def __init__(self,model,data,A,T,offset_seasonal=0,spatial_cov=None,cov_names=None,
-                 cov_grid_size=None,spatial_cov_crs=None,standardize_cov=True,sp_var_mu=2.0,
+                 cov_grid_size=None,spatial_cov_crs=None,standardize_cov=None,sp_var_mu=2.0,
                  data_contracts='reject',**kwargs):
         """
         Spatiotemporal Point Process Model.
@@ -182,14 +186,14 @@ class Point_Process_Model:
             paired with a CRS-bearing domain; must match the domain CRS.
             GeoDataFrame covariates are self-describing and do not use this
             argument. Array domains (no CRS) do not require it.
-        standardize_cov: bool or str
-            True (default): legacy count-weighted z-score over covariate
-            cells. False: values preserved exactly as supplied.
-            'domain_area': area-weighted standardization with the exact
-            clipped |C_c ∩ A| areas as weights (D-11 convenience) --
-            cells with no domain mass do not influence mean/scale.
-            Whichever method runs is reported on self.standardization
-            (D-10): {'method', 'columns', 'mean', 'scale'}, with
+        standardize_cov: None or str
+            None (default): covariate values preserved exactly as supplied.
+            ``'domain_area'``: area-weighted standardization with the exact
+            clipped |C_c ∩ A| areas as weights (D-11); cells with no domain
+            mass do not influence mean/scale. Legacy booleans are rejected
+            explicitly (OP-3/OP-4 settled pre-3f). Whichever method runs is
+            reported on self.standardization (D-10):
+            {'method', 'columns', 'mean', 'scale'}, with
             X = standardized * scale + mean.
         sp_var_mu: float
             Fixed log-amplitude multiplier applied to the spatial VAE decoder output.
@@ -556,14 +560,18 @@ class Point_Process_Model:
 
 
     def _warn_sigma_near_bound(self):
-        """Warn when posterior sigma approaches a configured max_sigma."""
+        """Warn when posterior sigma approaches a configured sigma bound."""
         support = self.args.get('excitation_support')
         if support is None or support.max_sigma_real is None:
             return
         samples = getattr(self, 'samples', None)
         if samples is None or 'sigmax_2' not in samples:
             return
-        warn_if_sigma_near_bound(samples['sigmax_2'], support.max_sigma_real)
+        warn_if_sigma_near_bound(
+            samples['sigmax_2'],
+            support.max_sigma_real,
+            min_sigma_real=support.min_sigma,
+        )
 
 
     def _scale_xyt(self,data,args,field_support):
@@ -641,7 +649,16 @@ class Point_Process_Model:
         args["xy_events"]=xy_events_total.transpose()
         return args,points
 
-    def log_expected_likelihood(self, data):
+    def log_expected_likelihood(self, data, *, mass_table=None):
+        """Expected log likelihood of ``data`` under the fitted posterior.
+
+        Held-out ``data`` is a separate realization: all event-indexed state
+        (pairs, ``cov_ind``, polygon mass-table rows) is rebuilt from it.
+        Polygon excitation mode hard-requires ``mass_table=`` prepared for
+        those held-out events via ``prepare_polygon_mass_table``; silent
+        table construction is not allowed. Rectangle mode ignores
+        ``mass_table``.
+        """
         if type(data) is str:
             data = pd.read_csv(data)
         if 'day' in data.columns:
@@ -702,14 +719,25 @@ class Point_Process_Model:
 
             # Polygon Hermite tables are per-parent-event. Reusing the training
             # table crashes when counts differ and silently mis-scores when
-            # counts match but locations differ. Build a test-specific support
-            # object; never mutate self.args / self.excitation_support.
+            # counts match but locations differ. Require an explicit held-out
+            # table; never mutate self.args / self.excitation_support and never
+            # build a table silently here.
             train_support = self.args.get('excitation_support')
             if (train_support is not None
                     and getattr(train_support, 'mode', None) == 'polygon'):
+                if mass_table is None:
+                    raise ValueError(
+                        "Polygon log_expected_likelihood requires mass_table= "
+                        "from bstpp.polygon_mass.prepare_polygon_mass_table(...) "
+                        "built for the held-out events; silent rebuild is not "
+                        "allowed.")
                 test_args['excitation_support'] = (
                     self._excitation_support_for_events(
-                        *self._xy_events_to_real(test_args)))
+                        *self._xy_events_to_real(test_args),
+                        mass_table=mass_table))
+            elif mass_table is not None:
+                raise ValueError(
+                    "mass_table is only accepted for polygon excitation_support")
 
         if 'cov_ind' in self.args:
             # Same D-22 max-cov_ind tie rule as training ingestion. This also
@@ -719,6 +747,12 @@ class Point_Process_Model:
             test_args['cov_ind'] = (points.sjoin(self.spatial_cov)
                                     .groupby('point_id')['cov_ind'].max()
                                     .sort_index().values)
+            if len(test_args['cov_ind']) != len(points):
+                raise ValueError(
+                    "Held-out cov_ind length does not match the held-out event "
+                    f"count: got {len(test_args['cov_ind'])} assignments for "
+                    f"{len(points)} events (incomplete covariate coverage or "
+                    "failed membership).")
 
         # Remove training-specific keys if present
         for k in ['batch_size', 'num_samples', 'num_warmup', 'num_chains', 'thinning']:
@@ -1520,11 +1554,12 @@ class Point_Process_Model:
           - a finite spatial_window IS mirrored in the offspring thinning (real-unit
             box, within_real_box_window), matching the clipped compensator exactly, so
             finite-ws configurations are inside the calibration-supported regime.
-          - For a GeoDataFrame domain, the EXCITATION compensator still integrates over
-            the bounding rectangle A_ rather than the polygon (3d scope). The background
-            itself is exact on the polygon since 3c-1: boundary cells are charged and
-            sampled on the clipped support C_c ∩ A, so simulate()'s A-filter no longer
-            discards background points.
+          - For a GeoDataFrame domain in rectangle excitation mode, the excitation
+            compensator integrates over the bounding rectangle A_. In polygon
+            excitation mode the Hermite mass table charges the domain union.
+            The Cox background itself is exact on the polygon since 3c-1: boundary
+            cells are charged and sampled on the clipped support C_c ∩ A, so
+            simulate()'s A-filter no longer discards background points.
         """
         n_t, T_int = self.args['n_t'], self.args['T']
         n_s, offset = self.args['n_s'], self.args['offset_seasonal']
@@ -1599,18 +1634,30 @@ class Point_Process_Model:
         return np.column_stack((xy, times))
 
 
-    def set_window(self, window, spatial_window=None):
-        """window: temporal truncation, INTERNAL units. spatial_window:
-        spatial truncation, REAL length (real-space square of half-width ws;
-        see aligned_difference_pairs / within_real_box_window).
+    def set_window(self, window=_UNSET, spatial_window=_UNSET):
+        """Update computational cutoffs (internal temporal / real spatial).
 
-        Validates inputs and rebuilds pairs in local state; assigns only after
-        the replacement pairs are prepared successfully.
+        Omitted arguments (the private ``_UNSET`` default) leave the current
+        value unchanged. Explicit ``None`` restores the untruncated default
+        (temporal: full observation horizon ``T_INTERNAL``; spatial: no
+        computational cutoff). ``set_window()`` with no arguments is a no-op.
+        Candidate pairs are prepared locally and committed only on success.
         """
-        window = float(window)
-        if not (math.isfinite(window) and window > 0):
-            raise ValueError(f"window must be finite and > 0; got {window}")
-        if spatial_window is not None:
+        if window is _UNSET and spatial_window is _UNSET:
+            return
+
+        if window is _UNSET:
+            window = self.args['window']
+        elif window is None:
+            window = float(T_INTERNAL)
+        else:
+            window = float(window)
+            if not (math.isfinite(window) and window > 0):
+                raise ValueError(f"window must be finite and > 0; got {window}")
+
+        if spatial_window is _UNSET:
+            spatial_window = self.args.get('spatial_window')
+        elif spatial_window is not None:
             spatial_window = float(spatial_window)
             if not (math.isfinite(spatial_window) and spatial_window > 0):
                 raise ValueError(
@@ -1851,6 +1898,8 @@ class Hawkes_Model(Point_Process_Model):
         # OP-6: resolve computational cutoffs (physical wins over tolerance).
         # Legacy path: bare window=None / spatial_window=None keeps the
         # untruncated defaults so fixed-cutoff pins stay bit-stable.
+        self._design_mean_lag_days = design_mean_lag_days
+        self._design_sigma = design_sigma
         cutoff_prov = resolve_computational_cutoffs(
             horizon_days=float(self.T),
             temporal_cutoff_days=temporal_cutoff_days,
@@ -1869,7 +1918,7 @@ class Hawkes_Model(Point_Process_Model):
         self.set_window(
             cutoff_prov.temporal.window_internal,
             cutoff_prov.spatial.spatial_window,
-            mass_table=mass_table if mode == "polygon" else None,
+            mass_table=mass_table if mode == "polygon" else _UNSET,
         )
         self.cutoff_provenance = cutoff_prov
 
@@ -1895,18 +1944,16 @@ class Hawkes_Model(Point_Process_Model):
         """Observed event locations in real CRS units (table / support order)."""
         return self._xy_events_to_real(self.args)
 
-    def _excitation_support_for_events(self, event_x_real, event_y_real):
+    def _excitation_support_for_events(self, event_x_real, event_y_real,
+                                       *, mass_table=None):
         """Build excitation support for an alternate event set (held-out scoring).
 
-        Reuses the fitted model's domain, spatial cutoff, sigma bounds, and the
-        same ``build_excitation_support`` path as training install. Does not
+        Reuses the fitted model's domain, spatial cutoff, and sigma bounds via
+        the same ``build_excitation_support`` path as training install. Does not
         mutate ``self.args`` or the training support object. Polygon mode
-        prepares a held-out table via ``prepare_polygon_mass_table``.
+        hard-requires a caller-supplied ``mass_table`` prepared for these
+        events; silent ``prepare_polygon_mass_table`` is not allowed here.
         """
-        from shapely.geometry import box as shapely_box
-
-        from .polygon_mass import prepare_polygon_mass_table
-
         mode = resolve_excitation_support_mode(
             is_polygon_domain=self.prepared_domain.is_polygon,
             excitation_support=self._excitation_support_arg)
@@ -1914,26 +1961,16 @@ class Hawkes_Model(Point_Process_Model):
                       if self.prepared_domain.is_polygon else None)
         event_x_real = np.asarray(event_x_real, dtype=float)
         event_y_real = np.asarray(event_y_real, dtype=float)
-        mass_table = None
         if mode == "polygon":
-            from .excitation_support import resolve_sigma_bounds
-            lo, hi, _ = resolve_sigma_bounds(
-                mode=mode,
-                min_sigma=self._min_sigma_arg,
-                max_sigma=self._max_sigma_arg,
-                crs=self.prepared_domain.crs)
-            if self.prepared_domain.is_polygon:
-                geom = self.prepared_domain.union_geometry
-            else:
-                A_ = np.asarray(self.args['A_'], dtype=float)
-                geom = shapely_box(A_[0, 0], A_[1, 0], A_[0, 1], A_[1, 1])
-            mass_table = prepare_polygon_mass_table(
-                geom, event_x_real, event_y_real,
-                min_sigma=float(lo),
-                max_sigma=float(hi),
-                spatial_window=self.args.get('spatial_window'),
-                crs=self.prepared_domain.crs,
-            )
+            if mass_table is None:
+                raise ValueError(
+                    "Polygon held-out excitation support requires mass_table= "
+                    "from bstpp.polygon_mass.prepare_polygon_mass_table(...) "
+                    "built for the held-out events; silent rebuild is not "
+                    "allowed.")
+        elif mass_table is not None:
+            raise ValueError(
+                "mass_table is only accepted for polygon excitation_support")
         return build_excitation_support(
             mode=mode,
             bounds=self.args['A_'],
@@ -1949,55 +1986,51 @@ class Hawkes_Model(Point_Process_Model):
             union_geometry=self.prepared_domain.union_geometry,
         )
 
-    def _install_excitation_support(self, spatial_window=None):
-        """Build/replace the single D-18 support object (and polygon table)."""
-        mode = resolve_excitation_support_mode(
-            is_polygon_domain=self.prepared_domain.is_polygon,
-            excitation_support=self._excitation_support_arg)
-        x_real, y_real = self._event_xy_real()
-        domain_gdf = (self.prepared_domain.domain
-                      if self.prepared_domain.is_polygon else None)
-        support = build_excitation_support(
-            mode=mode,
-            bounds=self.args['A_'],
-            domain_gdf=domain_gdf,
-            is_polygon_domain=self.prepared_domain.is_polygon,
-            crs=self.prepared_domain.crs,
-            spatial_window=spatial_window,
-            min_sigma=self._min_sigma_arg,
-            max_sigma=self._max_sigma_arg,
-            event_x_real=x_real,
-            event_y_real=y_real,
-            mass_table=self._mass_table_arg,
-            union_geometry=self.prepared_domain.union_geometry,
-        )
-        # User-supplied table is only valid for the first install; subsequent
-        # set_window rebuilds must recompute when ws/events change.
-        self._mass_table_arg = None
-        self.args['excitation_support'] = support
-        self.excitation_support = support
-        self.excitation_provenance = dict(support.provenance)
+    def set_window(self, window=_UNSET, spatial_window=_UNSET, *,
+                   mass_table=_UNSET):
+        """Update computational cutoffs transactionally.
 
-    def set_window(self, window, spatial_window=None, *, mass_table=None):
-        """window: temporal computational cutoff, INTERNAL units.
-        spatial_window: spatial computational cutoff, REAL length (D-21
-        square). Rebuilds pairs and ``cutoff_provenance`` transactionally.
+        Omitted arguments (private ``_UNSET``) leave the current value
+        unchanged. Explicit ``window=None`` restores the full
+        observation-horizon setting (``T_INTERNAL``); explicit
+        ``spatial_window=None`` removes the spatial computational cutoff.
+        ``set_window()`` with no arguments is a true no-op.
 
-        Polygon mode: a temporal-only change (same realized spatial_window)
-        reuses the installed mass table. A changed spatial_window requires
-        ``mass_table=`` from ``prepare_polygon_mass_table`` matching the new
-        window; silent Hermite rebuild is not allowed. Candidate table,
-        pairs, support, and provenance are prepared locally and committed
-        only after validation succeeds.
+        Polygon mode: a temporal-only change (unchanged realized
+        spatial_window) reuses the installed mass table. A changed
+        spatial_window requires ``mass_table=`` from
+        ``prepare_polygon_mass_table`` matching the new window; silent
+        Hermite rebuild is not allowed. Candidate table, pairs, support,
+        and provenance are prepared locally and committed only after
+        validation succeeds. Design scales from construction are retained
+        so realized omission is recomputed honestly.
         """
-        window = float(window)
-        if not (math.isfinite(window) and window > 0):
-            raise ValueError(f"window must be finite and > 0; got {window}")
-        if spatial_window is not None:
-            spatial_window = float(spatial_window)
-            if not (math.isfinite(spatial_window) and spatial_window > 0):
+        if (window is _UNSET and spatial_window is _UNSET
+                and mass_table is _UNSET):
+            return
+
+        if window is _UNSET:
+            new_window = float(self.args['window'])
+            temporal_clear = False
+        elif window is None:
+            new_window = float(T_INTERNAL)
+            temporal_clear = True
+        else:
+            new_window = float(window)
+            temporal_clear = False
+            if not (math.isfinite(new_window) and new_window > 0):
                 raise ValueError(
-                    f"spatial_window must be finite and > 0; got {spatial_window}")
+                    f"window must be finite and > 0; got {new_window}")
+
+        if spatial_window is _UNSET:
+            new_sw = self.args.get('spatial_window')
+        elif spatial_window is None:
+            new_sw = None
+        else:
+            new_sw = float(spatial_window)
+            if not (math.isfinite(new_sw) and new_sw > 0):
+                raise ValueError(
+                    f"spatial_window must be finite and > 0; got {new_sw}")
 
         def _sw_equal(a, b):
             if a is None and b is None:
@@ -2007,7 +2040,7 @@ class Hawkes_Model(Point_Process_Model):
             return float(a) == float(b)
 
         prev_sw = self.args.get('spatial_window')
-        spatial_changed = not _sw_equal(prev_sw, spatial_window)
+        spatial_changed = not _sw_equal(prev_sw, new_sw)
 
         mode = resolve_excitation_support_mode(
             is_polygon_domain=self.prepared_domain.is_polygon,
@@ -2016,7 +2049,7 @@ class Hawkes_Model(Point_Process_Model):
         table_arg = None
         if mode == "polygon":
             if spatial_changed:
-                if mass_table is None:
+                if mass_table is _UNSET or mass_table is None:
                     raise ValueError(
                         "Polygon set_window with a changed spatial_window "
                         "requires mass_table= from "
@@ -2025,9 +2058,7 @@ class Hawkes_Model(Point_Process_Model):
                         "not allowed.")
                 table_arg = mass_table
             else:
-                # Temporal-only: reuse installed table unless a replacement
-                # is explicitly supplied.
-                if mass_table is not None:
+                if mass_table is not _UNSET and mass_table is not None:
                     table_arg = mass_table
                 elif getattr(self, "excitation_support", None) is not None:
                     table_arg = self.excitation_support.mass_table
@@ -2037,7 +2068,7 @@ class Hawkes_Model(Point_Process_Model):
                     raise ValueError(
                         "Polygon set_window requires an installed or supplied "
                         "mass_table from prepare_polygon_mass_table(...).")
-        elif mass_table is not None:
+        elif mass_table is not _UNSET and mass_table is not None:
             raise ValueError(
                 "mass_table is only accepted for polygon excitation_support")
 
@@ -2046,15 +2077,28 @@ class Hawkes_Model(Point_Process_Model):
             self.args['t_events'],
             self.args['xy_events'][0],
             self.args['xy_events'][1],
-            window=window,
-            spatial_window=spatial_window,
+            window=new_window,
+            spatial_window=new_sw,
             axis_scales=np.asarray(self.args['axis_scales'])
         )
-        cutoff_provenance = resolve_computational_cutoffs(
-            horizon_days=float(self.T),
-            window_internal=window,
-            spatial_window=spatial_window,
-        )
+        design_lag = getattr(self, "_design_mean_lag_days", None)
+        design_sigma = getattr(self, "_design_sigma", None)
+        if temporal_clear:
+            cutoff_provenance = resolve_computational_cutoffs(
+                horizon_days=float(self.T),
+                window_internal=None,
+                spatial_window=new_sw,
+                design_mean_lag_days=design_lag,
+                design_sigma=design_sigma,
+            )
+        else:
+            cutoff_provenance = resolve_computational_cutoffs(
+                horizon_days=float(self.T),
+                window_internal=new_window,
+                spatial_window=new_sw,
+                design_mean_lag_days=design_lag,
+                design_sigma=design_sigma,
+            )
         x_real, y_real = self._event_xy_real()
         domain_gdf = (self.prepared_domain.domain
                       if self.prepared_domain.is_polygon else None)
@@ -2064,7 +2108,7 @@ class Hawkes_Model(Point_Process_Model):
             domain_gdf=domain_gdf,
             is_polygon_domain=self.prepared_domain.is_polygon,
             crs=self.prepared_domain.crs,
-            spatial_window=spatial_window,
+            spatial_window=new_sw,
             min_sigma=self._min_sigma_arg,
             max_sigma=self._max_sigma_arg,
             event_x_real=x_real,
@@ -2074,8 +2118,8 @@ class Hawkes_Model(Point_Process_Model):
         )
 
         # Atomic commit: windows, pairs, support, and provenance together.
-        self.args['window'] = window
-        self.args['spatial_window'] = spatial_window
+        self.args['window'] = new_window
+        self.args['spatial_window'] = new_sw
         self.args['coords'] = coords
         self.args['t_vals'] = t_vals
         self.args['x_vals'] = x_vals
@@ -2391,6 +2435,20 @@ class Hawkes_Model(Point_Process_Model):
             geo_df = self.prepared_partitions.cov_support
             mu = np.exp(a_0 + np.asarray(parameters['b_0']))
             areas = np.asarray(self.args['cov_area'])
+        elif self.prepared_domain.is_polygon:
+            # D-30: sample from the canonical union geometry with A_area, not
+            # raw overlapping domain rows (row areas double-count overlap).
+            union = self.prepared_domain.union_geometry
+            if union is None:
+                raise ValueError(
+                    "PreparedDomain.union_geometry is required for polygon "
+                    "plain-Hawkes background sampling")
+            geo_df = gpd.GeoDataFrame(
+                {"geometry": [union]},
+                crs=self.prepared_domain.crs,
+            )
+            mu = np.exp(a_0)
+            areas = np.asarray([float(self.args['A_area'])], dtype=float)
         else:
             geo_df = self.A
             A_ = self.args['A_']

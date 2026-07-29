@@ -43,8 +43,15 @@ VALIDATED_DLOG = (
 DEFAULT_PANEL_H_M = 20.0
 DEFAULT_GL_ORDER = 16
 
-# Compensator error gate from the shootout (0.1 * eps_s(3 sigma), D-21).
-TAU_ABS = 5.39e-4
+# Independent polygon-table oracle accuracy gate (pre-3f / A-21).
+# Numerical approximation error is a separate budget from spatial-cutoff
+# omission; do not describe this as universally equal to 10% of eps_s.
+# Historical shootout preregistered value gate (retrospective only):
+LEGACY_SHOOTOUT_TAU_ABS = 5.39e-4
+# Current production gate for the adopted quad-built K=64 Hermite path:
+PRODUCTION_TAU_ABS = 1e-5
+TAU_ABS = PRODUCTION_TAU_ABS
+# Derivative gate remains provisional (OP-12) and is NOT tied to tau_abs.
 TAU_DERIV = 5.39e-4
 
 # Compatibility contract constants (builder + validator share these names).
@@ -885,8 +892,9 @@ def hermite_polygon_masses(log_sigma, table: PolygonMassTable,
 
 
 def warn_if_sigma_near_bound(sigmax_2_samples, max_sigma_real: float,
+                             min_sigma_real: float | None = None,
                              frac: float = 0.9) -> None:
-    """Warn when posterior sigma approaches the configured upper bound."""
+    """Warn when posterior sigma approaches a declared lower or upper bound."""
     s = np.sqrt(np.asarray(sigmax_2_samples, dtype=float)).ravel()
     if s.size == 0:
         return
@@ -900,3 +908,16 @@ def warn_if_sigma_near_bound(sigmax_2_samples, max_sigma_real: float,
             UserWarning,
             stacklevel=2,
         )
+    if min_sigma_real is not None:
+        q05 = float(np.quantile(s, 0.05))
+        lo = float(min_sigma_real)
+        # Mirror the upper check: within (1-frac) of the bound from above.
+        if q05 <= lo / frac:
+            warnings.warn(
+                f"Posterior sigma 5th percentile ({q05:.6g}) is within "
+                f"{(1.0/frac - 1.0):.0%} of min_sigma ({lo:.6g}). Sigma may "
+                "be weakly identified against the lower truncation; consider "
+                "lowering min_sigma and rebuilding the polygon-mass table.",
+                UserWarning,
+                stacklevel=2,
+            )

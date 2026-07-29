@@ -169,7 +169,7 @@ def test_set_window_temporal_only_reuses_polygon_mass_table():
     """Temporal-only change must not invalidate / rebuild the spatial table."""
     m, _ = _polygon_model_with_table(spatial_window=50.0, window=20.0)
     before = m.excitation_support.mass_table
-    m.set_window(12.0, spatial_window=50.0)
+    m.set_window(12.0)  # omit spatial_window → unchanged; reuse table
     assert m.args["window"] == pytest.approx(12.0)
     assert m.args["spatial_window"] == pytest.approx(50.0)
     assert m.excitation_support.mass_table is before

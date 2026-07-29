@@ -381,18 +381,19 @@ def test_set_window_updates_cutoff_provenance_atomically():
 
 
 def test_set_window_temporal_only_preserves_spatial_provenance_consistency():
+    """Omitting spatial_window leaves it unchanged (sentinel semantics)."""
     m = Hawkes_Model(
         _data(), np.array([[0.0, 1.0], [0.0, 1.0]]), T_DAYS,
         cox_background=False,
         window=25.0, spatial_window=0.4,
         **PRIORS_INTERNAL,
     )
-    m.set_window(12.0)  # spatial_window defaults to None in API
+    m.set_window(12.0)
     assert m.args["window"] == pytest.approx(12.0)
-    assert m.args["spatial_window"] is None
+    assert m.args["spatial_window"] == pytest.approx(0.4)
     assert m.cutoff_provenance.temporal.window_internal == pytest.approx(12.0)
-    assert m.cutoff_provenance.spatial.spatial_window is None
-    assert m.cutoff_provenance.spatial.selection == "default_untruncated"
+    assert m.cutoff_provenance.spatial.spatial_window == pytest.approx(0.4)
+    assert m.cutoff_provenance.spatial.selection == "physical"
 
 
 # ---------------------- set_window transactional (failure leaves state) --

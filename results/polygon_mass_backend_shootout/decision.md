@@ -177,3 +177,29 @@ Measured (2026-07-21, `illegal-dumping` env, CPU JAX; pytest `-s` block):
 * `tests/` — promote the shootout's synthetic cases to production tests;
   add D-18 consistency and provenance tests.
 * Docs: §15 guide addendum hooks; OP-9 row moved to the decision register.
+
+## Superseding current-production value gate (2026-07-29 / A-21)
+
+The tables and text above retain the **historical preregistered shootout
+value gate** \(\tau = 5.39\times 10^{-4}\) as the criterion under which
+backends were compared. That history is not rewritten.
+
+**Current production mass-value gate** (independent of cutoff omission;
+pre-3f / A-21):
+
+\[
+  \tau_{\mathrm{abs}}^{\mathrm{prod}} \;=\; 10^{-5}
+  \qquad\text{(``PRODUCTION\_TAU\_ABS'')}
+\]
+
+applies only to the **adopted** path: quad-built C¹ cubic Hermite tables
+with \(K = 64\), \(h = 20\), \(\mathrm{GL} = 16\) (finite-cutoff and uncut).
+The rejected oracle-built/PCHIP candidates (including K=40) remain
+characterized under the legacy shootout gate
+``LEGACY_SHOOTOUT_TAU_ABS = 5.39e-4`` and are **not** claimed to satisfy
+\(10^{-5}\).
+
+The derivative gate remains separately provisional under OP-12
+(``TAU_DERIV = 5.39e-4``); the adopted K=64 shootout derivative error was
+approximately \(1.6\times 10^{-5}\). Moving \(\tau_{\mathrm{abs}}\) to
+\(10^{-5}\) does **not** move the derivative gate.

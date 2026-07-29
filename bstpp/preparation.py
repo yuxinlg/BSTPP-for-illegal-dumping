@@ -401,18 +401,24 @@ def attach_covariate_partitions(partitions: PreparedPartitions,
     X_s = spatial_cov[cov_names].values
     if X_s.ndim == 1:
         X_s = X_s[:, None]
-    # standardize covariates. 3c API commit: standardization is always
-    # REPORTED (D-10) via partitions.standardization; the one narrow
-    # explicit convenience is the method string "domain_area" (D-11,
-    # weights = the exact |C_c ∩ A| areas above). Boolean semantics are
-    # BIT-UNCHANGED and the default stays True -- OP-3 (default off) and
-    # OP-4 (full method-string API) are explicitly not settled in 3c.
-    if isinstance(standardize_cov, str):
+    # standardize covariates. Standardization is always REPORTED (D-10).
+    # Settled pre-3f (OP-3/OP-4): default off (None); accepted values are
+    # None and "domain_area"; legacy Booleans are rejected explicitly.
+    if isinstance(standardize_cov, bool):
+        raise ValueError(
+            "standardize_cov no longer accepts booleans; pass None (off, "
+            "default) or 'domain_area' (area-weighted over |C_c ∩ A|). "
+            f"Got {standardize_cov!r}.")
+    if standardize_cov is None:
+        partitions.cov_values = X_s
+        partitions.standardization = {
+            'method': 'none', 'columns': list(cov_names),
+            'mean': None, 'scale': None}
+    elif isinstance(standardize_cov, str):
         if standardize_cov != 'domain_area':
             raise ValueError(
-                "standardize_cov must be True (count-weighted z-score), "
-                "False (values preserved), or 'domain_area' (area-weighted "
-                f"over |C_c ∩ A|); got {standardize_cov!r}")
+                "standardize_cov must be None (off) or 'domain_area' "
+                f"(area-weighted over |C_c ∩ A|); got {standardize_cov!r}")
         if w_area.sum() <= 0.0:
             raise ValueError(
                 "standardize_cov='domain_area': the covariate layer has "
@@ -431,16 +437,10 @@ def attach_covariate_partitions(partitions: PreparedPartitions,
         partitions.standardization = {
             'method': 'domain_area', 'columns': list(cov_names),
             'mean': mean, 'scale': scale}
-    elif standardize_cov:
-        partitions.cov_values = (X_s - X_s.mean(axis=0)) / (X_s.var(axis=0) ** 0.5)
-        partitions.standardization = {
-            'method': 'count', 'columns': list(cov_names),
-            'mean': X_s.mean(axis=0), 'scale': X_s.var(axis=0) ** 0.5}
     else:
-        partitions.cov_values = X_s
-        partitions.standardization = {
-            'method': 'none', 'columns': list(cov_names),
-            'mean': None, 'scale': None}
+        raise ValueError(
+            "standardize_cov must be None (off) or 'domain_area'; "
+            f"got {standardize_cov!r}")
 
     if model in ['lgcp', 'cox_hawkes']:
         # Prefer set_crs over deprecated GeoDataFrame.crs attribute assignment.

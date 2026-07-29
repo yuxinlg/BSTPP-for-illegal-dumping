@@ -216,8 +216,8 @@ def test_window_at_horizon_recovers_untruncated_loglik():
 # likelihood quantity. Exercises cov_ind (event side), cov_area and
 # spatial_cov (compensator side, Itot_txy_back = mu_xyt @ cov_area * T).
 # The uniform 2-way split duplicates each covariate value exactly once, so
-# the cell-wise standardization (mean/var over cells) is also unchanged and
-# both standardize_cov settings must be invariant.
+# standardization (None or domain_area) is also unchanged and both settings
+# must be invariant.
 # =====================================================================
 
 def _split_each_cell_in_two(gdf):
@@ -230,7 +230,7 @@ def _split_each_cell_in_two(gdf):
     return gpd.GeoDataFrame(rows)
 
 
-@pytest.mark.parametrize("standardize", [False, True])
+@pytest.mark.parametrize("standardize", [None, "domain_area"])
 def test_covariate_refinement_invariance(standardize):
     params = {k: np.float32(v) for k, v in
               dict(a_0=0.2, alpha=0.3, beta=2.0, sigmax_2=0.1).items()}

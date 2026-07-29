@@ -171,7 +171,7 @@ def test_rectangle_modes_agree_on_array_domain():
 
     r = itot_excite(m_rect)
     p = itot_excite(m_poly)
-    assert abs(r - p) <= 5.39e-4, f"rect={r} poly={p}"
+    assert abs(r - p) <= 1e-5, f"rect={r} poly={p}"
 
 
 def test_polygon_parenting_discards_outside_A():

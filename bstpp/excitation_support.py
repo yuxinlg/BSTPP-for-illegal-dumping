@@ -20,6 +20,7 @@ from numpyro.distributions.truncated import (
     RightTruncatedDistribution,
     TwoSidedTruncatedDistribution,
 )
+from jax.scipy.special import log_ndtr
 from numpyro.distributions.util import promote_shapes, validate_sample
 from shapely.geometry import Point
 from shapely.geometry import box as shapely_box
@@ -180,15 +181,31 @@ class TruncatedLogNormal(Distribution):
         return constraints.interval(self.low, self.high)
 
     def _log_z(self):
-        return jnp.log(
-            jnp.clip(self._base.cdf(self.high) - self._base.cdf(self.low),
-                     a_min=1e-300))
+        """log(F(high) - F(low)) in dtype-safe log space on the log-value axis.
+
+        LogNormal CDF mass equals Normal CDF mass on ``log(bounds)``. Prefer
+        the survival representation when the interval sits in the right half
+        so float32 does not saturate both CDFs to 1 and yield ``log(0)``.
+        Replaces the float32-inert ``clip(..., 1e-300)`` guard.
+        """
+        # Standardized Normal bounds for Z = log(X), X ~ LogNormal(loc, scale).
+        a = (jnp.log(self.high) - self.loc) / self.scale
+        b = (jnp.log(self.low) - self.loc) / self.scale
+        # Φ(a) - Φ(b) = Φ̄(b) - Φ̄(a); use SF when the interval is right of 0.
+        use_sf = (0.5 * (a + b)) > 0
+        log_p_hi = jnp.where(use_sf, log_ndtr(-b), log_ndtr(a))
+        log_p_lo = jnp.where(use_sf, log_ndtr(-a), log_ndtr(b))
+        # log(p_hi - p_lo) = log_p_hi + log1p(-exp(log_p_lo - log_p_hi))
+        return log_p_hi + jnp.log1p(-jnp.exp(log_p_lo - log_p_hi))
 
     def sample(self, key, sample_shape=()):
+        # Truncate on the log scale, then map back to the declared positive
+        # interval [low, high] (samplers that return log-space draws disagree
+        # with support / log_prob).
         tn = dist.TruncatedNormal(
             self.loc, self.scale,
             low=jnp.log(self.low), high=jnp.log(self.high))
-        return tn.sample(key, sample_shape)
+        return jnp.exp(tn.sample(key, sample_shape))
 
     @validate_sample
     def log_prob(self, value):
