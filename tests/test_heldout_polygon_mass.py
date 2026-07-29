@@ -234,6 +234,33 @@ def test_heldout_nonfinite_rejected():
         train.log_expected_likelihood(bad)
 
 
+@pytest.mark.parametrize("bad", [np.nan, np.inf, -np.inf])
+@pytest.mark.parametrize("field", ["X", "Y", "T"])
+def test_heldout_each_nonfinite_type_rejected(bad, field):
+    train = _rectangle_model(_events(4, seed=40))
+    _inject_samples(train)
+    held = _events(3, seed=42)
+    held.loc[0, field] = bad
+    with pytest.raises(DataContractError, match="nonfinite|field counts"):
+        train.log_expected_likelihood(held)
+
+
+def test_heldout_inf_rejected_under_report_mode():
+    domain = gpd.GeoDataFrame(geometry=[box(0, 0, 200, 200)])
+    train_data = _events(4, seed=50)
+    train = Hawkes_Model(
+        train_data, domain, T_DAYS, cox_background=False,
+        excitation_support="rectangle",
+        data_contracts="report",
+        **PRIORS,
+    )
+    _inject_samples(train)
+    held = _events(3, seed=51)
+    held.loc[1, "Y"] = np.inf
+    with pytest.raises(DataContractError, match="nonfinite|field counts"):
+        train.log_expected_likelihood(held)
+
+
 def test_heldout_cov_ind_length_validated():
     """cov_ind must match the held-out event count; partial coverage fails loud."""
     domain = gpd.GeoDataFrame(geometry=[box(0, 0, 200, 200)])

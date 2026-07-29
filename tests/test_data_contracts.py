@@ -105,7 +105,7 @@ def test_default_mode_reject_heldout_path():
     m.run_svi(10, 0.01, plot_loss=False)
     with_nan = _interior_data(n=10, seed=11)
     with_nan.loc[len(with_nan)] = {"X": np.nan, "Y": 7.0, "T": 50.0}
-    with pytest.raises(DataContractError, match="nonfinite X/Y/T"):
+    with pytest.raises(DataContractError, match="nonfinite"):
         m.log_expected_likelihood(with_nan)
 
 
@@ -482,15 +482,24 @@ def _fitted_model():
     return m
 
 
-def test_heldout_nan_rows_warn_and_match_legacy_drop():
+def test_heldout_nan_rows_rejected_in_report_mode():
+    """Held-out scoring rejects NaN even under data_contracts='report'."""
     m = _fitted_model()
-    heldout = _interior_data(n=10, seed=11)
-    with_nan = heldout.copy()
+    with_nan = _interior_data(n=10, seed=11)
     with_nan.loc[len(with_nan)] = {"X": np.nan, "Y": 7.0, "T": 50.0}
-    with pytest.warns(UserWarning, match="nonfinite X/Y/T"):
-        got = m.log_expected_likelihood(with_nan)
-    clean = m.log_expected_likelihood(heldout)
-    assert got == pytest.approx(clean, rel=1e-6)
+    with pytest.raises(DataContractError, match="nonfinite"):
+        m.log_expected_likelihood(with_nan)
+
+
+@pytest.mark.parametrize("bad", [np.inf, -np.inf])
+@pytest.mark.parametrize("mode", ["reject", "report"])
+def test_heldout_inf_rejected_in_all_modes(bad, mode):
+    m = _model(_interior_data(), mode=mode)
+    m.run_svi(10, 0.01, plot_loss=False)
+    held = _interior_data(n=10, seed=11)
+    held.loc[2, "T"] = bad
+    with pytest.raises(DataContractError, match="nonfinite|field counts"):
+        m.log_expected_likelihood(held)
 
 
 def test_heldout_nan_rows_rejected_in_reject_mode():
@@ -498,5 +507,5 @@ def test_heldout_nan_rows_rejected_in_reject_mode():
     m.run_svi(10, 0.01, plot_loss=False)
     with_nan = _interior_data(n=10, seed=11)
     with_nan.loc[len(with_nan)] = {"X": np.nan, "Y": 7.0, "T": 50.0}
-    with pytest.raises(DataContractError, match="nonfinite X/Y/T"):
+    with pytest.raises(DataContractError, match="nonfinite X/Y/T|nonfinite"):
         m.log_expected_likelihood(with_nan)
