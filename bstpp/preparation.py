@@ -34,7 +34,7 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import jax.numpy as jnp
-from shapely.geometry import Polygon, box
+from shapely.geometry import Point, Polygon, box
 from shapely.ops import unary_union
 
 # Internal-coordinate geometry, previously inline magic numbers in the
@@ -114,6 +114,24 @@ class PreparedDomain:
     crs: Optional[Any]
     is_polygon: bool
     union_geometry: Optional[Any] = None
+
+    def covers_xy(self, x: float, y: float) -> bool:
+        """Boundary-inclusive membership in the authoritative prepared domain.
+
+        Polygon domains use ``union_geometry.covers`` (set-union support).
+        Rectangle/array domains use closed interval tests against
+        ``bounds`` -- never computational-grid cell membership.
+        """
+        if self.is_polygon:
+            if self.union_geometry is None:
+                raise ValueError(
+                    "PreparedDomain.union_geometry is required for polygon "
+                    "domain membership")
+            return bool(self.union_geometry.covers(Point(float(x), float(y))))
+        A_ = np.asarray(self.bounds, dtype=float)
+        return bool(
+            A_[0, 0] <= float(x) <= A_[0, 1]
+            and A_[1, 0] <= float(y) <= A_[1, 1])
 
 
 def prepare_domain(A: Union[np.ndarray, gpd.GeoDataFrame]) -> PreparedDomain:

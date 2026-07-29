@@ -158,7 +158,7 @@ def test_hawkes_simulate_single_and_disjoint_polygons(monkeypatch):
 
 
 def test_hawkes_simulate_rectangle_array_unchanged(monkeypatch):
-    """Array/rectangle path keeps historical sjoin-against-self.A behavior."""
+    """Array/rectangle path keeps one retained interior event (bounds filter)."""
     A = np.array([[0.0, 100.0], [0.0, 100.0]])
     data = pd.DataFrame({
         "X": np.linspace(10, 90, 8),

@@ -1533,25 +1533,26 @@ class Point_Process_Model:
         """Keep each simulated point once via authoritative domain membership.
 
         Polygon domains filter against ``PreparedDomain.union_geometry``
-        (``covers``, including boundary). This prevents the historical
-        ``sjoin(self.A)`` duplication when input domain rows overlap.
-        Rectangle/array domains retain the legacy ``sjoin(self.A)`` path
-        (``self.A`` is the computational grid there).
+        (``covers``, including boundary). Rectangle/array domains filter
+        against the prepared rectangle ``bounds`` with the same closed
+        interval semantics -- never ``sjoin`` against the computational
+        grid (``self.A``), which duplicates points on internal cell edges
+        and vertices.
         """
         cols = ['X', 'Y', 'T', 'geometry']
-        if self.prepared_domain.is_polygon:
-            union = self.prepared_domain.union_geometry
-            if union is None:
-                raise ValueError(
-                    "PreparedDomain.union_geometry is required for polygon "
-                    "domain simulation filtering")
-            mask = np.fromiter(
-                (union.covers(g) for g in points.geometry),
-                dtype=bool,
-                count=len(points),
-            )
-            return points.loc[mask, cols]
-        return points.sjoin(self.A[['geometry']])[cols]
+        domain = self.prepared_domain
+        if domain.is_polygon and domain.union_geometry is None:
+            raise ValueError(
+                "PreparedDomain.union_geometry is required for polygon "
+                "domain simulation filtering")
+        xs = np.asarray(points["X"], dtype=float)
+        ys = np.asarray(points["Y"], dtype=float)
+        mask = np.fromiter(
+            (domain.covers_xy(x, y) for x, y in zip(xs, ys)),
+            dtype=bool,
+            count=len(points),
+        )
+        return points.loc[mask, cols]
 
     def _sim_cox(self, parameters, rng=None):
         """Exact sampler for the factorized Cox background, in internal units.
