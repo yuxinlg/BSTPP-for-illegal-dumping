@@ -666,24 +666,25 @@ class Point_Process_Model:
         for col in ['X', 'Y', 'T']:
             if not np.issubdtype(data[col].dtype, np.number):
                 data[col] = pd.to_numeric(data[col], errors='coerce')
-        # Phase 3a data contracts: the historical dropna here silently altered
-        # the held-out event set (baseline defect, phase3 doc section 6.1 --
-        # NOTE the doc's "at ingestion" anchor is THIS held-out path; the
-        # constructor never dropped NaN, it crashed downstream). Report mode
-        # keeps the drop but says so loudly; reject mode refuses.
-        _n_nonfinite = int((~np.isfinite(
-            data[['X', 'Y', 'T']].to_numpy(dtype=float)).all(axis=1)).sum())
-        if _n_nonfinite:
-            _msg = (f"{_n_nonfinite} held-out row(s) have non-numeric or "
-                    "nonfinite X/Y/T")
-            if getattr(self, '_data_contracts_mode', 'reject') == 'reject':
-                raise DataContractError(_msg)
-            warnings.warn(_msg + "; dropping them (legacy behavior, kept "
-                          "only under data_contracts='report').",
-                          UserWarning, stacklevel=2)
-        data = data.dropna(subset=['X', 'Y', 'T'])
+        # Held-out scoring never silently cleans: NaN / +inf / -inf all fail
+        # loudly under every data_contracts mode (including "report").
+        # dropna() alone is insufficient — it removes NaN but keeps ±inf.
+        _xy_t = data[['X', 'Y', 'T']].to_numpy(dtype=float)
+        _nonfinite_mask = ~np.isfinite(_xy_t)
+        if _nonfinite_mask.any():
+            _field_counts = {
+                name: int(_nonfinite_mask[:, j].sum())
+                for j, name in enumerate(('X', 'Y', 'T'))
+                if int(_nonfinite_mask[:, j].sum()) > 0
+            }
+            _n_rows = int(_nonfinite_mask.any(axis=1).sum())
+            raise DataContractError(
+                f"{_n_rows} held-out row(s) have non-numeric or nonfinite "
+                f"coordinates/times (field counts: {_field_counts}); "
+                "held-out scoring rejects all nonfinite inputs and does not "
+                "drop, clip, or repair them")
         if len(data) == 0:
-            raise ValueError("No valid data points after cleaning")
+            raise ValueError("No held-out events to score")
 
         # Only pass the minimal required arguments for likelihood
         test_args, points = self._scale_xyt(data, self.args.copy(),
