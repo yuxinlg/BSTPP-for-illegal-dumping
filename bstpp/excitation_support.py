@@ -175,6 +175,10 @@ class TruncatedLogNormal(Distribution):
         self._base = dist.LogNormal(self.loc, self.scale)
         batch_shape = jnp.shape(self.loc)
         super().__init__(batch_shape=batch_shape, validate_args=validate_args)
+        if self._validate_args and jnp.any(self.low >= self.high):
+            raise ValueError(
+                "TruncatedLogNormal requires low < high; "
+                f"got low={self.low}, high={self.high}")
 
     @constraints.dependent_property(is_discrete=False, event_dim=0)
     def support(self):
@@ -195,8 +199,16 @@ class TruncatedLogNormal(Distribution):
         use_sf = (0.5 * (a + b)) > 0
         log_p_hi = jnp.where(use_sf, log_ndtr(-b), log_ndtr(a))
         log_p_lo = jnp.where(use_sf, log_ndtr(-a), log_ndtr(b))
-        # log(p_hi - p_lo) = log_p_hi + log1p(-exp(log_p_lo - log_p_hi))
-        return log_p_hi + jnp.log1p(-jnp.exp(log_p_lo - log_p_hi))
+        # log(p_hi - p_lo) = log_p_hi + log(1 - exp(log_p_lo - log_p_hi)).
+        # Near-zero mass differences need log(-expm1(x)); plain log1p(-exp(x))
+        # loses precision when the truncated interval is narrow.
+        x = log_p_lo - log_p_hi  # <= 0 when the interval has positive mass
+        log_one_m_exp = jnp.where(
+            x > -jnp.log(2.0),
+            jnp.log(-jnp.expm1(x)),
+            jnp.log1p(-jnp.exp(x)),
+        )
+        return log_p_hi + log_one_m_exp
 
     def sample(self, key, sample_shape=()):
         # Truncate on the log scale, then map back to the declared positive
@@ -251,6 +263,7 @@ def truncate_sigmax_2_prior(
         return dist.TruncatedNormal(0.0, prior.scale, low=low, high=high)
 
     if isinstance(prior, _TRUNCATED_NORMAL_TYPES):
+        base = prior.base_dist
         new_low = jnp.maximum(prior.low, low)
         new_high = jnp.minimum(prior.high, high)
         if jnp.any(new_high <= new_low):
@@ -258,7 +271,7 @@ def truncate_sigmax_2_prior(
                 "sigmax_2 TruncatedNormal support does not overlap "
                 f"[{low}, {high}]")
         return dist.TruncatedNormal(
-            prior.loc, prior.scale, low=new_low, high=new_high)
+            base.loc, base.scale, low=new_low, high=new_high)
 
     raise TypeError(
         "sigmax_2 prior truncation supports HalfNormal, LogNormal, "
