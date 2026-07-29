@@ -238,7 +238,9 @@ def truncate_sigmax_2_prior(
 ) -> Distribution:
     """Exact truncation of named prior types onto [min_sigma^2, max_sigma^2].
 
-    Supported: HalfNormal, TruncatedNormal, LogNormal, TruncatedLogNormal.
+    Supported: HalfNormal, TruncatedNormal (Normal base only; one- or
+    two-sided wrappers), LogNormal, TruncatedLogNormal.
+    Pre-truncated wrappers whose base_dist is not Normal are rejected.
     Other bases raise a clear unsupported-prior error.
     """
     low = float(min_sigma) ** 2
@@ -263,15 +265,38 @@ def truncate_sigmax_2_prior(
         return dist.TruncatedNormal(0.0, prior.scale, low=low, high=high)
 
     if isinstance(prior, _TRUNCATED_NORMAL_TYPES):
+        # Generic truncated wrappers also wrap Cauchy / StudentT / etc.
+        # Accept this branch only for a genuine Normal base -- never infer
+        # Normality from loc/scale alone (CF of the declared TruncatedNormal
+        # adapter; imposing truncation on a prior remains SC / D-28).
         base = prior.base_dist
-        new_low = jnp.maximum(prior.low, low)
-        new_high = jnp.minimum(prior.high, high)
-        if jnp.any(new_high <= new_low):
+        if not isinstance(base, dist.Normal):
+            raise TypeError(
+                "sigmax_2 prior truncation accepts a pre-truncated wrapper "
+                "only when its base_dist is numpyro.distributions.Normal "
+                f"(got base_dist={type(base).__name__}). "
+                "Truncated Cauchy, Student-t, and other non-Normal families "
+                "are not silently converted to TruncatedNormal. Supported "
+                "families remain HalfNormal, LogNormal, TruncatedNormal, and "
+                "TruncatedLogNormal.")
+        # Pinned NumPyro one-sided wrappers omit the unused bound attribute:
+        # LeftTruncatedDistribution has .low only; RightTruncatedDistribution
+        # has .high only. Treat a missing bound as +/- infinity.
+        prior_low = prior.low if hasattr(prior, "low") else -jnp.inf
+        prior_high = prior.high if hasattr(prior, "high") else jnp.inf
+        new_low = jnp.maximum(prior_low, low)
+        new_high = jnp.minimum(prior_high, high)
+        # Broadcast bounds to the Normal base batch shape (scalar requested
+        # bounds vs already-batched wrapper lows/highs).
+        new_low, new_high, loc, scale = promote_shapes(
+            new_low, new_high, base.loc, base.scale)
+        if (not jnp.all(jnp.isfinite(new_low) & jnp.isfinite(new_high))
+                or jnp.any(new_high <= new_low)):
             raise ValueError(
                 "sigmax_2 TruncatedNormal support does not overlap "
                 f"[{low}, {high}]")
         return dist.TruncatedNormal(
-            base.loc, base.scale, low=new_low, high=new_high)
+            loc, scale, low=new_low, high=new_high)
 
     raise TypeError(
         "sigmax_2 prior truncation supports HalfNormal, LogNormal, "

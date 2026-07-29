@@ -111,8 +111,12 @@ def test_scalar_and_batched_loc_scale():
         jnp.array([0.0, 1.0]), jnp.array([1.0, 2.0]), low=0.0, high=10.0)
     batched = truncate_sigmax_2_prior(batched_prior, 0.1, 2.0)
     assert batched.batch_shape == (2,)
-    np.testing.assert_allclose(np.asarray(batched.low), [0.01, 0.01])
-    np.testing.assert_allclose(np.asarray(batched.high), [4.0, 4.0])
+    # NumPyro may store scalar-like bounds as shape (1,) under batch (2,);
+    # effective support must still be [0.01, 4] for every batch element.
+    low_b = np.broadcast_to(np.asarray(batched.low, dtype=float), (2,))
+    high_b = np.broadcast_to(np.asarray(batched.high, dtype=float), (2,))
+    np.testing.assert_allclose(low_b, [0.01, 0.01])
+    np.testing.assert_allclose(high_b, [4.0, 4.0])
     draws = batched.sample(random.PRNGKey(3), sample_shape=(8,))
     assert draws.shape[-1] == 2
     assert bool(jnp.all((draws >= batched.low) & (draws <= batched.high)))
