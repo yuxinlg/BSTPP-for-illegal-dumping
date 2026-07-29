@@ -2210,6 +2210,7 @@ Tip & Scope & Suite & Four pins & Record \\
 \texttt{8580364} & preparation API, transactional \texttt{set\_window} & 277 passed & \texttt{PIN\_DIFFS 0 MATCH} & \texttt{phase3\_\allowbreak{}tip\_\allowbreak{}verification\_\allowbreak{}2026-07-24.md}, \texttt{confirmation\_\allowbreak{}8580364.md} \\
 \texttt{0eeaebd} & mass-table schema v2, event hash, preflight & 299 passed & \texttt{PIN\_DIFFS 0 MATCH} & \texttt{reaudit\_\allowbreak{}verification\_\allowbreak{}0eeaebd.md} \\
 \texttt{2cf326d} & sidecar consistency, float64 snapshot, CRS paths & 338 passed, 1 warning & \texttt{PIN\_DIFFS 0 MATCH} & \texttt{reaudit\_\allowbreak{}verification\_\allowbreak{}2cf326d.md} \\
+\texttt{938e32b}+follow-up & public-sim union filter; production \(\tau_{\mathrm{abs}}\) path; held-out nonfinite; stable TLN \(Z\) & 403 passed, 1 skipped & \texttt{PIN\_DIFFS 0 MATCH} & A-21 continuation; commits \texttt{df06e55}--tip \\
 \end{longtable}
 
 The four golden pins are bit-identical at every gate: no rectangle-regime numerical result changed anywhere in Phase 3a--3e. \texttt{jax\_enable\_x64} is unchanged throughout. §12 confirmation selectors at \texttt{8580364} --- family traces for plain Hawkes, Cox--Hawkes, and LGCP; rectangle and polygon excitation confirmation; fixed-cutoff and \texttt{set\_window} confirmation; plain-Hawkes NUTS smoke --- are all green.
@@ -2360,5 +2361,56 @@ Resolved consistently with the existing principle (D-29): \(\sigma\) bounds are 
 
 \paragraph{Safety cleanup in this pass.}
 Warn when inferred/evaluated \(\sigma\) approaches either declared bound; remove dead \texttt{\_install\_excitation\_support}; correct the stale \texttt{\_sim\_cox} docstring; refresh agent guidance tip/path to the living \texttt{phase3\_record.tex}.
+
+\paragraph{Continuation (2026-07-29) --- follow-up corrections on audited tip \texttt{938e32b}.}
+\supsd{A-21 prior paragraphs on D-30 / held-out / TruncatedLogNormal / production gate}{Where earlier A-21 prose described intended repairs as if already complete at the freeze tip, those sentences are retained as the freeze intent; the following records what the follow-up correction pass actually verified against tip \texttt{938e32b}.}
+\textbf{Audited base tip:} \texttt{938e32b}. \textbf{Implementation commits:} \texttt{df06e55} (RED simulate), \texttt{013b7ea} (GREEN simulate), \texttt{a0163e4} (production \(\tau_{\mathrm{abs}}\) path), \texttt{c1599cd}/\texttt{804e770} (held-out nonfinite), \texttt{763f2b9}/\texttt{4f134d8} (TruncatedLogNormal \(Z\)); documentation/annotation cleanup in this series tip.
+
+\subparagraph{Public-simulator overlap duplication (CF; D-30).}
+Internal plain-Hawkes no-covariate background sampling already used \texttt{PreparedDomain.union\_geometry}, but both public \texttt{Hawkes\_Model.simulate} and \texttt{LGCP\_Model.simulate} still filtered via \texttt{points.sjoin(self.A)}, which duplicated a physical point once per overlapping input row.
+Correction: shared \texttt{\_filter\_simulated\_points\_to\_domain} filters polygon domains against the canonical union with \texttt{covers} (boundary included); rectangle/array domains retain the legacy \texttt{sjoin(self.A)} path.
+Public-path tests cover controlled overlap points (Hawkes and LGCP), boundary membership, single and disjoint polygons, unchanged array-rectangle behavior, in-union membership, and one returned row per in-domain generated event.
+\textbf{D-30's union invariant is now genuinely satisfied} for the public simulation output path as well as the internal no-covariate sampler.
+Adjacent note (not fixed here): \texttt{\_plot\_grid}'s \texttt{overlay(self.comp\_grid, self.A)} remains a plotting-only multi-row consumer.
+
+\subparagraph{Production-path polygon-table value gate (DOC + test; retains central FD).}
+New tests construct exclusively via \texttt{bstpp.polygon\_mass.prepare\_polygon\_mass\_table} and evaluate via the production online Hermite path (\texttt{make\_table\_eval} / \texttt{hermite\_polygon\_masses}), with \(K{=}64\), \texttt{panel\_h\_m}=20, \texttt{gl\_order}=16, uncut and finite \(w_s{=}400\).
+Measured maxima on the analysis machine (process \texttt{jax\_enable\_x64} left \texttt{False}):
+uncut \(\max|\Delta M| = 5.95\times 10^{-7}\); finite-\(w_s\) \(\max|\Delta M| = 6.14\times 10^{-7}\); both \(\le \texttt{PRODUCTION\_TAU\_ABS}=10^{-5}\).
+Float32 online evaluation: same order (\(5.95\times 10^{-7}\) / \(6.14\times 10^{-7}\)); no hidden reliance on global x64.
+Derivative maxima (reported separately under OP-12, not conflated with the value gate): uncut \(1.24\times 10^{-6}\); finite-\(w_s\) \(1.07\times 10^{-6}\) (both \(\ll\) provisional \texttt{TAU\_DERIV}).
+Central finite-difference knot slopes are therefore retained.
+Historical shootout gates remain historical (\texttt{LEGACY\_SHOOTOUT\_TAU\_ABS}); experiment-only confirmation tests may continue characterizing rejected candidates under local historical tolerances and must not be rewritten as if \(10^{-5}\) were their original preregistered gate.
+OP-12 derivative policy remains explicitly unresolved.
+
+\subparagraph{Held-out nonfinite rejection (CF + API).}
+Held-out scoring now rejects NaN, \(+\infty\), and \(-\infty\) in every \texttt{data\_contracts} mode, including \texttt{"report"}, before \texttt{\_scale\_xyt}, mass-table compatibility checks, or scoring.
+Errors name affected field(s) and counts without dumping arrays.
+\texttt{cov\_ind} length continues to be validated against the held-out event count.
+The explicit held-out polygon \texttt{mass\_table=} requirement is unchanged.
+No silent drop/clip/repair of invalid held-out rows (supersedes the legacy report-mode \texttt{dropna} path).
+
+\subparagraph{Stable TruncatedLogNormal normalization (CF).}
+Choosing to truncate a user prior remains an \textbf{SC} (D-28).
+Completing \texttt{\_log\_z} with a stable \(\log(1-e^{x})\) branch (\texttt{log(-expm1)} near zero; \texttt{log1p(-exp)} otherwise), while preserving CDF-versus-survival selection, is a \textbf{CF} of the already-declared distribution (alongside the earlier exponentiated-sample repair).
+Also fixed: re-truncation of NumPyro \texttt{TruncatedNormal} wrappers now reads \texttt{base\_dist.loc}/\texttt{scale} (was \texttt{AttributeError} on \texttt{TwoSidedTruncatedDistribution}).
+
+\subparagraph{Annotation / guidance cleanups.}
+\texttt{attach\_covariate\_partitions(..., standardize\_cov=...)} annotation corrected to \texttt{None | str} (Booleans remain explicitly rejected at runtime).
+Incomplete \texttt{\_sim\_cox} \texttt{rng} docstring completed.
+\texttt{AGENTS.md} no longer falsely names \texttt{88390cb} as the completed pre-3f tip; it cites audited tip \texttt{938e32b} and defers the correction-commit hash until one exists.
+\texttt{CLAUDE.md} remains the pointer into \texttt{AGENTS.md}.
+
+\subparagraph{OP-10 / OP-13 open-register status.}
+\supsd{A-18 outstanding list}{A-18's 2026-07-27 outstanding list still named OP-10 and OP-13 as open; that status is superseded here.}
+OP-10 and OP-13 are settled by this A-21 entry as already recorded above; they must not be treated as open blockers for starting substantive 3f.
+OP-12 remains open.
+
+\subparagraph{Verification evidence (2026-07-29, analysis machine).}
+Targeted RED then GREEN on public simulate overlap, held-out nonfinite, TruncatedLogNormal, and production-path polygon gate.
+Ruff: clean on touched \texttt{bstpp} modules and changed tests.
+Full suite: \texttt{403 passed, 1 skipped, 2 warnings}.
+Four rectangle golden pins vs \texttt{refactor-patches/baselines-2026-07/pins.json}: \texttt{PIN\_DIFFS 0 MATCH}; \texttt{jax\_enable\_x64} remained \texttt{False} throughout production-gate and suite runs.
+Document build: \texttt{pdflatex phase3\_record.tex} failed on this machine with MiKTeX 22.10 / L3 \texttt{<2022-09-28>} (\texttt{The key property '.initial:e' is unknown} at the opening section); content edits are recorded here pending a toolchain capable of building the pandoc-style longtables.
 
 \end{document}

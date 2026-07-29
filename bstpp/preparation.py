@@ -363,7 +363,7 @@ def attach_covariate_partitions(partitions: PreparedPartitions,
                                 domain: PreparedDomain,
                                 spatial_cov: gpd.GeoDataFrame,
                                 cov_names: list,
-                                standardize_cov: bool,
+                                standardize_cov: Optional[str],
                                 model: str) -> None:
     """Attach the covariate leg's partition products (geometry side only).
 

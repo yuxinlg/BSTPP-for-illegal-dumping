@@ -1568,10 +1568,9 @@ class Point_Process_Model:
         quadrature approximation. There is no longer any grid-coupling caveat to honor.
 
         rng: numpy.random.Generator, optional
-            Used for the spatial GeoSeries.sample_points draw, which ignores numpy's legacy
             When provided, rng drives EVERY draw (Poisson count, inverse-CDF
-            uniforms, cell multinomial, sample_points): one Generator gives a
-            fully reproducible draw. rng=None falls back to np.random (plus
+            uniforms, cell multinomial, and GeoSeries.sample_points): one Generator
+            gives a fully reproducible draw. rng=None falls back to np.random (plus
             geopandas' own unseeded sample_points), preserving legacy behavior.
 
         Known approximations (all vanish for a rectangle domain -- use a rectangle A for
