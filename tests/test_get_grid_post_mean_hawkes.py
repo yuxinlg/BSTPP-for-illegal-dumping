@@ -77,9 +77,11 @@ def test_plain_hawkes_get_grid_post_mean_without_prior_plot():
     assert list(result.columns) == [
         "grid_row", "grid_col", "post_mean", "comp_grid_id", "geometry"]
     assert len(result) == m.args["n_xy"] ** 2
-    # Left half cells should be near +w_true * cov(=1); right near -w_true.
-    left = result[result.geometry.centroid.x < 0.5]["post_mean"].to_numpy()
-    right = result[result.geometry.centroid.x > 0.5]["post_mean"].to_numpy()
+    # Interior of each half (exclude the x=0.5 straddling column, which is
+    # correctly area-weighted across both covariate polygons).
+    left = result[result.geometry.centroid.x < 0.45]["post_mean"].to_numpy()
+    right = result[result.geometry.centroid.x > 0.55]["post_mean"].to_numpy()
+    assert len(left) > 0 and len(right) > 0
     assert np.allclose(left, w_true * 1.0, atol=1e-5)
     assert np.allclose(right, w_true * (-1.0), atol=1e-5)
 
@@ -112,8 +114,9 @@ def test_plain_hawkes_get_grid_post_mean_uses_b0_when_present():
         "sigmax_2": np.full(4, 0.1, dtype=np.float32),
     }
     result = get_grid_post_mean(m, include_cov=True)
-    left = result[result.geometry.centroid.x < 0.5]["post_mean"].to_numpy()
-    right = result[result.geometry.centroid.x > 0.5]["post_mean"].to_numpy()
+    left = result[result.geometry.centroid.x < 0.45]["post_mean"].to_numpy()
+    right = result[result.geometry.centroid.x > 0.55]["post_mean"].to_numpy()
+    assert len(left) > 0 and len(right) > 0
     assert np.allclose(left, 1.5, atol=1e-5)
     assert np.allclose(right, -2.5, atol=1e-5)
     assert "post_mean" not in m.spatial_cov.columns

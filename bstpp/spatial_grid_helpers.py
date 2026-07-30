@@ -7,6 +7,46 @@ import geopandas as gpd
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 
+from .preparation import SLIVER_AREA_INTERNAL
+
+
+def _posterior_b0_mean(model):
+    """Posterior-mean covariate effect per covariate polygon, shape (n_cov,).
+
+    Prefers ``samples['b_0']``; otherwise derives ``X @ mean(w)`` from the
+    prepared covariate matrix. Does not mutate model state.
+    """
+    if 'b_0' in model.samples:
+        return np.asarray(model.samples['b_0']).mean(axis=0)
+    if 'w' in model.samples and 'spatial_cov' in model.args:
+        X = np.asarray(model.args['spatial_cov'])
+        w_mean = np.asarray(model.samples['w']).mean(axis=0)
+        return np.asarray(X @ w_mean)
+    raise Exception(
+        "include_cov=True requires samples['b_0'] or samples['w'] with "
+        "prepared spatial covariates")
+
+
+def _covariate_comp_grid_refinement(model):
+    """Local support×covariate refinement with intersection areas.
+
+    Mirrors the prepared cox/LGCP ``int_df`` construction without writing
+    into ``model.args`` or mutating ``spatial_cov`` / ``comp_grid``.
+    """
+    support = model.prepared_partitions.support_cells[
+        ['comp_grid_id', 'geometry']]
+    intersect = gpd.overlay(
+        support, model.spatial_cov, how='intersection', keep_geom_type=True)
+    A_ = np.asarray(model.prepared_domain.bounds)
+    denom = (A_[0, 1] - A_[0, 0]) * (A_[1, 1] - A_[1, 0])
+    refine = intersect.copy()
+    refine['area'] = refine.area / denom
+    refine = refine[refine['area'] > SLIVER_AREA_INTERNAL]
+    if 'cov_ind' not in refine.columns:
+        raise Exception(
+            "Covariate layer is missing cov_ind required for grid mapping")
+    return refine
+
 
 def get_grid_post_mean(model, include_cov=False):
     """
@@ -63,51 +103,46 @@ def get_grid_post_mean(model, include_cov=False):
     # Compute posterior mean
     if model.args['model'] in ['cox_hawkes', 'lgcp'] and include_cov:
         # Include both GP and covariate effects
-        post_samples = (
-            model.samples['b_0'][:, model.args['int_df']['cov_ind'].values] +
-            model.samples["f_xy"][:, model.args['int_df']['comp_grid_id'].values]
+        b0_mean = _posterior_b0_mean(model)
+        cov_inds = model.args['int_df']['cov_ind'].values
+        f_xy_mean = np.asarray(model.samples["f_xy"]).mean(axis=0)
+        post_mean = (
+            b0_mean[cov_inds]
+            + f_xy_mean[model.args['int_df']['comp_grid_id'].values]
         )
-        post_mean = post_samples.mean(axis=0)
-        
+
         # Create result from int_df
         result_gdf = model.args['int_df'].copy()
         result_gdf['post_mean'] = post_mean
-        
+
         # Add grid coordinates based on comp_grid_id
         result_gdf['grid_row'] = n_xy - (result_gdf['comp_grid_id'] // n_xy)
         result_gdf['grid_col'] = (result_gdf['comp_grid_id'] % n_xy) + 1
-        
+
         # Reorder columns
         result_gdf = result_gdf[['grid_row', 'grid_col', 'post_mean', 'comp_grid_id', 'geometry']]
-        
+
     elif include_cov:
-        # Only covariate effects (no GP)
-        # For covariate-only case, we need to map to computational grid
-        # and assign post_mean based on covariate intersections
+        # Plain Hawkes covariate effects on the computational grid.
+        # Build a local support×covariate refinement; never require a prior
+        # plot to have written spatial_cov['post_mean'], and do not mutate
+        # model.spatial_cov / comp_grid / prepared state.
         result_gdf = model.comp_grid.copy()
-        
-        # Find which covariate cell each comp_grid cell intersects with
-        # This is approximate - we'll use the int_df if available
-        if 'int_df' in model.args:
-            # Use weighted average based on intersection area
-            int_df = model.args['int_df'].copy()
-            int_df['post_mean'] = model.samples['b_0'][:, int_df['cov_ind'].values].mean(axis=0)
-            
-            # Aggregate by comp_grid_id (weighted by area)
-            comp_grid_means = int_df.groupby('comp_grid_id').apply(
-                lambda x: np.average(x['post_mean'], weights=x['area'])
-            )
-            
-            result_gdf['post_mean'] = result_gdf['comp_grid_id'].map(comp_grid_means).fillna(0)
-        else:
-            # Fallback: assign based on spatial join
-            result_gdf = result_gdf.sjoin(model.spatial_cov[['post_mean']], how='left')
-            result_gdf['post_mean'] = result_gdf['post_mean'].fillna(0)
-        
+        refine = _covariate_comp_grid_refinement(model)
+        b0_mean = _posterior_b0_mean(model)
+        refine = refine.copy()
+        refine['post_mean'] = b0_mean[refine['cov_ind'].values]
+        # Area-weighted mean of covariate effects per computational cell.
+        wsum = refine.groupby('comp_grid_id').apply(
+            lambda g: float(np.average(g['post_mean'].to_numpy(),
+                                       weights=g['area'].to_numpy()))
+        )
+        result_gdf['post_mean'] = result_gdf['comp_grid_id'].map(wsum).fillna(0)
+
         # Add grid coordinates
         result_gdf['grid_row'] = n_xy - (result_gdf['comp_grid_id'] // n_xy)
         result_gdf['grid_col'] = (result_gdf['comp_grid_id'] % n_xy) + 1
-        
+
         # Reorder columns
         result_gdf = result_gdf[['grid_row', 'grid_col', 'post_mean', 'comp_grid_id', 'geometry']]
         
