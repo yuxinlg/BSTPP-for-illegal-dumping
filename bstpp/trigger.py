@@ -28,7 +28,13 @@ class Trigger(ABC):
         parameters (and their priors) are real-unit quantities. TEMPORAL
         triggers operate in internal time units (data time rescaled to
         [0, 50]); the public days-unit prior ``mean_lag_days`` is converted
-        onto the internal ``beta`` sample site by bstpp.cutoffs (Phase 3e).
+        onto the internal ``beta`` sample site by bstpp.cutoffs (Phase 3e)
+        only for the exact ``Temporal_Exponential`` class. Tolerance /
+        design-scale cutoff APIs are similarly exact-type gated: exponential
+        omitted-mass math for ``Temporal_Exponential``, Gaussian sigma bounds
+        and spatial omitted-mass math for ``Spatial_Symmetric_Gaussian``.
+        Custom triggers keep explicit physical ``window`` /
+        ``spatial_window`` and priors named by ``get_par_names()``.
         Custom spatial triggers written against the pre-contract API (internal
         units) will still run but their parameters change meaning.
 
@@ -122,6 +128,11 @@ class Temporal_Power_Law(Trigger):
     
         $$f(t;\beta,\gamma) = \beta \gamma^\beta (\gamma + t)^{-\beta - 1}$$
 
+        ``beta`` is a shape parameter, not a mean lag. Do not pass
+        ``mean_lag_days``, ``temporal_cutoff_tol``, ``design_mean_lag_days``,
+        or shared ``cutoff_tol``; use an explicit physical ``window`` /
+        ``temporal_cutoff_days`` and legacy ``beta`` / ``gamma`` priors.
+        Exponential omitted mass in ``cutoff_provenance`` remains ``None``.
         """
         super().__init__(prior)
     
@@ -231,7 +242,10 @@ class Temporal_Exponential(Trigger):
     Temporal exponential trigger function given by,
 
     $$f(t;\beta) = \frac{1}{\beta} e^{-t/\beta}$$
-    
+
+    Owns the public ``mean_lag_days`` prior, ``temporal_cutoff_tol`` /
+    ``design_mean_lag_days`` tolerance path, and exponential omitted-mass
+    calculations. Exact-type gated in ``Hawkes_Model`` (not subclasses).
     """
     
     def simulate_trigger(self, pars, rng=None):
@@ -265,6 +279,11 @@ class Spatial_Symmetric_Gaussian(Trigger):
     boundary (likelihood.py), never here. Offspring displacements are
     therefore N(0, sigmax_2 * I) in real coordinates, isotropic regardless of
     the bounding rectangle's shape.
+
+    Owns mandatory ``sigmax_2``, ``min_sigma`` / ``max_sigma`` prior
+    truncation, ``spatial_cutoff_tol`` / ``design_sigma``, and Gaussian
+    omitted-mass calculations. Exact-type gated in ``Hawkes_Model`` (polygon
+    Hermite mass also requires this exact class).
     """
 
     def simulate_trigger(self, pars, rng=None):

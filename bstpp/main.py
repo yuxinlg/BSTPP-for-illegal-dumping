@@ -55,6 +55,83 @@ from .cutoffs import (
 _UNSET = object()
 
 
+def _is_exact_temporal_exponential(temporal_trig) -> bool:
+    """Exact-type capability gate for exponential tolerance / mean-lag APIs."""
+    return temporal_trig is Temporal_Exponential
+
+
+def _is_exact_spatial_gaussian(spatial_trig) -> bool:
+    """Exact-type capability gate for Gaussian sigma / spatial-tolerance APIs."""
+    return spatial_trig is Spatial_Symmetric_Gaussian
+
+
+def _reject_unsupported_kernel_kwargs(
+    *,
+    temporal_trig,
+    spatial_trig,
+    mean_lag_days_prior,
+    temporal_cutoff_tol,
+    spatial_cutoff_tol,
+    cutoff_tol,
+    design_mean_lag_days,
+    design_sigma,
+    min_sigma,
+    max_sigma,
+) -> None:
+    """Reject exponential/Gaussian-only cutoff kwargs for unsupported kernels.
+
+    Exact-type gates (not isinstance, not parameter-name inference). Shared
+    ``cutoff_tol`` requires both axes to own their tolerance capability.
+    """
+    temporal_ok = _is_exact_temporal_exponential(temporal_trig)
+    spatial_ok = _is_exact_spatial_gaussian(spatial_trig)
+    t_name = getattr(temporal_trig, "__name__", repr(temporal_trig))
+    s_name = getattr(spatial_trig, "__name__", repr(spatial_trig))
+
+    if cutoff_tol is not None and not (temporal_ok and spatial_ok):
+        raise TypeError(
+            "Shared cutoff_tol requires Temporal_Exponential and "
+            "Spatial_Symmetric_Gaussian on both axes (got "
+            f"temporal_trig={t_name}, spatial_trig={s_name}). "
+            "Use axis-specific temporal_cutoff_tol / spatial_cutoff_tol "
+            "when only one axis has the supported exact kernel.")
+
+    if not temporal_ok:
+        if mean_lag_days_prior is not None:
+            raise TypeError(
+                "mean_lag_days is valid only for Temporal_Exponential "
+                f"(got temporal_trig={t_name}). Temporal_Power_Law.beta is a "
+                "shape parameter, not a mean lag; pass an explicit window / "
+                "temporal_cutoff_days and a legacy beta prior instead.")
+        if temporal_cutoff_tol is not None:
+            raise TypeError(
+                "temporal_cutoff_tol is valid only for Temporal_Exponential "
+                f"(got temporal_trig={t_name}). Pass an explicit window / "
+                "temporal_cutoff_days for unsupported temporal triggers.")
+        if design_mean_lag_days is not None:
+            raise TypeError(
+                "design_mean_lag_days is valid only for Temporal_Exponential "
+                f"(got temporal_trig={t_name}). Pass an explicit physical "
+                "temporal cutoff instead.")
+
+    if not spatial_ok:
+        if spatial_cutoff_tol is not None:
+            raise TypeError(
+                "spatial_cutoff_tol is valid only for "
+                "Spatial_Symmetric_Gaussian "
+                f"(got spatial_trig={s_name}). Pass an explicit "
+                "spatial_window for custom rectangle spatial triggers.")
+        if design_sigma is not None:
+            raise TypeError(
+                "design_sigma is valid only for Spatial_Symmetric_Gaussian "
+                f"(got spatial_trig={s_name}).")
+        if min_sigma is not None or max_sigma is not None:
+            raise TypeError(
+                "min_sigma / max_sigma apply only to "
+                "Spatial_Symmetric_Gaussian "
+                f"(got spatial_trig={s_name}).")
+
+
 def _load_decoder(name):
     # pkgutil.get_data returns None for a missing resource in a zipped/installed
     # package (which would then blow up as a TypeError inside pickle.loads), but
@@ -1781,8 +1858,21 @@ class Hawkes_Model(Point_Process_Model):
             use gaussian processes in background
         temporal_trig: class Trigger
             an implementation of Trigger to parameterize the temporal triggering mechanism.
+            ``mean_lag_days``, ``temporal_cutoff_tol``, ``design_mean_lag_days``,
+            and the temporal leg of shared ``cutoff_tol`` are valid only when
+            this is exactly ``Temporal_Exponential``. ``Temporal_Power_Law`` and
+            custom temporal triggers accept explicit ``window`` /
+            ``temporal_cutoff_days`` and their own priors (e.g. ``beta`` /
+            ``gamma``); exponential omitted mass remains ``None``.
         spatial_trig: class Trigger
             an implementation of Trigger to parameterize the spatial triggering mechanism.
+            ``sigmax_2``, ``min_sigma`` / ``max_sigma``, ``spatial_cutoff_tol``,
+            ``design_sigma``, and the spatial leg of shared ``cutoff_tol`` are
+            valid only when this is exactly ``Spatial_Symmetric_Gaussian``.
+            Custom rectangle spatial triggers use priors named by
+            ``get_par_names()`` and an explicit ``spatial_window``; Gaussian
+            omitted mass remains ``None``. Polygon mode still requires the
+            exact ``Spatial_Symmetric_Gaussian`` class.
         window: float, optional
             Legacy temporal computational cutoff in INTERNAL time units
             ([0, 50]). Prefer ``temporal_cutoff_days``. Mutually exclusive with
@@ -1875,7 +1965,24 @@ class Hawkes_Model(Point_Process_Model):
         # every Distribution kwarg as a sample-site prior name.
         mean_lag_days_prior = kwargs.pop('mean_lag_days', None)
 
+        # Exact-type capability gates before expensive base construction.
+        _reject_unsupported_kernel_kwargs(
+            temporal_trig=temporal_trig,
+            spatial_trig=spatial_trig,
+            mean_lag_days_prior=mean_lag_days_prior,
+            temporal_cutoff_tol=temporal_cutoff_tol,
+            spatial_cutoff_tol=spatial_cutoff_tol,
+            cutoff_tol=cutoff_tol,
+            design_mean_lag_days=design_mean_lag_days,
+            design_sigma=design_sigma,
+            min_sigma=min_sigma,
+            max_sigma=max_sigma,
+        )
+
         super().__init__(name, data, A, T, **kwargs)
+
+        temporal_ok = _is_exact_temporal_exponential(temporal_trig)
+        spatial_ok = _is_exact_spatial_gaussian(spatial_trig)
 
         if mean_lag_days_prior is not None:
             if 'beta' in self.args['priors']:
@@ -1903,39 +2010,56 @@ class Hawkes_Model(Point_Process_Model):
                 "Use excitation_support='rectangle' for a custom spatial "
                 "trigger, or supply Spatial_Symmetric_Gaussian.")
 
-        # Resolve bounds and truncate sigmax_2 BEFORE constructing triggers so
-        # NUTS/SVI see interval support (no proposal clipping).
-        if 'sigmax_2' not in self.args['priors']:
-            raise ValueError(
-                "Hawkes_Model requires a user-supplied sigmax_2 prior "
-                "(numpyro Distribution in squared real units).")
-        from .excitation_support import resolve_sigma_bounds
-        lo, hi, _ = resolve_sigma_bounds(
-            mode=mode, min_sigma=min_sigma, max_sigma=max_sigma,
-            crs=self.prepared_domain.crs)
-        if lo is not None and hi is not None:
-            self.args['priors']['sigmax_2'] = truncate_sigmax_2_prior(
-                self.args['priors']['sigmax_2'], lo, hi)
+        # Gaussian-only sigma prior / truncation. Custom rectangle spatial
+        # triggers use priors named by get_par_names() instead.
+        if spatial_ok:
+            if 'sigmax_2' not in self.args['priors']:
+                raise ValueError(
+                    "Hawkes_Model requires a user-supplied sigmax_2 prior "
+                    "(numpyro Distribution in squared real units) when "
+                    "spatial_trig is Spatial_Symmetric_Gaussian.")
+            from .excitation_support import resolve_sigma_bounds
+            lo, hi, _ = resolve_sigma_bounds(
+                mode=mode, min_sigma=min_sigma, max_sigma=max_sigma,
+                crs=self.prepared_domain.crs)
+            if lo is not None and hi is not None:
+                self.args['priors']['sigmax_2'] = truncate_sigmax_2_prior(
+                    self.args['priors']['sigmax_2'], lo, hi)
 
         self.args['t_trig'] = temporal_trig(self.args['priors'])
         self.args['sp_trig'] = spatial_trig(self.args['priors'])
+        for trig, axis in (
+                (self.args['t_trig'], "temporal"),
+                (self.args['sp_trig'], "spatial")):
+            for pname in trig.get_par_names():
+                if pname not in self.args['priors']:
+                    raise ValueError(
+                        f"{axis} trigger "
+                        f"{type(trig).__name__} requires a prior named "
+                        f"{pname!r} (from get_par_names()).")
 
         # OP-6: resolve computational cutoffs (physical wins over tolerance).
         # Legacy path: bare window=None / spatial_window=None keeps the
         # untruncated defaults so fixed-cutoff pins stay bit-stable.
-        self._design_mean_lag_days = design_mean_lag_days
-        self._design_sigma = design_sigma
+        # Unsupported kernels never receive tolerance / design-scale args
+        # (gated above); physical cutoffs record selection but leave
+        # kernel-specific omitted mass as None.
+        self._design_mean_lag_days = (
+            design_mean_lag_days if temporal_ok else None)
+        self._design_sigma = design_sigma if spatial_ok else None
         cutoff_prov = resolve_computational_cutoffs(
             horizon_days=float(self.T),
             temporal_cutoff_days=temporal_cutoff_days,
             window_internal=float(window) if window is not None else None,
             spatial_window=(
                 float(spatial_window) if spatial_window is not None else None),
-            temporal_cutoff_tol=temporal_cutoff_tol,
-            spatial_cutoff_tol=spatial_cutoff_tol,
-            cutoff_tol=cutoff_tol,
-            design_mean_lag_days=design_mean_lag_days,
-            design_sigma=design_sigma,
+            temporal_cutoff_tol=(
+                temporal_cutoff_tol if temporal_ok else None),
+            spatial_cutoff_tol=spatial_cutoff_tol if spatial_ok else None,
+            cutoff_tol=(
+                cutoff_tol if (temporal_ok and spatial_ok) else None),
+            design_mean_lag_days=self._design_mean_lag_days,
+            design_sigma=self._design_sigma,
         )
         # Install realized windows first; public set_window rewrites provenance
         # as a physical override, so restore the OP-6 construction record
