@@ -2789,6 +2789,19 @@ class LGCP_Model(Point_Process_Model):
         self.model = spatiotemporal_LGCP_model
         super().__init__(name,*args,**kwargs)
 
+    def set_window(self, window=_UNSET, spatial_window=_UNSET, *,
+                   mass_table=_UNSET):
+        """LGCP has no excitation cutoffs; reject all set_window calls.
+
+        Computational excitation windows and pair construction apply only to
+        Hawkes / Cox–Hawkes models. Zero-argument and explicit calls raise the
+        same clear error and do not populate unused Hawkes state.
+        """
+        raise NotImplementedError(
+            "LGCP_Model.set_window is not supported: computational excitation "
+            "cutoffs and pair windows apply only to Hawkes / Cox-Hawkes "
+            "models. LGCP has no excitation pairs or cutoff provenance.")
+
     def __str__(self):
         return "Log Gaussian Cox Model with Covariates" if 'num_cov' in self.args else "Log Gaussian Cox Model without Covariates"
 
