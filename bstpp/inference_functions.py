@@ -1,5 +1,6 @@
 import os
 import time
+import warnings
 import jax.numpy as jnp
 from jax.example_libraries.optimizers import inverse_time_decay
 
@@ -301,7 +302,20 @@ def run_mcmc(rng_key, model_mcmc, args):
     # collect per-draw divergence flags so fit health is checkable post-hoc
     # (mcmc.get_extra_fields()["diverging"]); numpyro collects nothing by default
     mcmc.run(rng_key, args, extra_fields=("diverging",))
-    mcmc.print_summary()
+    # NumPyro split R-hat requires >= 4 retained draws per chain; ESS needs >= 2.
+    # Preserve samples from short smoke runs; skip only the diagnostic summary.
+    retained = int(args["num_samples"]) // max(int(args.get("thinning", 1)), 1)
+    if retained >= 4:
+        mcmc.print_summary()
+    else:
+        warnings.warn(
+            "Skipping MCMC print_summary: retained per-chain sample count "
+            f"({retained}) is below NumPyro's diagnostic minimum of 4 "
+            "(split Gelman-Rubin). Samples are preserved; increase "
+            "num_samples or decrease thinning for a summary.",
+            UserWarning,
+            stacklevel=2,
+        )
     print("\nMCMC elapsed time:", time.time() - start)
     return mcmc
 
