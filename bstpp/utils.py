@@ -15,7 +15,7 @@ def dist_euclid(x, z):
     if len(x.shape)==1:
         x = x.reshape(x.shape[0], 1)
     if len(z.shape)==1:
-        z = x.reshape(x.shape[0], 1)
+        z = z.reshape(z.shape[0], 1)
     n_x, m = x.shape
     n_z, m_z = z.shape
     assert m == m_z
@@ -31,7 +31,11 @@ def exp_sq_kernel(x, z, var, length, noise, jitter=1.0e-6):
     dist = dist_euclid(x, z)
     deltaXsq = jnp.power(dist/ length, 2.0)
     k = var * jnp.exp(-0.5 * deltaXsq)
-    k += (noise + jitter) * jnp.eye(x.shape[0])
+    # Diagonal noise/jitter only for a true same-input covariance call
+    # (exp_sq_kernel(x, x, ...)). Equal-length but distinct x and z remain
+    # a rectangular/square cross kernel with no identity term.
+    if x is z:
+        k = k + (noise + jitter) * jnp.eye(x.shape[0])
     return k
 
     
