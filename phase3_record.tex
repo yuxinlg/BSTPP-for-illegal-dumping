@@ -2452,4 +2452,60 @@ No JAX global-state or x64 behavior change.
 Public simulation now returns every retained physical event exactly once on both polygon-union and rectangle-bounds paths.
 Document build: same MiKTeX 22.10 / L3 toolchain failure as recorded above; content edits recorded pending a capable toolchain.
 
+
+\paragraph{Continuation (2026-07-30) --- local correctness/API pass on audited tip \texttt{e0d7e437}.}
+\textbf{Audited base tip:} \texttt{e0d7e437}.
+\textbf{Implementation series:} \texttt{af7c934}--\texttt{c501283} (RED/GREEN pairs for items below; documentation tip follows separately).
+\textbf{Evidence file:} \texttt{refactor-patches/pre3f\_audit\_e0d7e43.md}.
+\textbf{Does not begin} Phase 3f; final SBC obligations not run; nothing pushed.
+
+\subparagraph{Kernel-specific cutoff and scale API gates (CF + API).}
+Exact-type gates: \texttt{Temporal\_Exponential} owns \texttt{mean\_lag\_days}, temporal tolerance/design-scale, and exponential omitted mass; \texttt{Spatial\_Symmetric\_Gaussian} owns mandatory \texttt{sigmax\_2}, \texttt{min\_sigma}/\texttt{max\_sigma} truncation, spatial tolerance/design-scale, and Gaussian omitted mass.
+\texttt{Temporal\_Power\_Law} and custom rectangle spatial triggers keep explicit physical cutoffs and \texttt{get\_par\_names()} priors; shared \texttt{cutoff\_tol} requires both axes.
+Polygon exact-type Gaussian gate unchanged.
+Implements the already-recorded kernel-specific contract --- not a new scientific-model decision.
+
+\subparagraph{Untouched-axis cutoff provenance (CF + API).}
+\texttt{Hawkes\_Model.set\_window} keeps an \texttt{\_UNSET} axis \texttt{TemporalCutoffRecord}/\texttt{SpatialCutoffRecord} verbatim and re-resolves only explicitly supplied axes into prospective per-axis records before a transactional commit.
+
+\subparagraph{LGCP \texttt{set\_window} rejection (CF + API).}
+\texttt{LGCP\_Model.set\_window} raises \texttt{NotImplementedError} for all calls (including zero-argument), without populating unused Hawkes window state.
+Deeper removal of excitation machinery from the base class remains Phase 3f work.
+
+\subparagraph{CRS-less / effective-panel resolution guard (CF + IV/API).}
+Named \texttt{MAX\_PANEL\_TO\_MIN\_SIGMA\_RATIO}${}={}8$ rejects \texttt{prepare\_polygon\_mass\_table} when \texttt{effective\_panel\_h}/\texttt{min\_sigma} exceeds the limit after converting \texttt{panel\_h\_m} into domain-coordinate units.
+Reports effective panel, \texttt{min\_sigma}, ratio, allowed ratio, and how to pass a smaller \texttt{panel\_h\_m}.
+\texttt{PRODUCTION\_TAU\_ABS}${}={}10^{-5}$ unchanged; \texttt{jax\_enable\_x64} unchanged.
+
+\subparagraph{Grid helper, kernel helpers, and short-MCMC repairs (CF / CF+API).}
+\texttt{get\_grid\_post\_mean} for plain Hawkes covariates derives \texttt{b\_0} or \texttt{w}@\texttt{X\_s} locally with intersection-area weighting and no plot-side mutation.
+\texttt{dist\_euclid} reshapes 1-D \texttt{z} from \texttt{z}; \texttt{exp\_sq\_kernel} adds diagonal noise only when \texttt{x is z}.
+\texttt{run\_mcmc} skips \texttt{print\_summary} with a clear warning when retained draws are below NumPyro's diagnostic minimum of 4; samples are preserved.
+
+\subparagraph{Dependency metadata (API + reproducibility).}
+Canonical \texttt{requirements-runtime.txt} feeds \texttt{setup.py} \texttt{install\_requires}; \texttt{requirements.txt} includes it and retains notebook/dev extras separately; \texttt{MANIFEST.in} ships the runtime file in sdists.
+Critical pins: \texttt{geopandas>=1.0}, \texttt{jax}/\texttt{jaxlib==0.4.23}, \texttt{numpy>=1.24.1,<2}, \texttt{numpyro==0.15.0}, \texttt{scipy>=1.9.0,<1.13}.
+
+\subparagraph{Stale duplicate / comment corrections (DOC).}
+Live references retarget root \texttt{phase3\_record.tex}; historical \texttt{docs/phase3\_baseline\_and\_decisions.tex} is removed from the tree (git history preserves the snapshot).
+Does not claim resolution of guide-identity conflict C6.
+Stale simulate/\texttt{rng}, held-out NaN, standardization-method, and NumPyro-deterministic comments corrected.
+
+\subparagraph{Deferred observations (recorded; not fixed here).}
+\textit{Membership predicate consolidation.} \texttt{validate\_events} and simulation filtering still express canonical domain membership through separate vectorized/scalar paths; results are correct but the simulation path is slower and duplicate expressions could drift.
+Register consolidation into one vectorized \texttt{PreparedDomain.covers\_xy(array\_x, array\_y)} as Phase 3f work.
+
+\textit{Extreme float32 TruncatedLogNormal behavior.} \texttt{\_log\_z} is mathematically correct and approximately normalized to about $10^{-5}$ relative interval width; extremely narrow float32 intervals exhibit cancellation, but \texttt{\_log\_z} is value-independent so this is an additive constant and does not change the posterior in current BSTPP uses; \texttt{low < high} validation is inactive when NumPyro leaves \texttt{validate\_args=None}; sufficiently extreme-tail \texttt{TruncatedNormal} saturation can produce an out-of-support exponentiated sample.
+No ad hoc clipping; numerical hardening is later work unless a principled correction with independent evidence becomes necessary for supported sigma ranges.
+
+\subparagraph{Verification evidence (2026-07-30, analysis machine).}
+Targeted new suites green; trigger/excitation, Phase 3e/\texttt{set\_window}, polygon prepare/compat/production/shootout, and smoke/fit groups green.
+Full suite: \texttt{461 passed, 1 skipped, 2 warnings}.
+Four rectangle golden pins vs \texttt{refactor-patches/baselines-2026-07/pins.json}: \texttt{PIN\_DIFFS 0 MATCH}; \texttt{jax\_enable\_x64} remained \texttt{False}.
+Ruff clean on touched modules/tests; repository-wide Ruff still reports legacy findings (126) --- not cleaned.
+\texttt{git diff --check} clean; \texttt{compileall} clean on touched modules.
+Wheel build + Requires-Dist inspection + disposable-venv \texttt{import bstpp} succeeded.
+No change to \texttt{PRODUCTION\_TAU\_ABS}, \texttt{TAU\_DERIV}, $K{=}64$, GL-16, or JAX global precision.
+Document build: same MiKTeX L3 failure; content recorded pending a capable toolchain.
+
 \end{document}
