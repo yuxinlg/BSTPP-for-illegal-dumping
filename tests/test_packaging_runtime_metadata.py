@@ -6,7 +6,6 @@ constraints so ``pip install`` cannot resolve known-incompatible stacks.
 
 from __future__ import annotations
 
-import email.message
 import os
 import subprocess
 import sys

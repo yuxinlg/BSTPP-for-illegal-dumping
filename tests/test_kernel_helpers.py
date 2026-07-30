@@ -13,24 +13,8 @@ import os
 os.environ.setdefault("JAX_PLATFORM_NAME", "cpu")
 
 import numpy as np
-import pytest
 
 from bstpp.utils import dist_euclid, exp_sq_kernel
-
-
-def _np_dist(x, z):
-    x = np.atleast_2d(np.asarray(x, dtype=float))
-    z = np.atleast_2d(np.asarray(z, dtype=float))
-    if x.shape[0] == 1 and x.shape[1] != z.shape[1]:
-        # 1-D inputs arrive as row from atleast_2d when length differs from
-        # feature dim; match the production reshape-to-column convention.
-        x = np.asarray(x, dtype=float).reshape(-1, 1)
-        z = np.asarray(z, dtype=float).reshape(-1, 1)
-    if x.ndim == 1:
-        x = x.reshape(-1, 1)
-    if z.ndim == 1:
-        z = z.reshape(-1, 1)
-    return np.sqrt(((x[:, None, :] - z[None, :, :]) ** 2).sum(axis=-1))
 
 
 def test_dist_euclid_different_length_1d_matches_numpy_oracle():

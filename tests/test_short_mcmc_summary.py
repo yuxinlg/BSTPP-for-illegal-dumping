@@ -17,7 +17,6 @@ import jax
 import numpy as np
 import numpyro.distributions as dist
 import pandas as pd
-import pytest
 
 from bstpp.main import Hawkes_Model
 

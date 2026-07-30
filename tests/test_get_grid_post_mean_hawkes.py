@@ -17,7 +17,6 @@ import geopandas as gpd
 import numpy as np
 import numpyro.distributions as dist
 import pandas as pd
-import pytest
 from shapely.geometry import box as shapely_box
 
 from bstpp.main import Hawkes_Model
