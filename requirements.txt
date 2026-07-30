@@ -1,30 +1,12 @@
-dill>=0.3.5.1
+# Runtime stack: single source in requirements-runtime.txt (also setup.py).
+-r requirements-runtime.txt
+
+# Extra host packages commonly present alongside the pinned runtime stack.
 etils
 flatbuffers
-# geopandas>=1.0: _sim_cox passes the rng= keyword to GeoSeries.sample_points,
-# which only exists from geopandas 1.0; on <1.0 that call errors or misroutes the kwarg.
-geopandas>=1.0
-importlib-resources
-jax==0.4.23
-jaxlib==0.4.23
 kiwisolver==1.4.4
-matplotlib>=3.5.2
-multipledispatch>=0.6.0
-# numpy pinned <2: jax/jaxlib 0.4.23 was built against the numpy 1.x ABI and
-# uses np.trapz (removed in numpy 2.0), so numpy 2.x breaks import.
-numpy>=1.24.1,<2
-numpyro>=0.10.0
-opt-einsum>=3.3.0
-packaging>=21.3
-pandas>=1.4.3
 Pillow>=9.2.0
-pyparsing>=3.0.9
-# scipy pinned <1.13: newer scipy requires numpy>=2, which conflicts with the
-# numpy<2 pin above (forced by jax 0.4.23).
-scipy>=1.9.0,<1.13
 seaborn>=0.11
-six>=1.16.0
-tqdm>=4.64.0
 
 # Notebook (cbg-park-seasonal) plotting dependencies:
 contextily>=1.3

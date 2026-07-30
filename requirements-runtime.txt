@@ -1,0 +1,21 @@
+# Canonical runtime install_requires for BSTPP (consumed by setup.py).
+# Notebook / plotting / dev tools belong in requirements.txt only.
+dill>=0.3.5.1
+# geopandas>=1.0: _sim_cox passes rng= to GeoSeries.sample_points (geopandas 1.0+).
+geopandas>=1.0
+importlib-resources
+jax==0.4.23
+jaxlib==0.4.23
+matplotlib>=3.5.2
+multipledispatch>=0.6.0
+# numpy pinned <2: jax/jaxlib 0.4.23 targets the numpy 1.x ABI (np.trapz removed in 2.0).
+numpy>=1.24.1,<2
+numpyro==0.15.0
+opt-einsum>=3.3.0
+packaging>=21.3
+pandas>=1.4.3
+pyparsing>=3.0.9
+# scipy pinned <1.13: newer scipy requires numpy>=2, which conflicts with numpy<2 above.
+scipy>=1.9.0,<1.13
+six>=1.16.0
+tqdm>=4.64.0

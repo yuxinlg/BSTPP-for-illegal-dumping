@@ -28,6 +28,14 @@ CRITICAL = {
 }
 
 
+def _req_key(req: str) -> tuple:
+    """Normalize a Requires-Dist string for comparison (specifier order)."""
+    from packaging.requirements import Requirement
+    r = Requirement(req)
+    specs = tuple(sorted((s.operator, s.version) for s in r.specifier))
+    return (r.name.lower(), specs)
+
+
 def _requires_dist_from_wheel(wheel_path: Path) -> list[str]:
     import email
     with zipfile.ZipFile(wheel_path) as zf:
@@ -53,12 +61,12 @@ def test_wheel_requires_dist_contains_critical_runtime_pins():
         wheels = list(out.glob("*.whl"))
         assert len(wheels) == 1, wheels
         reqs = _requires_dist_from_wheel(wheels[0])
-        reqs_l = [r.replace(" ", "") for r in reqs]
+        got = {_req_key(r)[0]: _req_key(r) for r in reqs}
         for name, pin in CRITICAL.items():
-            pin_compact = pin.replace(" ", "")
-            assert any(pin_compact == r or r.startswith(name) and pin_compact in r
-                       for r in reqs_l), (
-                f"missing critical Requires-Dist {pin!r}; got {reqs}")
+            want = _req_key(pin)
+            assert got.get(name) == want, (
+                f"missing or mismatched Requires-Dist for {name}: "
+                f"want {pin!r}; got {reqs}")
 
 
 def test_disposable_venv_can_import_bstpp_from_wheel():
