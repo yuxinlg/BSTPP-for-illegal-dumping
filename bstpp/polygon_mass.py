@@ -23,6 +23,7 @@ Extrapolation is prohibited.
 from __future__ import annotations
 
 import hashlib
+import math
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
@@ -46,6 +47,11 @@ VALIDATED_DLOG = (
 
 DEFAULT_PANEL_H_M = 20.0
 DEFAULT_GL_ORDER = 16
+# Conservative production resolution guard: after converting panel_h_m into
+# effective domain-coordinate units, effective_panel_h / min_sigma must not
+# exceed this ratio. Default panel_h_m=20 on CRS-less unit-scale domains is
+# otherwise silently too coarse for small min_sigma.
+MAX_PANEL_TO_MIN_SIGMA_RATIO = 8.0
 
 # Independent polygon-table oracle accuracy gate (pre-3f / A-21).
 # Numerical approximation error is a separate budget from spatial-cutoff
@@ -823,6 +829,26 @@ def prepare_polygon_mass_table(
         h_panel = float(metres_to_crs_units(float(panel_h_m), crs))
     else:
         h_panel = float(panel_h_m)
+
+    min_s = float(min_sigma)
+    if not (math.isfinite(min_s) and min_s > 0):
+        raise ValueError(
+            f"min_sigma must be finite and > 0; got {min_sigma!r}")
+    if not (math.isfinite(h_panel) and h_panel > 0):
+        raise ValueError(
+            f"effective panel height must be finite and > 0; got {h_panel!r} "
+            f"(from panel_h_m={panel_h_m!r})")
+    ratio = h_panel / min_s
+    if ratio > MAX_PANEL_TO_MIN_SIGMA_RATIO:
+        raise ValueError(
+            "Polygon mass panel is too coarse relative to min_sigma: "
+            f"effective_panel_h={h_panel} (domain-coordinate units), "
+            f"min_sigma={min_s}, ratio={ratio} exceeds allowed "
+            f"MAX_PANEL_TO_MIN_SIGMA_RATIO={MAX_PANEL_TO_MIN_SIGMA_RATIO}. "
+            "Pass a smaller explicit panel_h_m so "
+            "effective_panel_h / min_sigma <= "
+            f"{MAX_PANEL_TO_MIN_SIGMA_RATIO}.")
+
     return build_quad_table(
         domain_geom,
         np.asarray(event_x_real, dtype=np.float64),
