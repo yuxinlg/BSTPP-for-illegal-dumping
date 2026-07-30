@@ -1,6 +1,6 @@
 """Phase 3e: human-unit temporal interface + computational cutoffs (OP-6).
 
-Settled decisions (phase3_baseline_and_decisions section 10.e / OP-6):
+Settled decisions (phase3_record.tex Part I §10.e / OP-6 / amendments):
 - Public temporal scale is mean_lag_days (beta sample site stays internal).
 - Spatial sigmax_2 / spatial_window already real-unit -- not reconverted.
 - Windows are computational cutoffs of infinite-support kernels (D-13/D-14).

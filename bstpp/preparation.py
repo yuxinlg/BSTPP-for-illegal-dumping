@@ -1,6 +1,6 @@
 """Phase 3b domain/partition seam: the three data-bearing objects.
 
-Behavior-preserving extraction (phase3_baseline_and_decisions section 10.b)
+Behavior-preserving extraction (phase3_record.tex Part I §10.b / amendments)
 of the model-construction pipeline into exactly three objects:
 
 - :class:`ModelData` -- the user's inputs as supplied: events, domain input,

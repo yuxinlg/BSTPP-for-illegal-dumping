@@ -1,6 +1,6 @@
 """Phase 3a data-contract adversarial tests (IV commit).
 
-Each contract in docs/phase3_baseline_and_decisions.tex section 10.a gets a
+Each contract in phase3_record.tex (Part I §10.a / amendments) gets a
 rejection test (mode='reject'), and the report-only default gets tests that
 legacy behavior is preserved while the defect is surfaced loudly. Membership
 REBASELINE tests (D-22 deterministic unique membership) belong to the

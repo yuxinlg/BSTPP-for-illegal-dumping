@@ -1,6 +1,7 @@
 # Phase 3a rebaseline record — data contracts and unique membership
 
-Governing document: `docs/phase3_baseline_and_decisions.tex` (§7.3, §10.a,
+Governing document: `phase3_record.tex` (living; supersedes historical
+`docs/phase3_baseline_and_decisions.tex`; §7.3, §10.a,
 §12.2 row 3a; decisions D-3, D-4, D-5, D-22). Baseline: frozen tip `476c2a0`.
 Machine: analysis machine of §4.2 (pins are MACHINE-LOCAL).
 

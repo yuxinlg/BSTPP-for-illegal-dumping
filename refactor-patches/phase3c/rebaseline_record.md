@@ -1,6 +1,7 @@
 # Phase 3c rebaseline record — background/covariate polygon support corrections
 
-Scope: `phase3_baseline_and_decisions.tex` §10.c, decisions D-6/D-7/D-10/D-11,
+Scope: `phase3_record.tex` (living; supersedes historical
+`docs/phase3_baseline_and_decisions.tex`) §10.c, decisions D-6/D-7/D-10/D-11,
 classification rows in §7.3. Commits (branch `refactor`):
 
 | Commit | Class | Change |

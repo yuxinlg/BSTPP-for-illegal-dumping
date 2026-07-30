@@ -488,8 +488,9 @@ class Point_Process_Model:
                                         spatial_cov, cov_names,
                                         standardize_cov, args['model'])
             # D-10 (3c API): the model always reports whether/how it
-            # standardized -- method 'count' | 'none' | 'domain_area' with
+            # standardized -- method 'none' | 'domain_area' with
             # invertible mean/scale (X = standardized * scale + mean).
+            # Legacy method name 'count' is not implemented.
             self.standardization = parts.standardization
             args['spatial_cov'] = parts.cov_values
             if args['model'] in ['lgcp','cox_hawkes']:
@@ -1585,12 +1586,12 @@ class Point_Process_Model:
 
         Same decode functions as the model layer (decode_fields.py). Fills
         f_t / f_a / f_xy from z_temporal / z_seasonal / z_spatial when the
-        decoded field is absent (posterior sample dicts from mcmc.get_samples()
-        carry only sample sites, not deterministics), and b_0 from w for
-        covariate models. Shared by Hawkes_Model.simulate() and
-        LGCP_Model.simulate() so there is exactly one copy of this logic --
-        it was previously inlined in Hawkes_Model.simulate() only, leaving
-        the LGCP path unable to consume z-only parameter dicts.
+        decoded field is absent, and b_0 from w for covariate models.
+        Explicit decode remains useful because callers may pass z-only dicts
+        (e.g. thinned sample-site subsets, or Predictive outputs that omit
+        some deterministics depending on return_sites); do not assume NumPyro
+        0.15 MCMC categorically omits every deterministic. Shared by
+        Hawkes_Model.simulate() and LGCP_Model.simulate().
         """
         if 'f_t' not in parameters and 'z_temporal' in parameters:
             v_t = decode_temporal_field(parameters['z_temporal'],
@@ -2736,8 +2737,10 @@ class Hawkes_Model(Point_Process_Model):
         parameters: dict
             Parameters to simulate from. If parameters is None, use mean of posterior samples. keys are string parameter names. values are np.array or float. Names must be same as those that appear in the sample from the model.
         rng: numpy.random.Generator, optional
-            Reproducible spatial sampling; passed through to _sim_cox.sample_points. Seed the
-            Poisson/CDF draws separately with np.random.seed(...). See _sim_cox.
+            One Generator drives every draw when provided (background and
+            offspring paths); identically seeded fresh Generators give
+            byte-identical simulations. See ``_sim_cox`` / ``_sim_hawkes_bg``
+            / ``_sim_offspring``.
         Returns
         -------
             geopandas DataFrame: ['X','Y','T'] columns (real units)

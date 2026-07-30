@@ -1,6 +1,7 @@
 # Phase 3e rebaseline record — computational cutoffs (OP-6)
 
-Governing document: `docs/phase3_baseline_and_decisions.tex` (§10.e / OP-6,
+Governing document: `phase3_record.tex` (living; supersedes historical
+`docs/phase3_baseline_and_decisions.tex`; §10.e / OP-6,
 acceptance matrix §12). Frozen Phase 3 baseline tip: `476c2a0`. Branch:
 `refactor`. Pins are MACHINE-LOCAL
 (`refactor-patches/baselines-2026-07/pins.json`).

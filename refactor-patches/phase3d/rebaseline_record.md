@@ -1,6 +1,7 @@
 # Phase 3d rebaseline record — polygon excitation support
 
-Governing document: `docs/phase3_baseline_and_decisions.tex` (§10.d / D-17,
+Governing document: `phase3_record.tex` (living; supersedes historical
+`docs/phase3_baseline_and_decisions.tex`; §10.d / D-17,
 acceptance matrix §12). Frozen Phase 3 baseline tip: `476c2a0`. Branch:
 `refactor`. Pins are MACHINE-LOCAL
 (`refactor-patches/baselines-2026-07/pins.json`).

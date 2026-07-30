@@ -67,7 +67,9 @@ def test_nuts_fit_smoke_plain_hawkes():
     assert diverging.sum() == 0, f"{int(diverging.sum())} divergent transitions"
 
     # identified log-background criterion, same pattern as recover_test.py:
-    # deterministics are not collected by MCMC, so replay via Predictive
+    # request Itot_* via Predictive so the criterion is available even when
+    # the retained sample dict omits those sites (return_sites / site filters);
+    # do not claim NumPyro 0.15 MCMC categorically drops all deterministics.
     pred = Predictive(fit.model, posterior_samples=fit.samples,
                       return_sites=["Itot_txy", "Itot_excite"])
     det = pred(jax.random.PRNGKey(1), args=fit.args)

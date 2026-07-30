@@ -1,6 +1,6 @@
 """Phase 3c-1: no-covariate background support is |C_c ∩ A| (D-6, SC).
 
-Baseline defect (phase3_baseline_and_decisions §5.5, §10.c): on a polygon
+Baseline defect (phase3_record.tex Part I §5.5 / §10.c / amendments): on a polygon
 domain A the no-covariate Cox background charged every in-domain field cell
 its FULL internal area 1/n_xy^2 -- boundary cells straddling ∂A were
 overcharged, and cells merely TOUCHING A (zero-area intersection) were

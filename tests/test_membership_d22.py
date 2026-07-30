@@ -1,6 +1,6 @@
 """Phase 3a MR commit: deterministic unique membership per D-22.
 
-D-22 (phase3_baseline_and_decisions section 8): cells are left-closed/
+D-22 (phase3_record.tex Part I section 8 / amendments): cells are left-closed/
 right-open per axis, [e_k, e_{k+1}), with the domain's outermost right/top
 edges closed; the temporal axis is [t_k, t_{k+1}) with t = T-tilde closed
 into the last cell; the seasonal circle is seamless.

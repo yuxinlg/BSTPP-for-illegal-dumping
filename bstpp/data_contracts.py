@@ -1,7 +1,7 @@
 """Phase 3a data-contract validation layer (class IV).
 
 Boundary validation constructed BEFORE model construction, per
-docs/phase3_baseline_and_decisions.tex section 10.a: the constructor's job is
+phase3_record.tex (Part I §10.a / amendments): the constructor's job is
 to fit the model the user asked for on exactly the events the user supplied;
 anything that would silently alter the event set (NaN dropping, out-of-domain
 acceptance, ambiguous membership) is either surfaced (report mode) or refused
@@ -17,10 +17,10 @@ Two modes (constructor argument ``data_contracts``):
   ``refactor-patches/phase3a/``).
 - ``"report"``: violations and diagnostics are collected into a
   :class:`DataContractReport` (stored as ``model.data_contract_report``) and
-  violations are emitted as a single ``UserWarning``. Legacy numerical
-  behavior is bit-unchanged -- including the legacy failure modes for
-  invalid data (misleading sjoin crash, silent NaN drop in
-  ``log_expected_likelihood``). This is the section-14 dry-run instrument.
+  violations are emitted as a single ``UserWarning``. Construction still
+  proceeds for migration dry-runs, but held-out scoring
+  (``log_expected_likelihood``) now rejects all nonfinite inputs under every
+  mode -- including ``report`` -- and does not silently drop NaN/Inf rows.
 
 Violations (would-reject) vs diagnostics (informational, never reject):
 
@@ -32,7 +32,7 @@ Violations (would-reject) vs diagnostics (informational, never reject):
 - diagnostics: events exactly on the polygon boundary of A (valid, D-4);
   events exactly on internal computational-grid lines (valid; deterministic
   membership is the D-22 micro-rebaseline); events covered by more than one
-  covariate polygon (tie); rows the legacy held-out path would drop.
+  covariate polygon (tie).
 """
 
 from dataclasses import dataclass, field
@@ -215,9 +215,9 @@ def validate_events(data, A, T_max, n_xy=25) -> list:
     if len(bad):
         checks.append(ContractCheck(
             "event_coordinates_nonfinite", "violation",
-            "rows with non-numeric or nonfinite X/Y/T (legacy behavior: "
-            "silent drop in the held-out path, misleading grid crash in the "
-            "constructor)", bad))
+            "rows with non-numeric or nonfinite X/Y/T (held-out scoring now "
+            "rejects these under every data_contracts mode; constructor "
+            "reject mode refuses them before fit)", bad))
     finite = ~nonnum
 
     t = vals["T"]
