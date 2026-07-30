@@ -46,8 +46,15 @@ from .excitation_support import (
 )
 from .polygon_mass import warn_if_sigma_near_bound
 from .cutoffs import (
+    CutoffProvenance,
+    SpatialCutoffRecord,
+    TemporalCutoffRecord,
+    internal_to_days,
     resolve_computational_cutoffs,
     scale_temporal_prior_to_internal,
+    spatial_omitted_mass,
+    temporal_omitted_mass,
+    days_to_internal,
 )
 
 # Sentinel for set_window: omitted arguments leave the current value unchanged.
@@ -2061,9 +2068,10 @@ class Hawkes_Model(Point_Process_Model):
             design_mean_lag_days=self._design_mean_lag_days,
             design_sigma=self._design_sigma,
         )
-        # Install realized windows first; public set_window rewrites provenance
-        # as a physical override, so restore the OP-6 construction record
-        # (tolerance vs physical selection) afterward.
+        # Install realized windows first. Public set_window re-resolves only
+        # axes that are explicitly supplied; omitted (_UNSET) axes keep their
+        # construction provenance verbatim. Restore the OP-6 construction
+        # record (tolerance vs physical selection) afterward.
         self.set_window(
             cutoff_prov.temporal.window_internal,
             cutoff_prov.spatial.spatial_window,
@@ -2140,8 +2148,9 @@ class Hawkes_Model(Point_Process_Model):
         """Update computational cutoffs transactionally.
 
         Omitted arguments (private ``_UNSET``) leave the current value
-        unchanged. Explicit ``window=None`` restores the full
-        observation-horizon setting (``T_INTERNAL``); explicit
+        unchanged, including the existing ``TemporalCutoffRecord`` /
+        ``SpatialCutoffRecord`` verbatim. Explicit ``window=None`` restores
+        the full observation-horizon setting (``T_INTERNAL``); explicit
         ``spatial_window=None`` removes the spatial computational cutoff.
         ``set_window()`` with no arguments is a true no-op.
 
@@ -2152,7 +2161,8 @@ class Hawkes_Model(Point_Process_Model):
         Hermite rebuild is not allowed. Candidate table, pairs, support,
         and provenance are prepared locally and committed only after
         validation succeeds. Design scales from construction are retained
-        so realized omission is recomputed honestly.
+        so realized omission on an explicitly updated axis is recomputed
+        honestly.
         """
         if (window is _UNSET and spatial_window is _UNSET
                 and mass_table is _UNSET):
@@ -2232,22 +2242,68 @@ class Hawkes_Model(Point_Process_Model):
         )
         design_lag = getattr(self, "_design_mean_lag_days", None)
         design_sigma = getattr(self, "_design_sigma", None)
-        if temporal_clear:
-            cutoff_provenance = resolve_computational_cutoffs(
-                horizon_days=float(self.T),
-                window_internal=None,
-                spatial_window=new_sw,
-                design_mean_lag_days=design_lag,
-                design_sigma=design_sigma,
+        # Per-axis provenance: an _UNSET axis keeps its existing record
+        # verbatim; only an explicitly supplied axis is re-resolved.
+        if window is _UNSET:
+            temporal_record = self.cutoff_provenance.temporal
+        elif temporal_clear:
+            design_beta = (
+                days_to_internal(float(design_lag), float(self.T))
+                if design_lag is not None else None)
+            temporal_record = TemporalCutoffRecord(
+                selection="default_untruncated",
+                window_internal=float(T_INTERNAL),
+                window_days=float(self.T),
+                requested_tol=None,
+                design_mean_lag_days=(
+                    float(design_lag) if design_lag is not None else None),
+                design_beta_internal=design_beta,
+                omitted_mass_at_design=None,
             )
         else:
-            cutoff_provenance = resolve_computational_cutoffs(
-                horizon_days=float(self.T),
+            design_beta = (
+                days_to_internal(float(design_lag), float(self.T))
+                if design_lag is not None else None)
+            omitted = (
+                temporal_omitted_mass(new_window, design_beta)
+                if design_beta is not None else None)
+            temporal_record = TemporalCutoffRecord(
+                selection="physical",
                 window_internal=new_window,
-                spatial_window=new_sw,
-                design_mean_lag_days=design_lag,
-                design_sigma=design_sigma,
+                window_days=internal_to_days(new_window, float(self.T)),
+                requested_tol=None,
+                design_mean_lag_days=(
+                    float(design_lag) if design_lag is not None else None),
+                design_beta_internal=design_beta,
+                omitted_mass_at_design=omitted,
             )
+
+        if spatial_window is _UNSET:
+            spatial_record = self.cutoff_provenance.spatial
+        elif new_sw is None:
+            spatial_record = SpatialCutoffRecord(
+                selection="default_untruncated",
+                spatial_window=None,
+                requested_tol=None,
+                design_sigma=(
+                    float(design_sigma) if design_sigma is not None else None),
+                omitted_mass_at_design=None,
+            )
+        else:
+            omitted = (
+                spatial_omitted_mass(new_sw, float(design_sigma))
+                if design_sigma is not None else None)
+            spatial_record = SpatialCutoffRecord(
+                selection="physical",
+                spatial_window=new_sw,
+                requested_tol=None,
+                design_sigma=(
+                    float(design_sigma) if design_sigma is not None else None),
+                omitted_mass_at_design=omitted,
+            )
+        cutoff_provenance = CutoffProvenance(
+            temporal=temporal_record, spatial=spatial_record)
+
         x_real, y_real = self._event_xy_real()
         domain_gdf = (self.prepared_domain.domain
                       if self.prepared_domain.is_polygon else None)
