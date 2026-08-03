@@ -2,6 +2,11 @@
 
 setup.py install_requires must match requirements-runtime.txt critical
 constraints so ``pip install`` cannot resolve known-incompatible stacks.
+
+Wheel builds isolate ``build-base`` and ``egg-base`` under ``%TEMP%``.
+Leaving them at the repo root races on ``build/bdist.win-amd64/wheel``
+(Permission denied on decoder artifacts) when packaging tests overlap or
+when Box sync locks in-tree build outputs — the G9 flake.
 """
 
 from __future__ import annotations
@@ -45,21 +50,42 @@ def _requires_dist_from_wheel(wheel_path: Path) -> list[str]:
     return [v for k, v in parsed.items() if k.lower() == "requires-dist"]
 
 
-def test_wheel_requires_dist_contains_critical_runtime_pins():
-    with tempfile.TemporaryDirectory() as td:
-        out = Path(td)
-        # Build a wheel from the repo (isolated build env may need network for
-        # build backends; use the working interpreter's setuptools).
+def _build_wheel(dist_dir: Path) -> Path:
+    """Build one wheel with build/egg trees outside the Box-synced repo.
+
+    ``dist-dir`` alone is not enough: setuptools still writes
+    ``build/bdist.win-amd64/wheel`` under the cwd unless ``--build-base``
+    is redirected.
+    """
+    dist_dir = Path(dist_dir)
+    dist_dir.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="bstpp-wheel-build-") as build_root:
+        root = Path(build_root)
+        build_base = root / "build"
+        egg_base = root / "egg"
+        egg_base.mkdir()
         proc = subprocess.run(
-            [sys.executable, "setup.py", "bdist_wheel", f"--dist-dir={out}"],
+            [
+                sys.executable,
+                "setup.py",
+                "egg_info", f"--egg-base={egg_base}",
+                "build", f"--build-base={build_base}",
+                "bdist_wheel", f"--dist-dir={dist_dir}",
+            ],
             cwd=str(REPO),
             capture_output=True,
             text=True,
         )
         assert proc.returncode == 0, proc.stdout + "\n" + proc.stderr
-        wheels = list(out.glob("*.whl"))
-        assert len(wheels) == 1, wheels
-        reqs = _requires_dist_from_wheel(wheels[0])
+    wheels = sorted(dist_dir.glob("*.whl"))
+    assert len(wheels) == 1, wheels
+    return wheels[0]
+
+
+def test_wheel_requires_dist_contains_critical_runtime_pins():
+    with tempfile.TemporaryDirectory() as td:
+        wheel = _build_wheel(Path(td))
+        reqs = _requires_dist_from_wheel(wheel)
         got = {_req_key(r)[0]: _req_key(r) for r in reqs}
         for name, pin in CRITICAL.items():
             want = _req_key(pin)
@@ -76,16 +102,7 @@ def test_disposable_venv_can_import_bstpp_from_wheel():
     """
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
-        dist = td / "dist"
-        dist.mkdir()
-        proc = subprocess.run(
-            [sys.executable, "setup.py", "bdist_wheel", f"--dist-dir={dist}"],
-            cwd=str(REPO),
-            capture_output=True,
-            text=True,
-        )
-        assert proc.returncode == 0, proc.stdout + "\n" + proc.stderr
-        wheel = next(dist.glob("*.whl"))
+        wheel = _build_wheel(td / "dist")
 
         venv_dir = td / "venv"
         subprocess.run([sys.executable, "-m", "venv", str(venv_dir)], check=True)
@@ -106,10 +123,18 @@ def test_disposable_venv_can_import_bstpp_from_wheel():
         assert no_deps.returncode == 0, no_deps.stdout + no_deps.stderr
         # Package import may fail without deps; that is still useful evidence.
         # Attempt full install when possible.
-        full = subprocess.run(
-            [str(pip), "install", str(wheel)],
-            capture_output=True, text=True,
-        )
+        # Bound network resolve so a stalled index cannot hang the suite
+        # (observed multi-minute idle during G9 diagnosis).
+        try:
+            full = subprocess.run(
+                [str(pip), "install", str(wheel)],
+                capture_output=True, text=True, timeout=120,
+            )
+        except subprocess.TimeoutExpired as exc:
+            pytest.skip(
+                "Resolver-based disposable-venv install timed out "
+                f"after {exc.timeout}s"
+            )
         if full.returncode != 0:
             pytest.skip(
                 "Resolver-based disposable-venv install unavailable "
