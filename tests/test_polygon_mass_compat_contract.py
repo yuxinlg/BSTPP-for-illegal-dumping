@@ -96,8 +96,6 @@ def _validate(table, data):
         spatial_window=None,
         sigma_min=MIN_SIGMA,
         sigma_max=MAX_SIGMA,
-        h_panel=float(table.h_panel),
-        gl_order=int(table.gl_order),
     )
 
 
@@ -303,8 +301,6 @@ def test_legacy_decimal_9g_event_hash_collision_rejected():
             spatial_window=None,
             sigma_min=MIN_SIGMA,
             sigma_max=MAX_SIGMA,
-            h_panel=float(table.h_panel),
-            gl_order=int(table.gl_order),
         )
 
     legacy = _with_prov(

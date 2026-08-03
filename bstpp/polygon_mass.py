@@ -523,6 +523,57 @@ def _validate_compat_provenance(prov: dict) -> None:
             f"with slope_fd_eps={SLOPE_FD_EPS}")
 
 
+def assert_polygon_mass_table_budget(
+    table: PolygonMassTable,
+    *,
+    sigma_min: float,
+) -> float:
+    """Reject a table whose recorded panel is too coarse for ``sigma_min``.
+
+    The table's own ``h_panel`` / ``gl_order`` are authoritative. Acceptance is
+    the production resolution gate that protects ``PRODUCTION_TAU_ABS``::
+
+        table.h_panel / sigma_min <= MAX_PANEL_TO_MIN_SIGMA_RATIO
+
+    Returns the realized ``panel / min_sigma`` ratio. Never rebuilds a table.
+    """
+    if not isinstance(table, PolygonMassTable):
+        raise TypeError(
+            f"mass_table must be a PolygonMassTable; got {type(table).__name__}")
+    h = float(table.h_panel)
+    s = float(sigma_min)
+    if not (math.isfinite(h) and h > 0.0):
+        raise ValueError(
+            f"supplied mass table h_panel must be finite and > 0; got {h!r}")
+    if not (math.isfinite(s) and s > 0.0):
+        raise ValueError(
+            f"model min_sigma must be finite and > 0 for the mass-table "
+            f"accuracy budget; got {sigma_min!r}")
+    try:
+        gl = int(table.gl_order)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"supplied mass table gl_order must be an integer; "
+            f"got {table.gl_order!r}") from exc
+    if gl < 1:
+        raise ValueError(
+            f"supplied mass table gl_order must be >= 1; got {gl}")
+    ratio = h / s
+    if ratio > MAX_PANEL_TO_MIN_SIGMA_RATIO:
+        raise ValueError(
+            "supplied mass table is too coarse for model min_sigma under the "
+            f"production accuracy budget PRODUCTION_TAU_ABS={PRODUCTION_TAU_ABS}: "
+            f"table h_panel={h}, gl_order={gl}, min_sigma={s}, "
+            f"panel/min_sigma ratio={ratio} exceeds "
+            f"MAX_PANEL_TO_MIN_SIGMA_RATIO={MAX_PANEL_TO_MIN_SIGMA_RATIO} "
+            "(resolution gate protecting PRODUCTION_TAU_ABS). "
+            "Rebuild with prepare_polygon_mass_table(..., panel_h_m=...) so "
+            "effective_panel_h / min_sigma <= "
+            f"{MAX_PANEL_TO_MIN_SIGMA_RATIO}."
+        )
+    return float(ratio)
+
+
 def validate_polygon_mass_table(
     table: PolygonMassTable,
     *,
@@ -532,17 +583,19 @@ def validate_polygon_mass_table(
     spatial_window: float | None,
     sigma_min: float,
     sigma_max: float,
-    h_panel: float,
-    gl_order: int,
-) -> None:
+) -> float:
     """Reject a supplied Hermite table that is not identity-compatible.
 
     Equal event counts are not evidence of compatibility. Validates required
     compatibility provenance (backend, schema, sigma parameterization,
     interpolation convention, slope method/settings, event-hash algorithm),
     domain geometry hash, exact float64 event identity and row order, event
-    count, spatial window, sigma range and knot grid, build settings
-    (h_panel, gl_order), array shapes, and finite array values.
+    count, spatial window, sigma range and knot grid, array shapes, and
+    finite array values. Build settings ``h_panel`` / ``gl_order`` are read
+    from the table itself (never compared to caller-declared defaults) and
+    checked against the production accuracy budget for ``sigma_min``.
+
+    Returns the realized ``table.h_panel / sigma_min`` ratio.
     Descriptive ``provenance['extra']`` is ignored for compatibility.
     """
     if not isinstance(table, PolygonMassTable):
@@ -608,14 +661,8 @@ def validate_polygon_mass_table(
         raise ValueError(
             "supplied mass table log_knots do not match the sigma range knot grid")
 
-    if float(table.h_panel) != float(h_panel):
-        raise ValueError(
-            f"supplied mass table h_panel={table.h_panel} does not match "
-            f"build setting h_panel={h_panel}")
-    if int(table.gl_order) != int(gl_order):
-        raise ValueError(
-            f"supplied mass table gl_order={table.gl_order} does not match "
-            f"build setting gl_order={gl_order}")
+    # Table-recorded build settings are authoritative; budget vs model min σ.
+    ratio = assert_polygon_mass_table_budget(table, sigma_min=float(sigma_min))
 
     k = int(expected_knots.shape[0])
     if table.values.shape != (n, k) or table.slopes.shape != (n, k):
@@ -635,6 +682,7 @@ def validate_polygon_mass_table(
         if not np.all(np.isfinite(arr)):
             raise ValueError(
                 f"supplied mass table {name} contains nonfinite values")
+    return ratio
 
 
 def _legendre_01(gl_order: int) -> tuple[np.ndarray, np.ndarray]:

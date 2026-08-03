@@ -29,6 +29,7 @@ from shapely.ops import unary_union
 from .polygon_mass import (
     DEFAULT_GL_ORDER,
     DEFAULT_PANEL_H_M,
+    PRODUCTION_TAU_ABS,
     PolygonMassTable,
     validate_polygon_mass_table,
 )
@@ -362,7 +363,15 @@ def build_excitation_support(
     compatibility validation and installation — this function never builds
     tables. For polygon domains, ``union_geometry`` must be the canonical
     ``PreparedDomain.union_geometry`` (no independent unary_union here).
+
+    ``panel_h_m`` / ``gl_order`` are retained for call-site compatibility but
+    are not validation inputs: a supplied table's own recorded ``h_panel`` /
+    ``gl_order`` are authoritative, and acceptance is the production
+    accuracy budget against the model's ``min_sigma``.
     """
+    # Call-site kwargs retained; unused for validation (table is authoritative).
+    del panel_h_m, gl_order
+
     if mode not in ("rectangle", "polygon"):
         raise ValueError(
             f"excitation_support must be 'rectangle' or 'polygon', got {mode!r}")
@@ -382,19 +391,15 @@ def build_excitation_support(
 
     table = mass_table
     builder_meta: dict[str, Any] = {}
+    budget_ratio: float | None = None
     if mode == "polygon":
         assert lo is not None and hi is not None
-        if crs is not None and not getattr(crs, "is_geographic", False):
-            h_panel = metres_to_crs_units(panel_h_m, crs)
-        else:
-            # CRS-less synthetic domains: treat panel_h_m as domain units
-            h_panel = float(panel_h_m)
         if table is None:
             raise ValueError(
                 "Polygon excitation_support requires a prepared mass_table "
                 "from bstpp.polygon_mass.prepare_polygon_mass_table(...); "
                 "silent Hermite table construction is not allowed.")
-        validate_polygon_mass_table(
+        budget_ratio = validate_polygon_mass_table(
             table,
             domain_geom=geom,
             event_x_real=event_x_real,
@@ -402,8 +407,6 @@ def build_excitation_support(
             spatial_window=spatial_window,
             sigma_min=lo,
             sigma_max=hi,
-            h_panel=h_panel,
-            gl_order=gl_order,
         )
         builder_meta = dict(table.provenance)
 
@@ -417,6 +420,11 @@ def build_excitation_support(
         "n_knots": None if table is None else table.n_knots,
         "knot_sigma_min": None if table is None else table.sigma_min,
         "knot_sigma_max": None if table is None else table.sigma_max,
+        "table_h_panel": None if table is None else float(table.h_panel),
+        "table_gl_order": None if table is None else int(table.gl_order),
+        "panel_min_sigma_ratio": budget_ratio,
+        "PRODUCTION_TAU_ABS": (
+            None if table is None else float(PRODUCTION_TAU_ABS)),
     }
     return ExcitationSupport(
         mode=mode,
