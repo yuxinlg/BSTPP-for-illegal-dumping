@@ -125,7 +125,10 @@ def test_prepare_polygon_mass_table_and_ctor_install_without_x64_toggle(monkeypa
         mass_table=table,
         **PRIORS,
     )
-    assert m.excitation_support.mass_table is table
+    # Ownership copy at install (pre-3f B4).
+    assert m.excitation_support.mass_table is not table
+    np.testing.assert_allclose(
+        m.excitation_support.mass_table.values, table.values)
     x64_calls = [c for c in calls if c[0] == "jax_enable_x64"]
     assert x64_calls == []
     assert bool(jax.config.jax_enable_x64) is prev
@@ -191,8 +194,10 @@ def test_set_window_spatial_change_with_compatible_table_commits():
         spatial_window=40.0)
     m.set_window(12.0, spatial_window=40.0, mass_table=new_table)
     assert m.args["spatial_window"] == pytest.approx(40.0)
-    assert m.excitation_support.mass_table is new_table
+    assert m.excitation_support.mass_table is not new_table  # owned copy
     assert m.excitation_support.mass_table is not before
+    np.testing.assert_allclose(
+        m.excitation_support.mass_table.values, new_table.values)
     assert m.cutoff_provenance.spatial.spatial_window == pytest.approx(40.0)
 
 

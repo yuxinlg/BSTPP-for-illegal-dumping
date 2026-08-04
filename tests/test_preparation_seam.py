@@ -63,7 +63,9 @@ def _triangle_data(n=30, seed=7):
 
 def test_prepare_domain_rectangle():
     dom = prepare_domain(A_RECT)
-    assert dom.bounds is A_RECT          # rectangle domain: A_ IS the input
+    # Ownership copy (pre-3f B3): bounds equal content, not caller identity.
+    assert dom.bounds is not A_RECT
+    np.testing.assert_allclose(dom.bounds, A_RECT)
     assert dom.area_ratio == 1
     assert not dom.is_polygon
     assert dom.crs is None
@@ -78,7 +80,8 @@ def test_prepare_domain_polygon():
     assert dom.area_ratio == pytest.approx(0.5)
     assert dom.is_polygon
     assert dom.crs == tri.crs
-    assert dom.domain is tri
+    assert dom.domain is not tri
+    assert dom.domain.equals(tri)
 
 
 def test_prepare_domain_geographic_warning_preserved():
@@ -102,11 +105,12 @@ def test_model_exposes_seam_objects_consistent_with_args():
     m = Hawkes_Model(data, A_RECT, T_DAYS, cox_background=False, **PRIORS)
     assert isinstance(m.model_data, ModelData)
     assert isinstance(m.prepared_domain, PreparedDomain)
-    # ModelData carries the inputs as supplied
-    assert m.model_data.events is m.data
-    assert m.model_data.domain is A_RECT
+    # Owned copies: equal content; events aligned with self.data by content.
+    pd.testing.assert_frame_equal(m.model_data.events, m.data)
+    assert m.model_data.domain is not A_RECT
+    np.testing.assert_allclose(m.model_data.domain, A_RECT)
     assert m.model_data.horizon_days == T_DAYS
-    # legacy args entries are the adapter view of the SAME objects
+    # legacy args entries are the adapter view of the SAME prepared objects
     assert m.args["A_"] is m.prepared_domain.bounds
     assert m.args["A_area"] == m.prepared_domain.area_ratio
     assert m.args["axis_scales"] is m.prepared_domain.axis_scales
@@ -118,7 +122,8 @@ def test_model_seam_objects_polygon_domain():
                      excitation_support="rectangle",
                      **PRIORS)
     assert m.prepared_domain.is_polygon
-    assert m.prepared_domain.domain is tri
+    assert m.prepared_domain.domain is not tri
+    assert m.prepared_domain.domain.equals(tri)
     np.testing.assert_allclose(m.args["A_"], A_RECT)
     assert m.args["A_area"] == pytest.approx(0.5)
 

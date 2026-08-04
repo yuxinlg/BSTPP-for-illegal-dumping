@@ -149,22 +149,31 @@ def prepare_domain(A: Union[np.ndarray, gpd.GeoDataFrame]) -> PreparedDomain:
     ``GeoSeries.area.sum()``.
     """
     union_geometry = None
+    # Ownership: never retain the caller's mutable domain object by alias.
     if type(A) is gpd.GeoDataFrame:
-        A_ = np.stack((A.bounds.min(axis=0)[['minx', 'miny']],
-                       A.bounds.max(axis=0)[['maxx', 'maxy']])).T
+        domain_owned = A.copy(deep=True)
+        A_ = np.stack((domain_owned.bounds.min(axis=0)[['minx', 'miny']],
+                       domain_owned.bounds.max(axis=0)[['maxx', 'maxy']])).T
+        A_ = np.array(A_, dtype=float, copy=True)
         # Set-union of domain rows (SC): parenting, polygon mass, and
         # prepare_partitions support clipping already use this geometry;
         # area_ratio / A_area must match so overlapping rows are not
         # double-counted. Disjoint multi-row and single-row cases are
         # unchanged (sum(area) == union.area).
         union_geometry = (
-            A.geometry.union_all() if hasattr(A.geometry, "union_all")
-            else A.geometry.unary_union)
+            domain_owned.geometry.union_all()
+            if hasattr(domain_owned.geometry, "union_all")
+            else domain_owned.geometry.unary_union)
         rect_area = (A_[0, 1] - A_[0, 0]) * (A_[1, 1] - A_[1, 0])
         area_ratio = float(union_geometry.area) / float(rect_area)
+        _crs = domain_owned.crs
+        is_polygon = True
     else:  # A is rectangle specified by np.array
+        domain_owned = np.array(A, dtype=float, copy=True)
         area_ratio = 1
-        A_ = A
+        A_ = np.array(domain_owned, dtype=float, copy=True)
+        _crs = None
+        is_polygon = False
     # Per-axis REAL lengths of the bounding rectangle: the affine ingestion
     # map is x_int = (x - x_min) / axis_scales[0] (and likewise in y).
     # The spatial-trigger contract is REAL-unit -- the kernel is isotropic
@@ -190,7 +199,6 @@ def prepare_domain(A: Union[np.ndarray, gpd.GeoDataFrame]) -> PreparedDomain:
         "degrees it is anisotropic on the ground by cos(latitude), and "
         "sigmax_2 / spatial_window are in squared degrees / degrees. "
         "Project X/Y to a metric CRS before ingestion.")
-    _crs = A.crs if type(A) is gpd.GeoDataFrame else None
     if _crs is not None:
         if _crs.is_geographic:
             warnings.warn(_geo_warning % "has a geographic CRS, i.e. uses",
@@ -206,12 +214,12 @@ def prepare_domain(A: Union[np.ndarray, gpd.GeoDataFrame]) -> PreparedDomain:
             warnings.warn(_geo_warning % "looks like",
                           UserWarning, stacklevel=3)
     return PreparedDomain(
-        domain=A,
+        domain=domain_owned,
         bounds=A_,
         area_ratio=area_ratio,
         axis_scales=axis_scales,
         crs=_crs,
-        is_polygon=type(A) is gpd.GeoDataFrame,
+        is_polygon=is_polygon,
         union_geometry=union_geometry,
     )
 
@@ -393,6 +401,8 @@ def attach_covariate_partitions(partitions: PreparedPartitions,
     membership step.
     """
     A_ = domain.bounds
+    # Ownership: do not retain the caller's covariate frame by alias.
+    spatial_cov = spatial_cov.copy(deep=True)
     partitions.cov_gdf = spatial_cov
 
     # 3c-3 (D-7): clipped covariate support C_c ∩ A, for EVERY model --

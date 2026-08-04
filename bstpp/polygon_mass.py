@@ -238,6 +238,8 @@ class PolygonMassTable:
     events_sha256: str
     build_seconds: float
     provenance: dict
+    # True after an ownership copy at install; not part of the on-disk schema.
+    _owned: bool = False
 
     @property
     def n_knots(self) -> int:
@@ -246,6 +248,26 @@ class PolygonMassTable:
     @property
     def n_events(self) -> int:
         return int(self.values.shape[0])
+
+    def copy(self) -> "PolygonMassTable":
+        """Deep-copy arrays so install does not alias the caller's buffers."""
+        return PolygonMassTable(
+            log_knots=np.array(self.log_knots, dtype=np.float64, copy=True),
+            values=np.array(self.values, dtype=np.float64, copy=True),
+            slopes=np.array(self.slopes, dtype=np.float64, copy=True),
+            sigma_min=float(self.sigma_min),
+            sigma_max=float(self.sigma_max),
+            spatial_window=(
+                None if self.spatial_window is None
+                else float(self.spatial_window)),
+            h_panel=float(self.h_panel),
+            gl_order=int(self.gl_order),
+            geometry_sha256=str(self.geometry_sha256),
+            events_sha256=str(self.events_sha256),
+            build_seconds=float(self.build_seconds),
+            provenance=dict(self.provenance),
+            _owned=True,
+        )
 
     def export_npz(self, path: str | Path) -> Path:
         """Write table arrays + provenance sidecars for later refit reload."""

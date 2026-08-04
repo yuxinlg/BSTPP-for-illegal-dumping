@@ -23,7 +23,6 @@ import pytest
 from shapely.geometry import box
 
 from bstpp.main import Hawkes_Model
-from bstpp.polygon_mass import prepare_polygon_mass_table
 from tests._polygon_prepare_helpers import prepare_table_for_model
 
 T_DAYS = 30.0

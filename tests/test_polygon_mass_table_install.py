@@ -125,7 +125,10 @@ def test_crsless_guided_panel_installs_after_ratio_guard():
     # Must construct. Today: h_panel mismatch vs build setting 20.0.
     m = _hawkes_polygon(data, table)
     assert m.excitation_support.mode == "polygon"
-    assert m.excitation_support.mass_table is table
+    # Ownership copy at install (pre-3f B4): not the caller object.
+    assert m.excitation_support.mass_table is not table
+    np.testing.assert_allclose(
+        m.excitation_support.mass_table.values, table.values)
 
 
 # ---------------------------------------------------------------------------
@@ -183,7 +186,9 @@ def test_default_panel_gl_order_still_installs_when_budget_met():
         min_sigma=MIN_SIGMA_DEFAULT, max_sigma=MAX_SIGMA_DEFAULT,
         mass_table=table, **PRIORS,
     )
-    assert m.excitation_support.mass_table is table
+    assert m.excitation_support.mass_table is not table
+    np.testing.assert_allclose(
+        m.excitation_support.mass_table.values, table.values)
 
 
 # ---------------------------------------------------------------------------

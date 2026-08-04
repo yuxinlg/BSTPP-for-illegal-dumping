@@ -101,7 +101,7 @@ def test_hawkes_simulate_overlap_returns_point_once(monkeypatch):
     m = _hawkes(domain)
     # Interior of the overlap region — matches both input rows under sjoin(A).
     _inject_bg_point(m, [75.0, 75.0, 5.0], monkeypatch)
-    out = m.simulate(parameters=dict(HAWKES_PARAMS))
+    out = m.simulate(parameters=dict(HAWKES_PARAMS), rng=np.random.default_rng(0))
     assert list(out.columns) == ["X", "Y", "T", "geometry"]
     assert len(out) == 1
     assert float(out.iloc[0]["X"]) == pytest.approx(75.0)
@@ -124,7 +124,7 @@ def test_lgcp_simulate_overlap_returns_point_once(monkeypatch):
         "f_a": np.zeros(n_s, dtype=np.float32),
         "f_xy": np.zeros(n_xy ** 2, dtype=np.float32),
     }
-    out = m.simulate(parameters=params)
+    out = m.simulate(parameters=params, rng=np.random.default_rng(0))
     assert list(out.columns) == ["X", "Y", "T", "geometry"]
     assert len(out) == 1
     assert float(out.iloc[0]["X"]) == pytest.approx(75.0)
@@ -137,7 +137,7 @@ def test_hawkes_simulate_includes_boundary_of_union(monkeypatch):
     m = _hawkes(domain)
     # Exact corner of the union (also a corner of a1).
     _inject_bg_point(m, [0.0, 0.0, 5.0], monkeypatch)
-    out = m.simulate(parameters=dict(HAWKES_PARAMS))
+    out = m.simulate(parameters=dict(HAWKES_PARAMS), rng=np.random.default_rng(0))
     assert len(out) == 1
     assert m.prepared_domain.union_geometry.covers(out.geometry.iloc[0])
 
@@ -146,13 +146,13 @@ def test_hawkes_simulate_single_and_disjoint_polygons(monkeypatch):
     single = gpd.GeoDataFrame(geometry=[box(0, 0, 80, 80)])
     m1 = _hawkes(single)
     _inject_bg_point(m1, [10.0, 10.0, 4.0], monkeypatch)
-    out1 = m1.simulate(parameters=dict(HAWKES_PARAMS))
+    out1 = m1.simulate(parameters=dict(HAWKES_PARAMS), rng=np.random.default_rng(0))
     assert len(out1) == 1
 
     disjoint = gpd.GeoDataFrame(geometry=[box(0, 0, 40, 40), box(80, 80, 120, 120)])
     m2 = _hawkes(disjoint)
     _inject_bg_point(m2, [90.0, 90.0, 4.0], monkeypatch)
-    out2 = m2.simulate(parameters=dict(HAWKES_PARAMS))
+    out2 = m2.simulate(parameters=dict(HAWKES_PARAMS), rng=np.random.default_rng(0))
     assert len(out2) == 1
     assert m2.prepared_domain.union_geometry.covers(out2.geometry.iloc[0])
 
@@ -170,7 +170,7 @@ def test_hawkes_simulate_rectangle_array_unchanged(monkeypatch):
         excitation_support="rectangle", **HAWKES_PRIORS)
     assert not m.prepared_domain.is_polygon
     _inject_bg_point(m, [50.0, 50.0, 5.0], monkeypatch)
-    out = m.simulate(parameters=dict(HAWKES_PARAMS))
+    out = m.simulate(parameters=dict(HAWKES_PARAMS), rng=np.random.default_rng(0))
     assert list(out.columns) == ["X", "Y", "T", "geometry"]
     assert len(out) == 1
     assert float(out.iloc[0]["X"]) == pytest.approx(50.0)
@@ -196,7 +196,7 @@ def test_hawkes_simulate_all_returned_inside_union_and_one_per_event(monkeypatch
 
     monkeypatch.setattr(m, "_sim_hawkes_bg", _bg)
     monkeypatch.setattr(m, "_sim_offspring", _off)
-    out = m.simulate(parameters=dict(HAWKES_PARAMS))
+    out = m.simulate(parameters=dict(HAWKES_PARAMS), rng=np.random.default_rng(0))
     union = m.prepared_domain.union_geometry
     assert len(out) == 2
     assert all(union.covers(g) for g in out.geometry)

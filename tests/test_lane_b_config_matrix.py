@@ -316,7 +316,10 @@ def test_lane_b_cox_hawkes_polygon_constructs():
         mass_table=table, **PRIORS)
     assert m.args["model"] == "cox_hawkes"
     assert m.excitation_support.mode == "polygon"
-    assert m.excitation_support.mass_table is table
+    # Ownership copy at install: equal content, not caller identity.
+    assert m.excitation_support.mass_table is not table
+    np.testing.assert_allclose(
+        m.excitation_support.mass_table.values, table.values)
     assert m.excitation_support is m.args["excitation_support"]
 
 

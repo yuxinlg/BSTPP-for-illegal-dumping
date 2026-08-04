@@ -408,6 +408,10 @@ def build_excitation_support(
             sigma_min=lo,
             sigma_max=hi,
         )
+        # Ownership: copy caller-supplied tables once at install. Reuse the
+        # same owned object on temporal-only set_window rebuilds.
+        if not getattr(table, "_owned", False):
+            table = table.copy()
         builder_meta = dict(table.provenance)
 
     prov = {

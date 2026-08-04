@@ -104,14 +104,14 @@ def simulate_target_events(gen, truth, lo=800, hi=2500, target=1200):
     (The in-class VAE fields carry an exp(sp_var_mu) amplitude, so the count at a fixed a_0
     is much larger than in the flat-field out-of-class case -- hence a_0 usually drops.)
     """
-    np.random.seed(123)
-    sim = gen.simulate(truth)          # mutates truth: adds decoded f_t/f_a/f_xy (in-class)
+    rng = np.random.default_rng(123)
+    sim = gen.simulate(truth, rng=rng)  # mutates truth: adds decoded f_t/f_a/f_xy (in-class)
     for _ in range(6):
         n = len(sim)
         if lo <= n <= hi:
             break
         truth["a_0"] += 2.0 if n == 0 else float(np.log(target / n))
-        sim = gen.simulate(truth)
+        sim = gen.simulate(truth, rng=rng)
     return sim
 
 

@@ -303,6 +303,8 @@ class Point_Process_Model:
         """
         if type(data) is str:
             data = pd.read_csv(data)
+        # Ownership: retain owned copies of caller-supplied mutable inputs.
+        data = data.copy()
         self.data = data
 
         # Phase 3a data contracts: validate the raw events and domain BEFORE
@@ -318,10 +320,15 @@ class Point_Process_Model:
         self.standardization = {'method': 'none', 'columns': [],
                                 'mean': None, 'scale': None}
 
-        # Phase 3b seam: the user's inputs as supplied (events post file-load;
-        # covariate source kept raw so load-error ordering is unchanged).
+        # Phase 3b seam: owned copies of events/domain (prepare_domain also
+        # copies); covariate_source stays the raw handle for load-error
+        # ordering until the covariate leg normalizes and copies.
+        if type(A) is gpd.GeoDataFrame:
+            domain_owned = A.copy(deep=True)
+        else:
+            domain_owned = np.array(A, dtype=float, copy=True)
         self.model_data = ModelData(
-            events=data, domain=A, horizon_days=T,
+            events=data.copy(), domain=domain_owned, horizon_days=T,
             offset_seasonal=offset_seasonal, covariate_source=spatial_cov,
             cov_names=cov_names, cov_grid_size=cov_grid_size)
 
@@ -364,7 +371,9 @@ class Point_Process_Model:
         args['season_overlap'] = parts.season_overlap
         comp_grid = parts.comp_grid
         self.comp_grid = comp_grid
-        self.A = A if self.prepared_domain.is_polygon else comp_grid
+        # Polygon plotting domain is the owned PreparedDomain.domain copy.
+        self.A = (self.prepared_domain.domain
+                  if self.prepared_domain.is_polygon else comp_grid)
         self.T = T
 
         args,points = self._scale_xyt(data,args,parts.support_cells)
@@ -454,6 +463,9 @@ class Point_Process_Model:
                 + validate_covariate_coverage(spatial_cov, A),
                 len(data), data_contracts).checks)
 
+            # Ownership: copy before attaching cov_ind / membership so the
+            # caller's frame is never mutated or retained.
+            spatial_cov = spatial_cov.copy(deep=True)
             spatial_cov['cov_ind'] = np.arange(len(spatial_cov))
             # Align points CRS for the covariate sjoin without the deprecated
             # attribute override (GeoDataFrame.crs = ...). Points already carry
@@ -477,16 +489,18 @@ class Point_Process_Model:
 
             args['num_cov'] = len(cov_names)
             self.cov_names = cov_names
-            self.spatial_cov = spatial_cov
 
             # Phase 3b seam: covariate partition products (design matrix,
             # common refinement with exact intersection areas, in-domain
             # cell override / covariate areas) live on PreparedPartitions;
             # args entries below are the legacy adapter view. Event
             # membership (cov_ind above) stays event-side by design.
+            # attach_covariate_partitions copies spatial_cov into
+            # parts.cov_gdf; self.spatial_cov uses that owned frame.
             attach_covariate_partitions(parts, self.prepared_domain,
                                         spatial_cov, cov_names,
                                         standardize_cov, args['model'])
+            self.spatial_cov = parts.cov_gdf
             # D-10 (3c API): the model always reports whether/how it
             # standardized -- method 'none' | 'domain_area' with
             # invertible mean/scale (X = standardized * scale + mean).
@@ -559,7 +573,8 @@ class Point_Process_Model:
             output = pickle.dump(output,f)
 
 
-    def run_svi(self,num_steps,lr,num_samples=1000,resume=False,plot_loss=True,**kwargs):
+    def run_svi(self,num_steps,lr,num_samples=1000,resume=False,plot_loss=True,
+                rng_key=None,**kwargs):
         """
         Perform Stochastic Variational Inference on the model.
         Parameters
@@ -573,14 +588,22 @@ class Point_Process_Model:
         num_steps: int, default=10000
             Number of interations for SVI to run.
         plot_loss: bool
+        rng_key: jax PRNGKey, optional
+            Key used for SVI optimization and posterior sampling. When
+            omitted, preserve the package's historical fixed-key behavior
+            (``PRNGKey(10)`` split). Same convention as ``run_mcmc``.
 
         auto_guide: numpyro AutoGuide, default=AutoMultivariateNormal
             See numpyro AutoGuides for details.
         init_strategy: function, default=init_to_median
             See numpyro init strategy documentation
         """
-        rng_key, rng_key_predict = random.split(random.PRNGKey(10))
-        rng_key, rng_key_post, rng_key_pred = random.split(rng_key, 3)
+        # Same None → PRNGKey(10) convention as run_mcmc (deterministic default).
+        if rng_key is None:
+            rng_key, rng_key_predict = random.split(random.PRNGKey(10))
+            rng_key, rng_key_post, rng_key_pred = random.split(rng_key, 3)
+        else:
+            rng_key_post = rng_key
         self.args["num_samples"] = num_samples
         # Model-aware site list: LGCP has no 'Itot_excite' site. Predictive drops
         # missing names silently, which would also mask a typo'd site, so only
@@ -595,11 +618,11 @@ class Point_Process_Model:
                 jax.example_libraries.optimizers.inverse_time_decay(kwargs['lr'],kwargs['num_steps'],4)
             )
             self.svi.optim = optimizer
-            self.svi_results = self.svi.run(rng_key, kwargs['num_steps'], self.args,
+            self.svi_results = self.svi.run(rng_key_post, kwargs['num_steps'], self.args,
                                             init_state=self.svi_results.state)
-            self.samples = get_samples(rng_key,self.model,self.svi.guide,self.svi_results,self.args,sites)
+            self.samples = get_samples(rng_key_post,self.model,self.svi.guide,self.svi_results,self.args,sites)
         else:
-            self.svi,self.svi_results,self.samples=run_SVI(rng_key, self.model, self.args, num_steps, lr, sites, **kwargs)
+            self.svi,self.svi_results,self.samples=run_SVI(rng_key_post, self.model, self.args, num_steps, lr, sites, **kwargs)
         self._warn_sigma_near_bound()
         if plot_loss:
             loss = np.asarray(self.svi_results.losses)
@@ -2736,16 +2759,21 @@ class Hawkes_Model(Point_Process_Model):
         ----------
         parameters: dict
             Parameters to simulate from. If parameters is None, use mean of posterior samples. keys are string parameter names. values are np.array or float. Names must be same as those that appear in the sample from the model.
-        rng: numpy.random.Generator, optional
-            One Generator drives every draw when provided (background and
+        rng: numpy.random.Generator
+            Required. One Generator drives every draw (background and
             offspring paths); identically seeded fresh Generators give
-            byte-identical simulations. See ``_sim_cox`` / ``_sim_hawkes_bg``
-            / ``_sim_offspring``.
+            byte-identical simulations. The legacy ``rng=None`` →
+            ``np.random`` fallback has been removed (caller-state ownership).
         Returns
         -------
             geopandas DataFrame: ['X','Y','T'] columns (real units)
                 simulated data
         """
+        if rng is None:
+            raise ValueError(
+                "simulate requires an explicit numpy.random.Generator via "
+                "rng=; the legacy np.random fallback has been removed "
+                "(caller-state ownership / pre-3f B2).")
         if parameters is None:
             parameters = {k:np.array(v).mean(axis=0) for k,v in self.samples.items()}
         # Shared decode of z latents -> fields (one copy, on the base class).
@@ -2841,14 +2869,21 @@ class LGCP_Model(Point_Process_Model):
         ----------
         parameters: dict
             Parameters to simulate from. If parameters is None, use mean of posterior samples. keys are string parameter names. values are np.array or float. Names must be same as those that appear in the sample from the model.
-        rng: numpy.random.Generator, optional
-            One Generator drives every draw when provided (see _sim_cox); identically
-            seeded fresh Generators give byte-identical simulations.
+        rng: numpy.random.Generator
+            Required. One Generator drives every draw (see _sim_cox);
+            identically seeded fresh Generators give byte-identical
+            simulations. The legacy ``rng=None`` → ``np.random`` fallback
+            has been removed (caller-state ownership).
         Returns
         -------
             geopandas DataFrame: ['X','Y','T'] columns (real units)
                 simulated data, clipped to the domain A
         """
+        if rng is None:
+            raise ValueError(
+                "simulate requires an explicit numpy.random.Generator via "
+                "rng=; the legacy np.random fallback has been removed "
+                "(caller-state ownership / pre-3f B2).")
         if parameters is None:
             parameters = {k:np.array(v).mean(axis=0) for k,v in self.samples.items()}
         # Shared decode of z latents -> fields (one copy, on the base class);

@@ -117,7 +117,7 @@ def test_hawkes_rectangle_internal_grid_edge_once(monkeypatch):
     assert len(probe.sjoin(m.A[["geometry"]])) >= 2
 
     _inject_bg_point(m, [x_edge, y_mid, 5.0], monkeypatch)
-    out = m.simulate(parameters=dict(HAWKES_PARAMS))
+    out = m.simulate(parameters=dict(HAWKES_PARAMS), rng=np.random.default_rng(0))
     assert list(out.columns) == ["X", "Y", "T", "geometry"]
     assert len(out) == 1
     assert float(out.iloc[0]["X"]) == pytest.approx(x_edge)
@@ -133,7 +133,7 @@ def test_hawkes_rectangle_internal_grid_vertex_once(monkeypatch):
     assert len(probe.sjoin(m.A[["geometry"]])) >= 4
 
     _inject_bg_point(m, [x_v, y_v, 5.0], monkeypatch)
-    out = m.simulate(parameters=dict(HAWKES_PARAMS))
+    out = m.simulate(parameters=dict(HAWKES_PARAMS), rng=np.random.default_rng(0))
     assert len(out) == 1
     assert float(out.iloc[0]["X"]) == pytest.approx(x_v)
     assert float(out.iloc[0]["Y"]) == pytest.approx(y_v)
@@ -154,7 +154,7 @@ def test_hawkes_rectangle_outer_boundary_and_corner_once(monkeypatch, xy):
     m = _rect_model()
     x, y = xy
     _inject_bg_point(m, [x, y, 5.0], monkeypatch)
-    out = m.simulate(parameters=dict(HAWKES_PARAMS))
+    out = m.simulate(parameters=dict(HAWKES_PARAMS), rng=np.random.default_rng(0))
     assert len(out) == 1
     assert float(out.iloc[0]["X"]) == pytest.approx(x)
     assert float(out.iloc[0]["Y"]) == pytest.approx(y)
@@ -163,14 +163,14 @@ def test_hawkes_rectangle_outer_boundary_and_corner_once(monkeypatch, xy):
 def test_hawkes_rectangle_outside_excluded(monkeypatch):
     m = _rect_model()
     _inject_bg_point(m, [150.0, 50.0, 5.0], monkeypatch)
-    out = m.simulate(parameters=dict(HAWKES_PARAMS))
+    out = m.simulate(parameters=dict(HAWKES_PARAMS), rng=np.random.default_rng(0))
     assert len(out) == 0
 
 
 def test_hawkes_rectangle_interior_once(monkeypatch):
     m = _rect_model()
     _inject_bg_point(m, [33.0, 67.0, 5.0], monkeypatch)
-    out = m.simulate(parameters=dict(HAWKES_PARAMS))
+    out = m.simulate(parameters=dict(HAWKES_PARAMS), rng=np.random.default_rng(0))
     assert len(out) == 1
     assert float(out.iloc[0]["X"]) == pytest.approx(33.0)
 
@@ -187,7 +187,7 @@ def test_hawkes_rectangle_one_row_per_retained_event(monkeypatch):
         [200.0, 200.0, 7.0],     # outside
     ], dtype=np.float64)
     _inject_bg_events(m, events, monkeypatch)
-    out = m.simulate(parameters=dict(HAWKES_PARAMS))
+    out = m.simulate(parameters=dict(HAWKES_PARAMS), rng=np.random.default_rng(0))
     assert len(out) == 4
     assert list(out.columns) == ["X", "Y", "T", "geometry"]
     # Exactly one output row per retained generated event (no join inflation).
@@ -216,7 +216,7 @@ def test_lgcp_rectangle_internal_grid_edge_once(monkeypatch):
         "f_a": np.zeros(n_s, dtype=np.float32),
         "f_xy": np.zeros(n_xy ** 2, dtype=np.float32),
     }
-    out = m.simulate(parameters=params)
+    out = m.simulate(parameters=params, rng=np.random.default_rng(0))
     assert list(out.columns) == ["X", "Y", "T", "geometry"]
     assert len(out) == 1
 
@@ -248,16 +248,16 @@ def test_no_regression_polygon_single_and_disjoint(monkeypatch):
     single = gpd.GeoDataFrame(geometry=[box(0, 0, 80, 80)])
     m1 = _poly_hawkes(single)
     _inject_bg_point(m1, [10.0, 10.0, 4.0], monkeypatch)
-    assert len(m1.simulate(parameters=dict(HAWKES_PARAMS))) == 1
+    assert len(m1.simulate(parameters=dict(HAWKES_PARAMS), rng=np.random.default_rng(0))) == 1
 
     disjoint = gpd.GeoDataFrame(
         geometry=[box(0, 0, 40, 40), box(80, 80, 120, 120)])
     m2 = _poly_hawkes(disjoint)
     _inject_bg_point(m2, [90.0, 90.0, 4.0], monkeypatch)
-    assert len(m2.simulate(parameters=dict(HAWKES_PARAMS))) == 1
+    assert len(m2.simulate(parameters=dict(HAWKES_PARAMS), rng=np.random.default_rng(0))) == 1
 
     overlap = gpd.GeoDataFrame(
         geometry=[box(0, 0, 100, 100), box(50, 50, 150, 150)])
     m3 = _poly_hawkes(overlap)
     _inject_bg_point(m3, [75.0, 75.0, 5.0], monkeypatch)
-    assert len(m3.simulate(parameters=dict(HAWKES_PARAMS))) == 1
+    assert len(m3.simulate(parameters=dict(HAWKES_PARAMS), rng=np.random.default_rng(0))) == 1
