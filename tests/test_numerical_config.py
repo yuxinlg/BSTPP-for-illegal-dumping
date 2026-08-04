@@ -66,7 +66,10 @@ def test_immutable_after_construction():
     [
         ({"panel_h_m": 0.0}, "panel_h_m"),
         ({"panel_h_m": float("nan")}, "panel_h_m"),
+        ({"panel_h_m": "250"}, "panel_h_m|real number|str"),
         ({"gl_order": 0}, "gl_order"),
+        ({"gl_order": 32.7}, "gl_order|int"),
+        ({"gl_order": True}, "gl_order|bool"),
         ({"gl_order": 64}, "gl_order|budget_reference"),
         ({"production_tau_abs": 5.39e-4}, "production_tau_abs|PRODUCTION_TAU_ABS"),
         (
@@ -79,6 +82,7 @@ def test_immutable_after_construction():
         ),
         ({"default_temporal_tol": 0.0}, "default_temporal_tol"),
         ({"default_spatial_tol": 1.0}, "default_spatial_tol"),
+        ({"default_temporal_tol": "0.01"}, "default_temporal_tol|real number|str"),
         ({"support_mode": "hexagon"}, "support_mode"),  # type: ignore[arg-type]
         (
             {"support_mode": "rectangle", "min_sigma": 1.0},
@@ -101,6 +105,11 @@ def test_immutable_after_construction():
             },
             "panel_h_m / min_sigma|max_panel_to_min_sigma_ratio",
         ),
+        (
+            {"support_mode": "polygon", "min_sigma": "0.05", "max_sigma": 5.0,
+             "panel_h_m": 0.2},
+            "min_sigma|real number|str",
+        ),
     ],
 )
 def test_invalid_configs_raise_named_error(kwargs, match):
@@ -108,10 +117,18 @@ def test_invalid_configs_raise_named_error(kwargs, match):
         NumericalConfig.create(**kwargs)
 
 
+def test_factory_rejects_silent_coercion():
+    """WP1.4a: create must not truncate floats or parse strings."""
+    with pytest.raises(NumericalConfigError, match="gl_order"):
+        NumericalConfig.create(gl_order=32.7)
+    with pytest.raises(NumericalConfigError, match="panel_h_m"):
+        NumericalConfig.create(panel_h_m="250")
+    with pytest.raises(NumericalConfigError, match="gl_order|bool"):
+        NumericalConfig.create(gl_order=True)
+
+
 def test_factory_is_sole_public_construction_path():
     """create() is the single factory; __post_init__ is the sole validator."""
     assert callable(NumericalConfig.create)
-    # Direct dataclass init still runs __post_init__ (frozen dataclass), but
-    # production call sites must use create — documented by A-23 / D-35.
     cfg = NumericalConfig.create(support_mode="rectangle")
     assert isinstance(cfg, NumericalConfig)

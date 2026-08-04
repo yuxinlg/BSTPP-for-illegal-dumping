@@ -2063,8 +2063,8 @@ class Hawkes_Model(Point_Process_Model):
         # table (authoritative h_panel / gl_order); rectangle uses defaults.
         if mode == "polygon":
             numerical_config = NumericalConfig.create(
-                panel_h_m=float(mass_table.h_panel),
-                gl_order=int(mass_table.gl_order),
+                panel_h_m=mass_table.h_panel,
+                gl_order=mass_table.gl_order,
                 support_mode=mode,
                 min_sigma=lo,
                 max_sigma=hi,
