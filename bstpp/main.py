@@ -39,9 +39,11 @@ from .data_contracts import (validate_events, validate_covariates,
 from .preparation import (ModelData, prepare_domain, prepare_partitions,
                           attach_covariate_partitions,
                           finalize_integration_arrays, T_INTERNAL)
+from .config import NumericalConfig
 from .excitation_support import (
     build_excitation_support,
     resolve_excitation_support_mode,
+    resolve_sigma_bounds,
     truncate_sigmax_2_prior,
 )
 from .polygon_mass import warn_if_sigma_near_bound
@@ -2043,19 +2045,38 @@ class Hawkes_Model(Point_Process_Model):
 
         # Gaussian-only sigma prior / truncation. Custom rectangle spatial
         # triggers use priors named by get_par_names() instead.
+        lo, hi, _ = resolve_sigma_bounds(
+            mode=mode, min_sigma=min_sigma, max_sigma=max_sigma,
+            crs=self.prepared_domain.crs)
         if spatial_ok:
             if 'sigmax_2' not in self.args['priors']:
                 raise ValueError(
                     "Hawkes_Model requires a user-supplied sigmax_2 prior "
                     "(numpyro Distribution in squared real units) when "
                     "spatial_trig is Spatial_Symmetric_Gaussian.")
-            from .excitation_support import resolve_sigma_bounds
-            lo, hi, _ = resolve_sigma_bounds(
-                mode=mode, min_sigma=min_sigma, max_sigma=max_sigma,
-                crs=self.prepared_domain.crs)
             if lo is not None and hi is not None:
                 self.args['priors']['sigmax_2'] = truncate_sigmax_2_prior(
                     self.args['priors']['sigmax_2'], lo, hi)
+
+        # Phase 3f WP1: NumericalConfig behind the args adapter (no public
+        # signature change). Polygon builder settings come from the supplied
+        # table (authoritative h_panel / gl_order); rectangle uses defaults.
+        if mode == "polygon":
+            numerical_config = NumericalConfig.create(
+                panel_h_m=float(mass_table.h_panel),
+                gl_order=int(mass_table.gl_order),
+                support_mode=mode,
+                min_sigma=lo,
+                max_sigma=hi,
+            )
+        else:
+            numerical_config = NumericalConfig.create(
+                support_mode=mode,
+                min_sigma=lo,
+                max_sigma=hi,
+            )
+        self.numerical_config = numerical_config
+        self.args["numerical_config"] = numerical_config
 
         self.args['t_trig'] = temporal_trig(self.args['priors'])
         self.args['sp_trig'] = spatial_trig(self.args['priors'])
@@ -2819,6 +2840,11 @@ class LGCP_Model(Point_Process_Model):
         name = 'lgcp'
         self.model = spatiotemporal_LGCP_model
         super().__init__(name,*args,**kwargs)
+        # Phase 3f WP1: rectangle NumericalConfig behind the adapter (LGCP has
+        # no excitation support; defaults only).
+        numerical_config = NumericalConfig.create(support_mode="rectangle")
+        self.numerical_config = numerical_config
+        self.args["numerical_config"] = numerical_config
 
     def set_window(self, window=_UNSET, spatial_window=_UNSET, *,
                    mass_table=_UNSET):
