@@ -26,6 +26,7 @@ from shapely.geometry import Point
 from shapely.geometry import box as shapely_box
 from shapely.ops import unary_union
 
+from .config import NumericalConfig
 from .polygon_mass import (
     BUDGET_REFERENCE_GL_ORDER,
     BUDGET_REFERENCE_ORACLE_BOUND,
@@ -353,6 +354,7 @@ def build_excitation_support(
     event_y_real: np.ndarray,
     mass_table: PolygonMassTable | None = None,
     union_geometry: Any | None = None,
+    numerical_config: NumericalConfig | None = None,
 ) -> ExcitationSupport:
     """Construct the support object; validate a supplied table in polygon mode.
 
@@ -363,8 +365,9 @@ def build_excitation_support(
     ``PreparedDomain.union_geometry`` (no independent unary_union here).
 
     Table ``h_panel`` / ``gl_order`` are authoritative. Acceptance is the
-    measured residual against ``PRODUCTION_TAU_ABS`` (plus the panel-ratio
-    prefilter). Build settings are chosen only at
+    measured residual against ``production_tau_abs`` from ``numerical_config``
+    when supplied (else module ``PRODUCTION_TAU_ABS``), plus the panel-ratio
+    prefilter. Build settings are chosen only at
     ``prepare_polygon_mass_table``; this install path has no ``panel_h_m`` /
     ``gl_order`` parameters.
     """
@@ -404,12 +407,22 @@ def build_excitation_support(
             spatial_window=spatial_window,
             sigma_min=lo,
             sigma_max=hi,
+            numerical_config=numerical_config,
         )
         # Ownership: copy caller-supplied tables once at install. Reuse the
         # same owned object on temporal-only set_window rebuilds.
         if not getattr(table, "_owned", False):
             table = table.copy()
         builder_meta = dict(table.provenance)
+
+    if numerical_config is not None:
+        ref_gl = int(numerical_config.budget_reference_gl_order)
+        oracle_bound = float(numerical_config.budget_reference_oracle_bound)
+        tau_abs = float(numerical_config.production_tau_abs)
+    else:
+        ref_gl = int(BUDGET_REFERENCE_GL_ORDER)
+        oracle_bound = float(BUDGET_REFERENCE_ORACLE_BOUND)
+        tau_abs = float(PRODUCTION_TAU_ABS)
 
     prov = {
         "excitation_support": mode,
@@ -426,11 +439,11 @@ def build_excitation_support(
         "panel_min_sigma_ratio": budget_ratio,
         "measured_max_abs_residual": measured_residual,
         "BUDGET_REFERENCE_GL_ORDER": (
-            None if table is None else int(BUDGET_REFERENCE_GL_ORDER)),
+            None if table is None else ref_gl),
         "BUDGET_REFERENCE_ORACLE_BOUND": (
-            None if table is None else float(BUDGET_REFERENCE_ORACLE_BOUND)),
+            None if table is None else oracle_bound),
         "PRODUCTION_TAU_ABS": (
-            None if table is None else float(PRODUCTION_TAU_ABS)),
+            None if table is None else tau_abs),
     }
     return ExcitationSupport(
         mode=mode,

@@ -2186,6 +2186,7 @@ class Hawkes_Model(Point_Process_Model):
             event_y_real=event_y_real,
             mass_table=mass_table,
             union_geometry=self.prepared_domain.union_geometry,
+            numerical_config=self.args.get("numerical_config"),
         )
 
     def set_window(self, window=_UNSET, spatial_window=_UNSET, *,
@@ -2365,6 +2366,7 @@ class Hawkes_Model(Point_Process_Model):
             event_y_real=y_real,
             mass_table=table_arg,
             union_geometry=self.prepared_domain.union_geometry,
+            numerical_config=self.args.get("numerical_config"),
         )
 
         # Atomic commit: windows, pairs, support, and provenance together.
