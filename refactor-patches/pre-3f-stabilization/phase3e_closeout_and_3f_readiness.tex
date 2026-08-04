@@ -1,0 +1,771 @@
+% !TEX program = xelatex
+\documentclass[11pt]{article}
+
+\usepackage{fontspec}
+\setmainfont{DejaVu Serif}
+\setsansfont{DejaVu Sans}
+\setmonofont{DejaVu Sans Mono}[Scale=0.85]
+
+\usepackage[a4paper,margin=2.4cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{longtable,booktabs,array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{titlesec}
+\usepackage{framed}
+
+\setlength{\emergencystretch}{4em}
+\hbadness=10000
+\sloppy
+
+\setlist{itemsep=2pt,parsep=0pt,topsep=3pt}
+\titleformat{\section}{\large\bfseries}{\thesection}{0.8em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.8em}{}
+
+% ---- house macros -------------------------------------------------------
+\newcommand{\fillanchor}[1]{{\color{red}\textbf{[[FILL:} #1\textbf{]]}}}
+\newcommand{\vfy}{\textsc{verified-here}}
+\newcommand{\rep}{\textsc{reported}}
+\newcommand{\infd}{\textsc{inferred}}
+\newcommand{\cls}[1]{\textsf{\small #1}}
+\renewcommand{\tt}[1]{\texttt{#1}}
+\newcommand{\tabs}{\ensuremath{\tau_{\mathrm{abs}}}}
+
+\newenvironment{ruling}{\begin{leftbar}\small}{\end{leftbar}}
+
+\title{\bfseries Phase 3e Stabilization Closeout and the Phase 3f Readiness Gate\\
+\large A specification for implementation handoff}
+\author{Drafted for the BSTPP refactor record}
+\date{2026-07-30}
+
+\begin{document}
+\maketitle
+
+\begin{ruling}
+\noindent\textbf{Status of this document.} It is a \emph{specification}, drafted and not
+implemented. Nothing here has been applied to the repository. It is written to be handed
+to an implementing agent (Claude Code) together with \tt{CLAUDE.md} and
+\tt{phase3\allowbreak{}\_baseline\allowbreak{}\_decisions\allowbreak{}\_and\allowbreak{}\_amendments.tex}.
+
+\noindent\textbf{Verification vocabulary.} Every factual claim below carries one of three
+status marks, and the marks are load-bearing:
+\begin{description}[leftmargin=2.2em,style=nextline,font=\normalfont]
+  \item[\vfy] established by execution or source reading against a named commit during the
+  Claude audit passes of 2026-07-28 / 2026-07-29, on the analysis machine of \S4.2.
+  \item[\rep] asserted by an audit pass run elsewhere (ChatGPT) and \emph{not} reproduced
+  here. A \rep{} item must be re-established from code before it is treated as real, as
+  fixed, or as unreachable.
+  \item[\infd] follows from the register or other documents, not from code. Documents may
+  be stale; \infd{} is the weakest mark.
+\end{description}
+
+\noindent\textbf{Numbering.} Decision and amendment numbers proposed here assume the
+register tip is at \tt{D-34} / \tt{A-20} as carried in
+\tt{phase3\allowbreak{}\_baseline\allowbreak{}\_decisions\allowbreak{}\_and\allowbreak{}\_amendments.tex}.
+Audit entries opened since may have consumed numbers.
+\fillanchor{confirm next free \tt{D-} and \tt{A-} numbers against the register tip and
+renumber \S4 and \S13 accordingly; if \tt{A-21}/\tt{A-22} exist, this document's entry is
+the next free number}
+\end{ruling}
+
+\section{The question, and the answer}
+
+The question is whether to keep auditing until an audit returns no blocking issue, or to
+adopt a different rule for opening Phase 3f.
+
+The answer is: \textbf{do not open 3f yet, and do not keep running open-ended
+whole-package audits}. Insert a bounded \emph{3e stabilization closeout} whose exit is a
+finite, pre-registered readiness gate (\S5), and whose principal instrument is a
+compatibility and state-transition matrix (\S6) rather than another general code review.
+A clean blocker-focused audit \emph{is} required, but as the last step of a defined
+protocol with a termination rule (\S9), not as an open standard of ``no defects
+anywhere.''
+
+The goal is not a defect-free package before 3f. It is a \emph{completely specified and
+stable semantic surface} that 3f is permitted to rearrange.
+
+\section{Why ``audit until clean'' is not a stopping rule}
+
+\subsection*{Conceptually}
+
+A stopping rule of the form \emph{stop when the instrument stops firing} is a statement
+about the power of the instrument, not about the state of the artifact. Absence of
+findings on pass $n$ is evidence that the auditor's search strategy has saturated. It is
+evidence about the artifact only to the extent that the search strategy's coverage is
+known --- and coverage has not been recorded, which is itself one of the gaps this
+document closes (\S8).
+
+Two structural consequences follow.
+
+\begin{enumerate}
+  \item \textbf{Correlated blind spots.} The same auditor re-reading the same modules
+  returns nearly no information on the second re-read. \vfy{} at the close of the second
+  Claude pass: \tt{\_sim\_cox}, \tt{preparation.py}, \tt{data\_contracts.py}, and any
+  excitation-leg conservation check had \emph{not} been audited at all. A third pass over
+  \tt{polygon\_mass.py} / \tt{excitation\_support.py} / \tt{cutoffs.py} would be nearly
+  uninformative; a first pass over the unaudited set would be informative. Audit effort
+  should be allocated by coverage, not by repetition.
+  \item \textbf{The rule must be fixed before the evidence.} The register already
+  practises this discipline elsewhere: \tabs{} was fixed \emph{before} the polygon-mass
+  backends were compared, and the register says so explicitly, ``not the reverse'' (A-9).
+  The same principle applies to the audit protocol. The 3f entry criterion must be pinned
+  before the next pass runs, or the criterion is being fitted to its own findings.
+\end{enumerate}
+
+\subsection*{Empirically, in this project}
+
+The finding stream is not random, and its non-randomness is the actionable fact.
+
+Across the two Claude passes (\vfy), the findings were: a sampler returning values outside
+its own declared support; a domain area summed over rows while every consumer intersected
+the union; a mass table silently rebuilt against a different realization; a public setter
+rewriting the provenance of the axis it did not touch; a numerical default violating a
+declared accuracy budget by roughly eighteen percentage points in the excitation
+compensator at small $\sigma$; and one predicate with two spellings.
+
+Every one of these violates an invariant the register had \emph{already declared} ---
+D-27's compatibility contract, A-14/D-33's transactional discipline, A-21's
+untouched-axis rule, A-21's \tabs{} budget, and \S11's single-sourcing reference pattern.
+Not one of them had an executable check. A green suite of 427 tests coexisted with a fit
+path that could not initialize at all.
+
+\begin{ruling}
+\noindent The defects are concentrated in the gap between the \emph{declared} register and
+the \emph{executable} gate set, and specifically at combinations of options. That is a
+statement about which instrument is missing. The missing instrument is a compatibility
+matrix plus a register-to-test traceability map --- not another general review.
+\end{ruling}
+
+\subsection*{The cost of continuing to hold}
+
+Holding 3f is not free, and two costs are worth stating.
+
+\begin{itemize}
+  \item \textbf{Document divergence accumulates.} The objects 3f and 3g exist to
+  reconcile are still diverging: conflict C6 (the guide's version identity is unpinned,
+  so \S15's specified amendments have no pinned target) \infd; a superseded document
+  still present in \tt{docs/} \vfy; and \tt{refactor-patches/\allowbreak{}phase3e/\allowbreak{}rebaseline\_record.md}
+  classifying the \tt{set\_window} provenance repair as SC where A-19 classifies it CF
+  \infd.
+  \item \textbf{The audit--fix loop itself generates ungated change.} \vfy: fifteen repair
+  commits landed between the two Claude passes, advancing the tip from \tt{1f40542} to
+  \tt{e0d7e43}. Repair commits written outside a phase's gate profile are exactly the
+  category of change the phase structure exists to prevent. It is possible to make the
+  package worse by auditing it. \S12 therefore requires every closeout commit to carry a
+  \S7.2 class and the corresponding gate profile.
+\end{itemize}
+
+\section{What must block 3f, and why that set is narrow}
+
+\subsection{The blocker test}
+
+An issue \textbf{blocks 3f} if it can change any of:
+
+\begin{description}[leftmargin=3.2em,style=nextline,font=\normalfont\bfseries]
+  \item[B1 --- Numerical result] the likelihood event term, the compensator, or the
+  simulator.
+  \item[B2 --- Accepted configuration space] which combinations of options construct and
+  which are rejected, and with what named error.
+  \item[B3 --- Public state transitions] the behaviour of constructor and
+  \tt{set\_window}, including the failure path and its rollback.
+  \item[B4 --- Provenance] the content of the provenance record, or its persistence
+  through \tt{save\_rslts}.
+  \item[B5 --- Validity of a verification gate] see \S3.2 below.
+  \item[B6 --- The 3f freeze surface] anything 3f will freeze into typed configuration
+  objects, i.e.\ the surface named by OP-3, OP-4, OP-7 and OP-13.
+\end{description}
+
+Everything else is non-blocking and goes to the ledger (\S5, R9) with an owning phase.
+Non-blocking explicitly includes: editorial and historical documentation; diagnostic-only
+defects that change no rejection behaviour; and defects reachable only through
+configurations already rejected at the contract boundary --- provided the reachability
+argument is \emph{recorded}, not assumed.
+
+\subsection{B5 stated sharply: pin contamination}
+
+3f is gated by deterministic trace equivalence and rectangular pins. That gate compares
+the post-3f tip against a recorded baseline. It follows that
+
+\begin{ruling}
+\noindent\textbf{a defect on a path over which a 3f pin or trace baseline is taken is a
+blocker even when the defect is otherwise benign}, because the equivalence gate will
+faithfully certify the preservation of the defect and report success.
+\end{ruling}
+
+This is the clause most easily lost. It is why the blocking set is defined by
+\emph{what 3f will pin and what 3f will freeze}, rather than by severity. A severe defect
+that 3f preserves bit-identically and that 3g will repair does not block 3f; a mild defect
+sitting inside a pinned path does.
+
+B5 also covers the environment: pins and traces are meaningful only within the declared
+environment (\tt{freeze-476c2a0/\allowbreak{}conda-env-illegal-dumping.yml}, plus machine
+locality). A divergence between declared dependency metadata and the environment in which
+gates actually run is a B5 blocker, not a housekeeping item.
+
+\subsection{Classification of the current findings}
+
+Status marks are as defined on page 1. \emph{Disposition} is proposed, not settled.
+
+\begin{longtable}{@{}
+  >{\raggedright\arraybackslash}p{0.30\linewidth}
+  >{\raggedright\arraybackslash}p{0.12\linewidth}
+  >{\raggedright\arraybackslash}p{0.13\linewidth}
+  >{\raggedright\arraybackslash}p{0.33\linewidth}@{}}
+\toprule
+Finding & Status & Blocks 3f & Basis / disposition \\
+\midrule
+\endhead
+\multicolumn{4}{@{}l}{\textit{Claude pass 1, at \tt{1f40542} --- repaired at \tt{e0d7e43}}}\\
+\addlinespace[2pt]
+\tt{TruncatedLogNormal.sample} returns log-scale draws (missing \tt{jnp.exp}); every draw
+violates the declared support and \tt{init\_to\_median} fails
+ & \vfy & closed & Fix confirmed applied at \tt{e0d7e43}. \emph{Class-level test still
+ outstanding} --- W3.a. \\
+\addlinespace[3pt]
+Plain-Hawkes background simulator sums row areas instead of union area
+ & \vfy & closed & Fix confirmed. Class: D-30 union discipline. \\
+\addlinespace[3pt]
+Held-out scoring silently rebuilds the polygon mass table
+ & \vfy & B1, B4 & Interim loud error; full disposition with A-15/D-32. W1. \\
+\addlinespace[3pt]
+Non-default \tt{panel\_h\_m} / \tt{gl\_order} irrecoverably rejected; design scales
+discarded; provenance not persisted through \tt{save\_rslts}
+ & \vfy & B4, B6 & Fixes confirmed applied; the \tt{save\_rslts} leg needs a persistence
+ assertion --- W3.b. \\
+\addlinespace[6pt]
+\multicolumn{4}{@{}l}{\textit{Claude pass 2, at \tt{e0d7e43} --- open}}\\
+\addlinespace[2pt]
+\tt{set\_window} rewrites the provenance of the axis it did not touch, contradicting
+A-21's own rule
+ & \vfy & \textbf{yes} (B4, B6) & Provenance is an explicit 3f contract; must be settled
+ before state moves into new objects. W1. \\
+\addlinespace[3pt]
+\tt{panel\_h\_m} default four orders of magnitude too coarse for CRS-less domains;
+$\approx 18$ percentage-point error in the excitation compensator at small $\sigma$
+ & \vfy & \textbf{yes} (B1, B5) & Silently violates \tabs{} at the defaults. Silent-wrong,
+ not loud-broken. W1 + W3.c. \\
+\addlinespace[3pt]
+\tt{LGCP\_Model.set\_window} raises a bare \tt{KeyError} when called with
+\tt{spatial\_window} only
+ & \vfy & \textbf{yes} (B2, B3) & Cheap; a named error identifying the offending
+ combination. W1. \\
+\addlinespace[3pt]
+Domain-membership predicate has two spellings: vectorized in contracts, Python loop in the
+simulator
+ & \vfy & \textbf{yes if they can disagree} (B1) & \S11's single-sourcing reference
+ pattern. Determine agreement first; if they can disagree, blocker. W1/W3.d. \\
+\addlinespace[3pt]
+\tt{TruncatedLogNormal} normalization degrades in extremely narrow intervals
+ & \vfy & no & Ledger; quantify the interval width at which it matters. \\
+\addlinespace[3pt]
+Superseded document present in \tt{docs/}
+ & \vfy & only if it can misdirect 3f & W8; otherwise 3g. \\
+\addlinespace[6pt]
+\multicolumn{4}{@{}l}{\textit{Reported by ChatGPT audits --- not reproduced here}}\\
+\addlinespace[2pt]
+Kernel capability gates; inappropriate Gaussian/exponential arguments; custom triggers
+requiring \tt{sigmax\_2}
+ & \rep & \textbf{yes if real} (B2, B6) & Determines the typed configuration space 3f
+ freezes. Reproduce first --- W2. \\
+\addlinespace[3pt]
+\tt{set\_window} semantics: LGCP rejection; omitted vs.\ explicit \tt{None}
+ & \rep & \textbf{yes if real} (B2, B3) & Overlaps the \vfy{} \tt{KeyError} finding.
+ W2 + W1. \\
+\addlinespace[3pt]
+Polygon quadrature and mass-table validity guards
+ & \rep & \textbf{yes if real} (B1) & Protects the numerical correctness of the
+ scientific model; interacts with D-25/D-27. W2. \\
+\addlinespace[3pt]
+Grid / kernel helper defects
+ & \rep & \textbf{conditional} & Blocker if production-reachable; otherwise record the
+ reachability argument and fix opportunistically. W2. \\
+\addlinespace[3pt]
+Dependency metadata mismatch
+ & \rep & \textbf{yes if real} (B5) & The environment in which 3f gates run must be the
+ declared one. W7. \\
+\addlinespace[3pt]
+Short-MCMC summary failure
+ & \rep & \textbf{yes iff it lies in the smoke-fit gate path} & ChatGPT calls this
+ non-blocking; \emph{this document disagrees conditionally} --- the smoke fit for all
+ three modes is a \S12 gate, and a defect inside a gate is B5. Determine reachability
+ from the gate, then classify. W2. \\
+\addlinespace[6pt]
+\multicolumn{4}{@{}l}{\textit{Document-level}}\\
+\addlinespace[2pt]
+C6: guide version identity unpinned (\tt{bstpp\_guide\_v4.pdf} vs.\ \tt{bstpp\_guide.tex})
+ & \infd & no, but blocks \S15 & W8. \\
+\addlinespace[3pt]
+In-repo rebaseline record classifies \tt{set\_window} provenance as SC; A-19 classifies
+it CF
+ & \infd & no & Reconcile in W8 or 3g; A-19 already records the disagreement. \\
+\bottomrule
+\end{longtable}
+
+\section{Proposed decisions}
+
+\begin{ruling}
+\noindent These are \emph{proposals} for the register, in its idiom. They are not settled
+by this document being written.
+\end{ruling}
+
+\begin{description}[leftmargin=3.6em,style=nextline,font=\normalfont\bfseries]
+
+\item[D-35 --- The 3f blocker test] An issue blocks the opening of Phase 3f if and only if
+it can change the likelihood, the compensator, the simulator, the accepted configuration
+space, a public state transition, provenance content or persistence, the validity of a
+verification gate, or the surface 3f will freeze into typed configuration objects (clauses
+B1--B6, \S3.1). \emph{Corollary, stated because it is easily lost}: a defect on a path over
+which a 3f pin or trace baseline is taken is a blocker regardless of severity, because
+deterministic trace equivalence would certify its preservation. Severity is not the
+criterion; position relative to the pins and the freeze surface is.
+
+\item[D-36 --- Finite readiness rule] Phase 3f opens when conditions R1--R9 of \S5 hold
+simultaneously on one frozen candidate tip, and not otherwise. The rule is closed: no
+condition of the form ``and no further defect is known'' appears in it. Findings that are
+not blockers under D-35 do not gate 3f at any severity.
+
+\item[D-37 --- Compatibility and state-transition matrix as a standing gate] The matrix of
+\S6 is added to the \S12 acceptance matrix as a mandatory gate (\textbf{M}) for every
+commit that changes the constructor signature, \tt{set\_window}, the trigger or support
+selection logic, the cutoff interface, or provenance construction; and as a mandatory
+exit gate (\textbf{E}) at the Phase 3 tip alongside D-20's Stage 3 SBC run. It does not
+replace the pins, the SBC gates, or the polygon conservation tests; its sensitivity is
+near-disjoint from all three.
+
+\item[D-38 --- Coverage is recorded, absence of findings is not evidence] Two artifacts
+become part of the development record and are maintained thereafter: a register-to-test
+traceability matrix (\S7) and an audit coverage map (\S8). ``Unaudited'' becomes a
+recorded state rather than an implicit claim, and a clean audit is interpretable only
+against the coverage it declares.
+
+\end{description}
+
+\section{The readiness rule}
+
+Phase 3f opens when all of the following hold on \emph{one frozen candidate tip}, recorded
+by SHA. Conditions R1--R4 and R7--R9 follow the ChatGPT recommendation; R5, R6 and the
+R2 RED requirement are additions from this document.
+
+\begin{description}[leftmargin=3.0em,style=nextline,font=\normalfont\bfseries]
+  \item[R1] Every known blocker under D-35 is fixed, or is shown unreachable with the
+  reachability argument \emph{recorded in the ledger}, not merely asserted.
+  \item[R2] Every fixed blocker has a focused regression test, and the test was
+  demonstrated \textbf{RED at the pre-fix commit} before being made GREEN. A test written
+  only after the fix does not discharge R2, because it does not establish that it detects
+  the defect.
+  \item[R3] The compatibility and state-transition matrix (\S6) passes on the candidate
+  tip.
+  \item[R4] The standing gates pass on the candidate tip: full suite; pins and traces for
+  plain Hawkes, LGCP and full Cox--Hawkes; rectangle degeneracy of the two support modes;
+  polygon numerical (\tabs) and conservation tests; end-to-end smoke fits for all three
+  modes; lint; and the global JAX-state checks.
+  \item[R5] The register-to-test traceability matrix (\S7) exists, and every decision
+  \tt{D-1}\dots\tt{D-34+} and every \S11 cross-cutting invariant carries one of the four
+  declared statuses. Gaps may remain \emph{registered}; they may not remain unnoticed.
+  \item[R6] The audit coverage map (\S8) exists and no module in the 3f seam set carries
+  status \tt{unaudited}.
+  \item[R7] OP-3, OP-4, OP-7, OP-8 and OP-13 dispositions are recorded to the level of
+  detail needed for 3f not to redesign them incidentally.
+  \item[R8] One final bounded audit, scoped to the contracts of \S6--\S8 and to the
+  proposed 3f seams, finds no new blocker. Termination rule in \S9.
+  \item[R9] Every remaining non-blocking finding is entered in the ledger with class, date,
+  and owning phase (3f, 3g, or post-Phase-3).
+\end{description}
+
+\section{The compatibility and state-transition matrix}
+
+\subsection{Why a matrix rather than another review}
+
+The defects cluster at \emph{combinations} of options, and combination space is where
+example-based testing is systematically weakest: each individual option is exercised, no
+pair is. A covering array converts an unbounded search into a finite, enumerable
+obligation --- which is exactly the property ``audit until clean'' lacks.
+
+\subsection{Separating configuration axes from assertion families}
+
+The single most useful structural correction to the matrix as first proposed is to
+separate \emph{what is varied} from \emph{what is asserted}. Provenance and leg
+consistency are not axes of a configuration; they are properties that must hold at every
+covered point. Conflating them inflates the array and leaves the assertions
+under-specified.
+
+\paragraph{Configuration axes (varied).}
+\begin{description}[leftmargin=2.6em,style=nextline,font=\normalfont\bfseries]
+  \item[C1 Model family] \{plain Hawkes, LGCP, full Cox--Hawkes\} --- 3 levels.
+  \item[C2 Trigger specification] \{built-in Gaussian $\otimes$ exponential, power-law
+  temporal, custom\} --- 3 levels.
+  \fillanchor{enumerate the actual level set from the trigger classes in the code; do not
+  take these three from this document}
+  \item[C3 Excitation support mode] \{rectangle, polygon\} --- 2 levels.
+  \item[C4 Cutoff input] \{tolerance-derived, physical override, omitted, explicit
+  \tt{None}\} --- 4 levels.
+  \item[C5 State path] \{constructor only, \tt{set\_window} success, \tt{set\_window}
+  rejected\} --- 3 levels.
+\end{description}
+
+The full Cartesian product is $3\times3\times2\times4\times3 = 216$ points, of which a
+substantial fraction is structurally degenerate (LGCP has no trigger, so C2 and C3
+collapse). Pairwise coverage of the feasible space is achievable in roughly $12$--$20$
+configurations --- the lower bound being $\max_{i\neq j}(|C_i|\cdot|C_j|) = 12$. Pairwise
+coverage is the requirement, \emph{plus} every explicitly supported and every explicitly
+rejected combination named in the register, which are added as forced rows regardless of
+whether the covering array already contains them.
+
+\paragraph{Assertion families (checked at every covered point).}
+\begin{description}[leftmargin=2.6em,style=nextline,font=\normalfont\bfseries]
+  \item[P1 Admissibility] the configuration either constructs, or raises a \emph{named}
+  error whose message identifies the offending combination. A bare \tt{KeyError}, an
+  \tt{AttributeError} from downstream, or silent acceptance all fail P1. Every rejection
+  in the matrix is asserted by error type and by a message substring, not by
+  \tt{pytest.raises(Exception)}.
+  \item[P2 Leg consistency] the event term, the compensator, and the simulator consume the
+  same support atoms and the same cutoff values (D-18; \S11.1). Assert by \emph{object
+  identity} where the quantity is single-sourced --- the \tt{within\allowbreak{}\_real\allowbreak{}\_box\allowbreak{}\_window}
+  pattern --- and by numerical agreement where it is not. Identity assertions are stronger
+  and are preferred; a numerical assertion records that the leg is not yet single-sourced.
+  \item[P3 Provenance] after any accepted transition, the changed axis is updated, the
+  untouched axis is preserved \emph{bit-identically}, and the whole record round-trips
+  through \tt{save\_rslts} and back.
+  \item[P4 Transactionality] after a rejected transition, every public field, the
+  excitation pair set, the support object, and the provenance record are exactly as they
+  were before the call (A-14, D-33). Assert by whole-state comparison against a
+  pre-call snapshot, not by spot-checking the fields the fix happened to touch.
+  \item[P5 Numerical budget] in polygon mode \emph{at the defaults}, the mass evaluation
+  meets A-21's production gate \tt{PRODUCTION\_TAU\_ABS}${}={}10^{-5}$ (D-25 path;
+  not A-9's superseded $\tabs = 5.392\times10^{-4}$, which governs \tt{TAU\_DERIV} /
+  OP-12 only --- see the Correction ruling below).
+\end{description}
+
+\subsection{P5 restated so the test is self-contained}
+
+\begin{ruling}
+\noindent\textbf{Correction.} An earlier draft of this section derived the mass-table
+budget from the truncation mass and stated $\tabs = 5.3923032\times10^{-4}$. That is
+wrong. \textbf{A-21 is authoritative: \tt{PRODUCTION\_TAU\_ABS} $=$ \tt{TAU\_ABS} $=
+10^{-5}$}, carried in \tt{polygon\_mass.py}. The derivation below governs \tt{TAU\_DERIV}
+(OP-12, open) and survives in code as \tt{LEGACY\_SHOOTOUT\_TAU\_ABS}. Using it as the
+mass-table budget would relax the gate by roughly fifty times.
+\end{ruling}
+
+For the record, the superseded derivation: under the D-21 per-axis square cutoff the
+omitted spatial mass is
+\[
+  \epsilon_s \;=\; 1 - \operatorname{erf}\!\left(\frac{w_s}{\sqrt{2}\,\sigma}\right)^{\!2},
+\]
+which at $w_s = 3\sigma$ gives $\epsilon_s = 5.3923032\times10^{-3}$; ten per cent of that
+is $5.3923032\times10^{-4}$. The reasoning --- that numerical error should sit an order of
+magnitude below error knowingly accepted by truncation --- remains sound, and is why that
+value still governs the derivative gate.
+
+The \vfy{} \tt{panel\_h\_m} finding is a violation of the \emph{production} budget
+\emph{at the defaults}, and it survived because the gate was enforced when the backend was
+chosen but never re-enforced against the shipped default configuration. P5 therefore tests
+the defaults, not a hand-chosen panel height:
+\[
+  \max_j \bigl| M_j^{\text{table, defaults}}(\sigma) - M_j^{\text{reference}}(\sigma) \bigr|
+  \;\le\; \text{\tt{PRODUCTION\_TAU\_ABS}}
+\]
+over the declared $\sigma$ range.
+
+\begin{ruling}
+\noindent\textbf{The assertion must measure, not proxy.} A panel-to-$\sigma$ ratio ceiling
+is a resolution surrogate calibrated at one quadrature order; at a different \tt{gl\_order}
+it admits tables outside budget while the error message names a tolerance nothing measured.
+P5 compares against a higher-accuracy reference --- \tt{BUDGET\_REFERENCE\_GL\_ORDER} $=
+32$ in host float64, oracle bound $10^{-6}$ --- at the table's \emph{actual} settings.
+\end{ruling}
+
+\subsection{Deliverable shape}
+
+\begin{itemize}
+  \item \tt{tests/test\allowbreak{}\_config\allowbreak{}\_matrix.py} --- the covering array, parameterized, one
+  test function per assertion family, with the array itself defined as data at the top of
+  the file so that a reader can see the covered points without reading the test bodies.
+  \item \tt{tests/test\allowbreak{}\_state\allowbreak{}\_transitions.py} --- P3 and P4, which need
+  snapshot helpers rather than parameterization.
+  \item \tt{docs/config\allowbreak{}\_matrix.md} --- the axes, their level sets, the forced rows and
+  why each is forced, and the covering-array generation method, so that the array can be
+  regenerated rather than being an opaque literal.
+\end{itemize}
+
+\section{Register-to-test traceability matrix}
+
+\paragraph{Purpose.} To make the obligation finite. Coverage of an enumerable register is
+checkable; absence of defects is not.
+
+\paragraph{Artifact.} \tt{docs/register\allowbreak{}\_test\allowbreak{}\_traceability.md}, one row per decision
+\tt{D-1}\dots\tt{D-34+} and per \S11 cross-cutting invariant.
+
+\begin{longtable}{@{}
+  >{\raggedright\arraybackslash}p{0.10\linewidth}
+  >{\raggedright\arraybackslash}p{0.30\linewidth}
+  >{\raggedright\arraybackslash}p{0.26\linewidth}
+  >{\raggedright\arraybackslash}p{0.26\linewidth}@{}}
+\toprule
+Column & Content & Vocabulary & Note \\
+\midrule
+\endhead
+Entry & \tt{D-n} or \tt{I-n} & --- & \\
+Statement & one clause, the checkable content & --- & not the rationale \\
+Check & test node id, or the reason none exists & --- & \tt{file::test\_name} \\
+Status & & \tt{covered}, \tt{covered-partial}, \tt{review-only}, \tt{gap-registered},
+\tt{not-applicable} & \\
+Owner & phase that closes a gap & 3f / 3g / post-Phase-3 & required iff
+\tt{gap-registered} \\
+\bottomrule
+\end{longtable}
+
+\noindent\tt{review-only} is legitimate --- some decisions are about naming, scope, or
+document form and have no executable content --- but it requires a stated reason.
+\tt{covered-partial} requires a statement of what part is uncovered.
+
+\paragraph{Expected yield.} Given the pattern in \S2, the first pass over this matrix is
+expected to surface further blockers directly, without any additional code reading: each
+declared invariant with no check is a candidate defect site. That is the intended
+mechanism. It is a cheaper search than another review because the search space is the
+register, which is finite and already written.
+
+\section{Audit coverage map}
+
+\paragraph{Artifact.} \tt{docs/audit\allowbreak{}\_coverage\allowbreak{}\_map.md}: one row per source module, columns
+for each audit pass (auditor, date, commit SHA, depth).
+
+\paragraph{Depth vocabulary.} \tt{unaudited}; \tt{read} (source read, no execution);
+\tt{probed} (behaviour established by execution); \tt{property-tested} (a standing test
+now covers the module's declared contracts).
+
+\paragraph{Known state at the time of writing (\vfy).} \tt{polygon\_mass.py},
+\tt{excitation\_support.py}, \tt{cutoffs.py}, \tt{likelihood.py}, \tt{utils.py} and the
+relevant \tt{main.py} paths are \tt{probed} at \tt{1f40542} and \tt{e0d7e43}.
+\tt{\_sim\_cox}, \tt{preparation.py} and \tt{data\_contracts.py} are \tt{unaudited}. The
+excitation-leg conservation check (I11 for the excitation term) has no standing test.
+\fillanchor{complete the module list from the repository tree; the three named above are
+those explicitly recorded as unaudited, not necessarily the whole set}
+
+\paragraph{Consequence for R6.} The 3f seam set --- the modules 3f will restructure ---
+must contain no \tt{unaudited} row. Modules outside the seam set may remain
+\tt{unaudited}, recorded as such.
+
+\section{The final bounded audit and its termination rule}
+
+R8 is a single audit, scoped and terminating.
+
+\paragraph{Scope.} The \S6 contracts, the \S7 traceability gaps, the \S8 unaudited
+modules within the 3f seam set, and the proposed 3f seams themselves. It is explicitly
+\emph{not} another whole-package review, and findings outside D-35's blocker set do not
+gate: they are logged and the audit continues.
+
+\paragraph{Iteration.} Each iteration runs against a frozen candidate tip recorded by SHA.
+If an iteration finds one or more blockers: fix them under \S12's commit discipline, rerun
+the affected matrix rows and the R4 gates, re-freeze, and iterate.
+
+\paragraph{Vary the search between iterations.} Because blind spots are correlated within
+an auditor and a strategy, each iteration must record its auditor and its method, and
+iteration $k+1$ must differ from iteration $k$ in at least one of the two. An iteration
+that repeats both is not evidence.
+
+\paragraph{Termination --- the part that prevents ``final audit'' from becoming the same
+unbounded loop under another name.}
+
+\begin{ruling}
+\noindent The loop is capped at \textbf{three} iterations. An iteration that finds only
+non-blockers terminates it. If the \emph{third} iteration still finds a blocker, the loop
+stops and a scope review is held instead of a fourth pass. At that point the evidence no
+longer supports the hypothesis ``one more fix is needed''; it supports ``the semantic
+surface is not yet specified.'' The correct response is then re-specification --- which
+may legitimately mean moving work into 3f as \emph{declared} semantic change under \S7.2,
+rather than pretending it is behaviour-preserving --- not a further audit.
+\end{ruling}
+
+\section{What runs in parallel, and what substitutes for what}
+
+\begin{itemize}
+  \item \textbf{SBC and audit have near-disjoint sensitivity.} \vfy: none of the six
+  findings from the two Claude passes would have been detected by a Stage 3 SBC run ---
+  it is rectangular, unit-gain, and never enters the polygon or \tt{set\_window} paths.
+  Conversely, audit reading does not detect the calibration failure SBC exists to detect.
+  Neither instrument is evidence about the other's domain, and neither closeout nor SBC
+  should be described as covering the other.
+  \item \textbf{The D-20 exit run is not moved.} Stage 3 SBC at $R=200$ is required
+  \emph{at the Phase 3 tip}; a run during closeout would be superseded and is not a
+  substitute for the exit criterion. D-20 and \S12.1 are untouched by this document.
+  \item \textbf{What can usefully run in parallel} is the deferred polygon-regime
+  excitation validation --- the companion to stage 2p that A-7 explicitly does not claim
+  --- since it is an independent instrument on the path the closeout is most concerned
+  with. It is not made a readiness condition here.
+  \fillanchor{decide whether polygon-excitation SBC is scheduled during closeout, at the
+  3f tip, or post-Phase-3; this document does not settle it}
+\end{itemize}
+
+\section{Divergences from the ChatGPT recommendation, recorded}
+
+Surfaced rather than silently reconciled, per the register's conflict discipline.
+
+\begin{longtable}{@{}
+  >{\raggedright\arraybackslash}p{0.20\linewidth}
+  >{\raggedright\arraybackslash}p{0.36\linewidth}
+  >{\raggedright\arraybackslash}p{0.36\linewidth}@{}}
+\toprule
+Point & ChatGPT & This document \\
+\midrule
+\endhead
+Blocker definition & Can change likelihood, simulator, compensator, accepted configuration
+space, state transitions, provenance, or validity of the verification gates & Same six
+clauses \emph{plus} B6 (the 3f freeze surface) and the explicit pin-contamination
+corollary: severity is not the criterion, position relative to the pins is. Adopted as
+D-35. \\
+\addlinespace[3pt]
+Short-MCMC summary failure & ``Usually nonblocking for architecture'' & Conditional
+blocker: if it lies in the smoke-fit path, it is a defect inside an R4 gate and therefore
+B5. Reachability from the gate must be determined before classifying. \\
+\addlinespace[3pt]
+Dependency metadata mismatch & ``Fix during closeout'' & Same action, stronger
+classification: B5 blocker, because pins and traces are meaningful only within the
+declared environment. \\
+\addlinespace[3pt]
+Matrix structure & One list mixing families, triggers, support, cutoffs, state
+transitions, provenance and execution legs & Split into five configuration axes (varied)
+and five assertion families (checked at every point). Provenance and leg consistency are
+properties, not axes. \\
+\addlinespace[3pt]
+Fixing findings & Focused regression test per blocker & Same, plus \emph{class-level}
+closure (\S12, W3): each finding should retire a category --- every custom distribution,
+every setter, the defaults themselves --- not one line. Plus the R2 RED requirement. \\
+\addlinespace[3pt]
+Coverage & Not addressed & D-38: traceability matrix and audit coverage map become
+recorded artifacts; a clean audit is interpretable only against declared coverage. \\
+\addlinespace[3pt]
+Termination & ``You do not need to restart an unlimited series'' & Made operational: a
+hard three-iteration cap with a specified escalation to scope review, and a requirement
+that the search strategy or auditor vary between iterations. \\
+\addlinespace[3pt]
+Cost of holding & Not addressed & \S2: document divergence accumulates and the audit--fix
+loop itself generates ungated change; closeout commits must carry a \S7.2 class. \\
+\bottomrule
+\end{longtable}
+
+\noindent There is no substantive disagreement about the recommendation itself. Both
+analyses conclude: pause 3f, stop open-ended auditing, replace it with a combination
+matrix, and gate on a finite pre-registered rule.
+
+\section{Implementation handoff --- work packages}
+
+\begin{ruling}
+\noindent\textbf{Standing instructions for the implementing agent.}
+\begin{enumerate}[leftmargin=1.6em]
+  \item \tt{CLAUDE.md} rules apply throughout: show diffs before committing; never
+  \tt{--dangerously-skip-permissions}; \textbf{never edit a test to make it pass}.
+  \item Verify the pinned stack before concluding anything from a test run:
+  \tt{jax==0.4.23}, \tt{numpyro==0.15.0}, \tt{numpy<2}, \tt{scipy<1.13},
+  \tt{geopandas>=1.0}.
+  \item After every \tt{pytest} invocation, \tt{echo EXIT:\$?} --- a piped pytest can mask
+  a failure.
+  \item \textbf{No work package may close a finding on the basis of this document's
+  description of it.} Every \rep{} item must be reproduced from code (RED) before it is
+  fixed, and every \vfy{} item must be re-established at the candidate tip, since fifteen
+  commits have landed since it was observed.
+  \item Every commit carries a \S7.2 class. Correctness repairs implementing an
+  already-declared target are \textbf{CF} (A-19): rebaseline record wherever an observable
+  changes, semantic tests, behaviour-preserving language forbidden, no SC sign-off. A
+  change to prior support, to the accepted configuration space, or to any scientific
+  semantics is \textbf{SC} and requires sign-off.
+\end{enumerate}
+\end{ruling}
+
+\begin{longtable}{@{}
+  >{\raggedright\arraybackslash}p{0.06\linewidth}
+  >{\raggedright\arraybackslash}p{0.40\linewidth}
+  >{\raggedright\arraybackslash}p{0.12\linewidth}
+  >{\raggedright\arraybackslash}p{0.34\linewidth}@{}}
+\toprule
+W & Deliverable & Class & Exit check \\
+\midrule
+\endhead
+W0 & Freeze the candidate tip: record SHA, full-suite count, environment hash, and the
+current pin/trace status. Nothing else lands in this commit. & record & SHA and counts
+written to the ledger \\
+\addlinespace[3pt]
+W1 & Reproduce-then-fix the four \vfy{} open blockers: \tt{set\_window} untouched-axis
+provenance; \tt{panel\_h\_m} default vs.\ \tabs; \tt{LGCP\_Model.set\_window} bare
+\tt{KeyError}; membership-predicate double spelling (first determine whether the two
+spellings can disagree). & CF (each) & RED demonstrated at W0's SHA for each; GREEN after;
+rebaseline record where an observable changes \\
+\addlinespace[3pt]
+W2 & Reproduce-or-refute the six \rep{} items. Each ends as: reproduced + fixed;
+reproduced + deferred with owner; or refuted with the probe recorded. A refutation is a
+result and is written down. & CF or DOC & every \rep{} row in \S3.3 has a disposition and
+a named probe \\
+\addlinespace[3pt]
+W3 & Class-level tests. \textbf{(a)} property test over \emph{every} custom distribution:
+draws lie in the declared support, and \tt{log\_prob} integrates to 1 over it.
+\textbf{(b)} invariant test over \emph{every} public setter: P3 + P4. \textbf{(c)}
+accuracy-budget test at the shipped defaults (\S6.3). \textbf{(d)} structural test that
+the membership predicate has exactly one definition, in the manner of the pinned
+\tt{aligned\allowbreak{}\_difference\allowbreak{}\_pairs} signature. & IV & each test demonstrated to fail
+against the corresponding pre-fix commit \\
+\addlinespace[3pt]
+W4 & Compatibility and state-transition matrix (\S6): axes enumerated \emph{from code},
+covering array generated and recorded, forced rows added, five assertion families
+implemented. & IV & matrix green; \tt{docs/config\allowbreak{}\_matrix.md} written \\
+\addlinespace[3pt]
+W5 & \tt{docs/register\allowbreak{}\_test\allowbreak{}\_traceability.md} (\S7), every \tt{D-n} and \S11 invariant
+statused. New blockers surfaced by this exercise re-enter W1/W2. & DOC & no row without a
+status; every \tt{gap-registered} row has an owner \\
+\addlinespace[3pt]
+W6 & \tt{docs/audit\allowbreak{}\_coverage\allowbreak{}\_map.md} (\S8); then audit the \tt{unaudited} modules
+inside the 3f seam set. & DOC + audit & no \tt{unaudited} row in the seam set \\
+\addlinespace[3pt]
+W7 & Environment reconciliation: declared dependency metadata against the environment in
+which R4 gates actually run; \tt{jax\allowbreak{}\_enable\allowbreak{}\_x64=False} confirmed. & fix / record &
+gates rerun in the reconciled environment; pin comparability restated \\
+\addlinespace[3pt]
+W8 & De-misdirection only: pin the guide's version identity (C6); remove or clearly mark
+the superseded document in \tt{docs/}; reconcile the \tt{set\_window} class conflict
+between the in-repo rebaseline record and A-19. Purely historical or editorial cleanup
+stays in 3g. & DOC & C6 closed; no document in \tt{docs/} can misdirect 3f config work \\
+\addlinespace[3pt]
+W9 & Ledger of non-blocking findings with class, date and owning phase; amendment entry
+for the register in Part II style recording this protocol and D-35--D-38. & DOC & R9
+satisfied \\
+\addlinespace[3pt]
+W10 & Final bounded audit (\S9) and full R4 gate run on the re-frozen candidate tip. &
+audit & R1--R9 all hold; 3f opens \\
+\bottomrule
+\end{longtable}
+
+\paragraph{Ordering.} W0 first. W1 and W2 may proceed in parallel. W3 depends on W1/W2
+disposition (the classes are read off the findings). W4 depends on W2 (the rejected
+combinations are part of the array). W5 and W6 may start immediately and are expected to
+feed work back into W1/W2. W7 and W8 are independent. W9 collects. W10 last, and after
+any W10 iteration that finds a blocker, re-enter at W1.
+
+\section{What this document does not change}
+
+\begin{itemize}
+  \item The 3a--3g sequence and each phase's scope boundary (\S10). Nothing is moved
+  across a phase boundary here.
+  \item D-20 and \S12.1: Stage 3 SBC at $R=200$ at the Phase 3 tip remains the mandatory
+  statistical exit criterion, and the closeout is not evidence toward it.
+  \item The Phase 3 non-goals, including whole-city inference, decoder retraining, and the
+  guide rewrite (\S15 remains specified-not-executed, and blocked in practice by C6).
+  \item \tt{CLAUDE.md}'s prime directive and the \S7.2 change classification, including
+  A-19's CF class.
+  \item The standing rule that rectangular SBC is not evidence of polygon calibration, nor
+  background-path polygon SBC of excitation-path calibration.
+\end{itemize}
+
+\section{Open items introduced by this document}
+
+\begin{enumerate}[leftmargin=1.8em]
+  \item Register numbering for D-35--D-38 and the amendment entry
+  (\fillanchor{next free numbers}).
+  \item C2's level set, to be enumerated from code rather than from \S6.2.
+  \item The reference method and its own error bound for the P5 accuracy test.
+  \item Scheduling of polygon-regime excitation validation (\S10).
+  \item The full module list for the audit coverage map, and the definition of the ``3f
+  seam set'' --- which must be written down before R6 can be evaluated, since R6 quantifies
+  over it.
+\end{enumerate}
+
+\end{document}
