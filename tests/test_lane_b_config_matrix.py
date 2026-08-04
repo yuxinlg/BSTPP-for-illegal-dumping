@@ -501,6 +501,7 @@ def test_lane_b_polygon_shipped_defaults_meet_panel_budget():
     prov = m.excitation_provenance
     assert prov.get("PRODUCTION_TAU_ABS") == PRODUCTION_TAU_ABS
     assert prov.get("panel_min_sigma_ratio") <= MAX_PANEL_TO_MIN_SIGMA_RATIO
+    assert prov.get("measured_max_abs_residual") <= PRODUCTION_TAU_ABS
     assert prov.get("table_h_panel") == pytest.approx(DEFAULT_PANEL_H_M)
     assert prov.get("table_gl_order") == DEFAULT_GL_ORDER
 

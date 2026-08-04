@@ -27,8 +27,8 @@ from shapely.geometry import box as shapely_box
 from shapely.ops import unary_union
 
 from .polygon_mass import (
-    DEFAULT_GL_ORDER,
-    DEFAULT_PANEL_H_M,
+    BUDGET_REFERENCE_GL_ORDER,
+    BUDGET_REFERENCE_ORACLE_BOUND,
     PRODUCTION_TAU_ABS,
     PolygonMassTable,
     validate_polygon_mass_table,
@@ -351,8 +351,6 @@ def build_excitation_support(
     max_sigma: Optional[float],
     event_x_real: np.ndarray,
     event_y_real: np.ndarray,
-    panel_h_m: float = DEFAULT_PANEL_H_M,
-    gl_order: int = DEFAULT_GL_ORDER,
     mass_table: PolygonMassTable | None = None,
     union_geometry: Any | None = None,
 ) -> ExcitationSupport:
@@ -364,14 +362,12 @@ def build_excitation_support(
     tables. For polygon domains, ``union_geometry`` must be the canonical
     ``PreparedDomain.union_geometry`` (no independent unary_union here).
 
-    ``panel_h_m`` / ``gl_order`` are retained for call-site compatibility but
-    are not validation inputs: a supplied table's own recorded ``h_panel`` /
-    ``gl_order`` are authoritative, and acceptance is the production
-    accuracy budget against the model's ``min_sigma``.
+    Table ``h_panel`` / ``gl_order`` are authoritative. Acceptance is the
+    measured residual against ``PRODUCTION_TAU_ABS`` (plus the panel-ratio
+    prefilter). Build settings are chosen only at
+    ``prepare_polygon_mass_table``; this install path has no ``panel_h_m`` /
+    ``gl_order`` parameters.
     """
-    # Call-site kwargs retained; unused for validation (table is authoritative).
-    del panel_h_m, gl_order
-
     if mode not in ("rectangle", "polygon"):
         raise ValueError(
             f"excitation_support must be 'rectangle' or 'polygon', got {mode!r}")
@@ -392,6 +388,7 @@ def build_excitation_support(
     table = mass_table
     builder_meta: dict[str, Any] = {}
     budget_ratio: float | None = None
+    measured_residual: float | None = None
     if mode == "polygon":
         assert lo is not None and hi is not None
         if table is None:
@@ -399,7 +396,7 @@ def build_excitation_support(
                 "Polygon excitation_support requires a prepared mass_table "
                 "from bstpp.polygon_mass.prepare_polygon_mass_table(...); "
                 "silent Hermite table construction is not allowed.")
-        budget_ratio = validate_polygon_mass_table(
+        budget_ratio, measured_residual = validate_polygon_mass_table(
             table,
             domain_geom=geom,
             event_x_real=event_x_real,
@@ -427,6 +424,11 @@ def build_excitation_support(
         "table_h_panel": None if table is None else float(table.h_panel),
         "table_gl_order": None if table is None else int(table.gl_order),
         "panel_min_sigma_ratio": budget_ratio,
+        "measured_max_abs_residual": measured_residual,
+        "BUDGET_REFERENCE_GL_ORDER": (
+            None if table is None else int(BUDGET_REFERENCE_GL_ORDER)),
+        "BUDGET_REFERENCE_ORACLE_BOUND": (
+            None if table is None else float(BUDGET_REFERENCE_ORACLE_BOUND)),
         "PRODUCTION_TAU_ABS": (
             None if table is None else float(PRODUCTION_TAU_ABS)),
     }

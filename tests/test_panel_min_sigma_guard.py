@@ -101,3 +101,13 @@ def test_crsless_valid_small_panel_meets_production_tau_abs():
         f"{pm.PRODUCTION_TAU_ABS}")
     assert pm.PRODUCTION_TAU_ABS == 1e-5
     assert bool(jax.config.read("jax_enable_x64")) == x64_before
+
+    # Install-time measured residual uses elevated-GL host quadrature; its
+    # own bound vs this shapely §13 oracle is BUDGET_REFERENCE_ORACLE_BOUND.
+    residual = pm.measure_polygon_mass_table_residual(
+        table, domain_geom=poly, event_x_real=x, event_y_real=y,
+        spatial_window=None)
+    assert residual <= pm.PRODUCTION_TAU_ABS
+    assert residual <= max_abs_err + pm.BUDGET_REFERENCE_ORACLE_BOUND
+    assert pm.BUDGET_REFERENCE_GL_ORDER == 32
+    assert pm.BUDGET_REFERENCE_ORACLE_BOUND == 1e-6

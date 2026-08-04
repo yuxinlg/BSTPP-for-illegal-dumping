@@ -47,10 +47,12 @@ VALIDATED_DLOG = (
 
 DEFAULT_PANEL_H_M = 20.0
 DEFAULT_GL_ORDER = 16
-# Conservative production resolution guard: after converting panel_h_m into
+# Cheap prepare-time resolution prefilter: after converting panel_h_m into
 # effective domain-coordinate units, effective_panel_h / min_sigma must not
-# exceed this ratio. Default panel_h_m=20 on CRS-less unit-scale domains is
-# otherwise silently too coarse for small min_sigma.
+# exceed this ratio. Necessary but not sufficient for PRODUCTION_TAU_ABS —
+# install validates a measured residual (see measure_polygon_mass_table_residual).
+# Default panel_h_m=20 on CRS-less unit-scale domains is otherwise silently
+# too coarse for small min_sigma.
 MAX_PANEL_TO_MIN_SIGMA_RATIO = 8.0
 
 # Independent polygon-table oracle accuracy gate (pre-3f / A-21).
@@ -63,6 +65,15 @@ PRODUCTION_TAU_ABS = 1e-5
 TAU_ABS = PRODUCTION_TAU_ABS
 # Derivative gate remains provisional (OP-12) and is NOT tied to tau_abs.
 TAU_DERIV = 5.39e-4
+
+# Install-time residual reference: host float64 panel quadrature at an
+# elevated Gauss–Legendre order on the table's recorded h_panel tiling.
+# Empirically, vs the independent shapely §13 oracle
+# (scripts/polygon_mass_backend_shootout.oracle_mass), this reference's
+# max abs discrepancy on the unit-octagon calibration case at
+# panel/min_sigma <= 8 was <= 6.3e-7; claim a conservative 1e-6 floor.
+BUDGET_REFERENCE_GL_ORDER = 32
+BUDGET_REFERENCE_ORACLE_BOUND = 1e-6
 
 # Compatibility contract constants (builder + validator share these names).
 # Schema v2: nested extra_provenance, exact le-f64 event identity, required
@@ -550,10 +561,11 @@ def assert_polygon_mass_table_budget(
     *,
     sigma_min: float,
 ) -> float:
-    """Reject a table whose recorded panel is too coarse for ``sigma_min``.
+    """Reject a table whose recorded panel fails the prepare-time ratio prefilter.
 
-    The table's own ``h_panel`` / ``gl_order`` are authoritative. Acceptance is
-    the production resolution gate that protects ``PRODUCTION_TAU_ABS``::
+    The table's own ``h_panel`` / ``gl_order`` are authoritative. This check is
+    necessary but not sufficient for ``PRODUCTION_TAU_ABS``; install also runs
+    ``measure_polygon_mass_table_residual``. Prefilter::
 
         table.h_panel / sigma_min <= MAX_PANEL_TO_MIN_SIGMA_RATIO
 
@@ -584,16 +596,99 @@ def assert_polygon_mass_table_budget(
     if ratio > MAX_PANEL_TO_MIN_SIGMA_RATIO:
         raise ValueError(
             "supplied mass table is too coarse for model min_sigma under the "
-            f"production accuracy budget PRODUCTION_TAU_ABS={PRODUCTION_TAU_ABS}: "
+            f"panel-resolution prefilter (PRODUCTION_TAU_ABS={PRODUCTION_TAU_ABS} "
+            "is enforced by measured residual at install): "
             f"table h_panel={h}, gl_order={gl}, min_sigma={s}, "
             f"panel/min_sigma ratio={ratio} exceeds "
-            f"MAX_PANEL_TO_MIN_SIGMA_RATIO={MAX_PANEL_TO_MIN_SIGMA_RATIO} "
-            "(resolution gate protecting PRODUCTION_TAU_ABS). "
+            f"MAX_PANEL_TO_MIN_SIGMA_RATIO={MAX_PANEL_TO_MIN_SIGMA_RATIO}. "
             "Rebuild with prepare_polygon_mass_table(..., panel_h_m=...) so "
             "effective_panel_h / min_sigma <= "
             f"{MAX_PANEL_TO_MIN_SIGMA_RATIO}."
         )
     return float(ratio)
+
+
+def measure_polygon_mass_table_residual(
+    table: PolygonMassTable,
+    *,
+    domain_geom,
+    event_x_real: np.ndarray,
+    event_y_real: np.ndarray,
+    spatial_window: float | None,
+) -> float:
+    """Max abs Hermite-vs-reference residual at the table's ``h_panel`` / knots.
+
+    Reference method: host NumPy/SciPy float64 ``_quad_masses_numpy`` at
+    ``BUDGET_REFERENCE_GL_ORDER`` on ``prepare_quadrature(..., h=table.h_panel)``.
+    Reference's own error bound vs the independent shapely §13 oracle is
+    ``BUDGET_REFERENCE_ORACLE_BOUND`` (see module constants). Probes knots and
+    mid-interval sigmas (endpoints + mid + mid-interval thirds).
+    """
+    if not isinstance(table, PolygonMassTable):
+        raise TypeError(
+            f"mass_table must be a PolygonMassTable; got {type(table).__name__}")
+    x = np.asarray(event_x_real, dtype=np.float64)
+    y = np.asarray(event_y_real, dtype=np.float64)
+    h = float(table.h_panel)
+    ws = None if spatial_window is None else float(spatial_window)
+    prep = prepare_quadrature(domain_geom, x, y, h, ws)
+    glx01, glw01 = _legendre_01(BUDGET_REFERENCE_GL_ORDER)
+    glx01 = np.asarray(glx01, dtype=np.float64)
+    glw01 = np.asarray(glw01, dtype=np.float64)
+    ev = np.asarray(prep.ev_xy, dtype=np.float64)
+    panels = np.asarray(prep.panels, dtype=np.float64)
+    mask = np.asarray(prep.mask, dtype=np.float64)
+    inside = np.asarray(prep.inside_flag, dtype=np.float64)
+
+    log_k = np.asarray(table.log_knots, dtype=np.float64)
+    mid = 0.5 * (log_k[:-1] + log_k[1:])
+    probe_logs = np.unique(np.concatenate([
+        log_k[[0, len(log_k) // 2, -1]],
+        mid[[0, len(mid) // 2, -1]],
+    ]))
+
+    masses_fn, _, _ = make_table_eval()
+    lk = jnp.asarray(table.log_knots)
+    vj = jnp.asarray(table.values)
+    sj = jnp.asarray(table.slopes)
+    max_abs = 0.0
+    for ls in probe_logs:
+        got = np.asarray(masses_fn(float(ls), lk, vj, sj), dtype=np.float64)
+        want = _quad_masses_numpy(
+            float(ls), ev, panels, mask, inside, glx01, glw01, ws)
+        max_abs = max(max_abs, float(np.max(np.abs(got - want))))
+    return float(max_abs)
+
+
+def assert_polygon_mass_table_accuracy(
+    table: PolygonMassTable,
+    *,
+    domain_geom,
+    event_x_real: np.ndarray,
+    event_y_real: np.ndarray,
+    spatial_window: float | None,
+) -> float:
+    """Reject a table whose measured residual exceeds ``PRODUCTION_TAU_ABS``."""
+    max_abs = measure_polygon_mass_table_residual(
+        table,
+        domain_geom=domain_geom,
+        event_x_real=event_x_real,
+        event_y_real=event_y_real,
+        spatial_window=spatial_window,
+    )
+    if max_abs > PRODUCTION_TAU_ABS:
+        raise ValueError(
+            "supplied mass table fails the production accuracy budget "
+            f"PRODUCTION_TAU_ABS={PRODUCTION_TAU_ABS}: measured max abs "
+            f"residual={max_abs} against host float64 panel quadrature at "
+            f"BUDGET_REFERENCE_GL_ORDER={BUDGET_REFERENCE_GL_ORDER} on the "
+            f"table's h_panel={float(table.h_panel)} tiling "
+            f"(gl_order={int(table.gl_order)}; reference oracle bound "
+            f"BUDGET_REFERENCE_ORACLE_BOUND={BUDGET_REFERENCE_ORACLE_BOUND}). "
+            "Rebuild with prepare_polygon_mass_table at higher gl_order "
+            "and/or smaller panel_h_m."
+        )
+    return float(max_abs)
 
 
 def validate_polygon_mass_table(
@@ -605,7 +700,7 @@ def validate_polygon_mass_table(
     spatial_window: float | None,
     sigma_min: float,
     sigma_max: float,
-) -> float:
+) -> tuple[float, float]:
     """Reject a supplied Hermite table that is not identity-compatible.
 
     Equal event counts are not evidence of compatibility. Validates required
@@ -614,10 +709,11 @@ def validate_polygon_mass_table(
     domain geometry hash, exact float64 event identity and row order, event
     count, spatial window, sigma range and knot grid, array shapes, and
     finite array values. Build settings ``h_panel`` / ``gl_order`` are read
-    from the table itself (never compared to caller-declared defaults) and
-    checked against the production accuracy budget for ``sigma_min``.
+    from the table itself (never compared to caller-declared defaults).
+    Acceptance for ``PRODUCTION_TAU_ABS`` is a measured residual against the
+    elevated-GL host quadrature reference (plus the panel-ratio prefilter).
 
-    Returns the realized ``table.h_panel / sigma_min`` ratio.
+    Returns ``(panel/min_sigma ratio, measured max abs residual)``.
     Descriptive ``provenance['extra']`` is ignored for compatibility.
     """
     if not isinstance(table, PolygonMassTable):
@@ -683,7 +779,8 @@ def validate_polygon_mass_table(
         raise ValueError(
             "supplied mass table log_knots do not match the sigma range knot grid")
 
-    # Table-recorded build settings are authoritative; budget vs model min σ.
+    # Table-recorded build settings are authoritative; ratio prefilter then
+    # measured residual vs PRODUCTION_TAU_ABS.
     ratio = assert_polygon_mass_table_budget(table, sigma_min=float(sigma_min))
 
     k = int(expected_knots.shape[0])
@@ -704,7 +801,15 @@ def validate_polygon_mass_table(
         if not np.all(np.isfinite(arr)):
             raise ValueError(
                 f"supplied mass table {name} contains nonfinite values")
-    return ratio
+
+    residual = assert_polygon_mass_table_accuracy(
+        table,
+        domain_geom=domain_geom,
+        event_x_real=x,
+        event_y_real=y,
+        spatial_window=spatial_window,
+    )
+    return float(ratio), float(residual)
 
 
 def _legendre_01(gl_order: int) -> tuple[np.ndarray, np.ndarray]:

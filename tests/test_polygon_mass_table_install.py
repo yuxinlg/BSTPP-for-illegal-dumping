@@ -45,8 +45,10 @@ PRIORS = dict(
 # CRS-less unit domain: default panel_h_m=20 is far too coarse for small σ.
 MIN_SIGMA_SMALL = 0.05
 MAX_SIGMA_SMALL = 0.5
-# Panel at the resolve-guard ceiling (ratio == 8).
+# Panel at the resolve-guard ceiling (ratio == 8) — sufficient for DEFAULT_GL_ORDER
+# under the measured residual gate; gl_order=8 needs a finer panel.
 PANEL_GUIDED = MAX_PANEL_TO_MIN_SIGMA_RATIO * MIN_SIGMA_SMALL  # 0.4
+PANEL_GL8 = PANEL_GUIDED / 2.0  # ratio 4; meets PRODUCTION_TAU_ABS at gl=8
 
 # Default-path domain in metres-like units with large min_sigma so defaults OK.
 A_DEFAULT = np.array([[0.0, 200.0], [0.0, 200.0]])
@@ -137,10 +139,25 @@ def test_crsless_guided_panel_installs_after_ratio_guard():
 
 def test_nondefault_gl_order_installs_when_budget_met():
     data = _events_unit()
-    table = _prepare_guided(data, gl_order=8)
+    # gl_order=8 at the ratio ceiling fails the measured residual gate;
+    # a finer panel is required (Commit C option i).
+    table = _prepare_guided(data, gl_order=8, panel_h_m=PANEL_GL8)
     assert int(table.gl_order) == 8
     m = _hawkes_polygon(data, table)
     assert int(m.excitation_support.mass_table.gl_order) == 8
+    assert m.excitation_provenance["measured_max_abs_residual"] <= PRODUCTION_TAU_ABS
+
+
+def test_gl_order_8_at_ratio_ceiling_fails_measured_budget():
+    """Ratio surrogate alone is not valid across gl_order (Commit C)."""
+    data = _events_unit()
+    table = _prepare_guided(data, gl_order=8, panel_h_m=PANEL_GUIDED)
+    assert float(table.h_panel) / MIN_SIGMA_SMALL <= MAX_PANEL_TO_MIN_SIGMA_RATIO
+    with pytest.raises(ValueError, match="PRODUCTION_TAU_ABS|measured|residual") as ei:
+        _hawkes_polygon(data, table)
+    msg = str(ei.value)
+    assert "PRODUCTION_TAU_ABS" in msg or str(PRODUCTION_TAU_ABS) in msg
+    assert "BUDGET_REFERENCE_GL_ORDER" in msg or "residual" in msg.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -215,7 +232,8 @@ def test_heldout_guided_panel_table_accepted():
 def test_heldout_nondefault_gl_order_accepted():
     train = _events_unit(seed=4)
     test = _events_unit(seed=5)
-    m = _hawkes_polygon(train, _prepare_guided(train, gl_order=8))
+    m = _hawkes_polygon(
+        train, _prepare_guided(train, gl_order=8, panel_h_m=PANEL_GL8))
     m.samples = {
         "a_0": np.array([0.0], dtype=np.float32),
         "alpha": np.array([0.3], dtype=np.float32),
@@ -223,7 +241,7 @@ def test_heldout_nondefault_gl_order_accepted():
         "sigmax_2": np.array([0.1], dtype=np.float32),
     }
     ll = m.log_expected_likelihood(
-        test, mass_table=_prepare_guided(test, gl_order=8))
+        test, mass_table=_prepare_guided(test, gl_order=8, panel_h_m=PANEL_GL8))
     assert np.isfinite(ll)
 
 
@@ -269,7 +287,7 @@ def test_set_window_accepts_guided_replacement_table():
         min_sigma=MIN_SIGMA_SMALL,
         max_sigma=MAX_SIGMA_SMALL,
         spatial_window=0.5,
-        panel_h_m=PANEL_GUIDED,
+        panel_h_m=PANEL_GL8,
         gl_order=8,
         crs=None,
     )
