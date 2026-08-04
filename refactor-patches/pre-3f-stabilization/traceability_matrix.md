@@ -1,7 +1,7 @@
 # Traceability matrix + Lane B state machine
 
-**Candidate tip:** Phase 3f WP1 (opened at `fe44de4`; see A-22/A-23/D-35)  
-**Iteration:** 3f-WP1  
+**Candidate tip:** Phase 3f (opened at `fe44de4`; A-22/A-23/D-35; A-24 adopts D-36–D-39 / OP-14–OP-17)  
+**Iteration:** 3f-WP1 + A-24 register adoption  
 **Marks:** verified / reported / inferred as noted.  
 **Governing record:** repository-root `phase3_record.tex`. Untracked root `phase3_baseline_and_decisions.tex` is **not** governing.
 
@@ -49,7 +49,7 @@
 
 ## Register traceability
 
-Register inventory: **D-1…D-35**; **A-1…A-23**; **OP-2…OP-13** (OP-1 never allocated); **I1, I3–I6, I8/I8a/I8b, I9–I12**.
+Register inventory: **D-1…D-39**; **A-1…A-24**; **OP-2…OP-17** (OP-1 never allocated); **I1, I3–I6, I8/I8a/I8b, I9–I12**.
 
 | ID | Contract (short) | Register status | Production sites | Execution legs | Existing evidence | Evidence type | Gap | Treatment | Owner |
 |---|---|---|---|---|---|---|---|---|---|
@@ -84,6 +84,11 @@ Register inventory: **D-1…D-35**; **A-1…A-23**; **OP-2…OP-13** (OP-1 never
 | A-20 / A-21 | Config placement + pre-3f freeze | active | many | many | A-21 text + this audit | mixed | B2–B4 closed pre-3f | keep | — |
 | A-22 | Phase 3f opened at `fe44de4` | active | process | n/a | register | verified | G1/G2 open | 3f WPs | 3f |
 | A-23 | Frozen dataclasses not Pydantic | active | `bstpp/config.py` | ctor | WP1.0 reasoning in register | verified | — | keep | 3f |
+| A-24 | Closeout decisions D-36–D-39; Lane B named as §12 gate; OP-14–OP-17 | active | process (no production code site) | n/a | A-24 + this matrix | verified DOC | coverage delta OP-14–OP-17 | keep | 3f |
+| D-36 | Phase blocker test (B1–B6; pinned-path corollary) | active | **process decision — no code site** | n/a | protocol §5; A-24; applied at `fe44de4` | process | none | keep | team |
+| D-37 | Finite readiness rule (principle; instance in A-24) | active | **process decision — no code site** | n/a | protocol §9; readiness_report.md; A-24 | process | none | keep | team |
+| D-38 | Lane B matrix standing gate (M on triggers; E with D-20) | active | `tests/test_lane_b_config_matrix.py`; `covering_array_rows.json` | ctor/set_window/trigger/cutoff/provenance | Lane B suite; §12 row | direct | OP-14–OP-17 gaps | keep | 3f |
+| D-39 | Coverage recorded; absence of findings ≠ evidence; same-commit traceability update | active | `traceability_matrix.md`; `audit_coverage_map.md` | process | this file + coverage map | **no executable enforcement** (documented state) | enforcement is DOC/process until gated | keep | 3f |
 | OP-2 | → D-23 | resolved | resolve mode | ctor | phase3d | direct | none | closed | — |
 | OP-3/OP-4 | standardize default/API | settled A-21 | standardize_cov | prep | test_standardization_api | verified | Part I stale | A-21 operative | — |
 | OP-5 | User weights | deferred | n/a | n/a | register | inferred | YAGNI | post-Phase-3 | post-Phase-3 |
@@ -95,6 +100,10 @@ Register inventory: **D-1…D-35**; **A-1…A-23**; **OP-2…OP-13** (OP-1 never
 | OP-11 | Custom polygon mass | open post-Phase-3 | exact-type gate | polygon | capability | direct | placeholder | post-Phase-3 | post-Phase-3 |
 | OP-12 | Derivative gate | open | TAU_DERIV | table QA | production | numerical | unsettled | pre-polygon-SBC | pre-polygon-SBC |
 | OP-13 | Config objects | settled A-21; A-23 dataclass deviation | `bstpp/config.py` `NumericalConfig` (WP1); four others pending | 3f | A-21/A-23 + WP1 tests | direct (partial) | Model/Prior/Partition/Inference configs | 3f | 3f |
+| OP-14 | Closeout §6 P2 three-leg leg consistency at every Lane B covered point | open | `_exercise_covering_row` / `test_lane_b_covering_array_row_admissible`; forced-success identity checks in `tests/test_lane_b_config_matrix.py` | ctor/set_window | A-24 mapping (partial: support object identity only) | gap recorded | unaudited under D-39; **discharge:** standing Lane B completion (no D-40 dependency) | standing Lane B | 3f |
+| OP-15 | Closeout §6 P3 provenance completeness (untouched-axis + save_rslts) | open | `test_lane_b_save_rslts_roundtrips_cutoff_provenance` (strict xfail G2); covering-array success provenance checks | mutator/I/O | A-24 mapping | gap recorded | unaudited under D-39; **discharge:** save_rslts half by G2; untouched-axis by Lane B hardening | 3f G2 + Lane B | 3f |
+| OP-16 | Closeout §6 C5 `set_window` rejected as covering-array axis level | open | `test_lane_b_rejected_set_window_rolls_back_whole_state`; `test_lane_b_polygon_incompatible_spatial_change_rolls_back` (isolated, not CA-crossed) | set_window reject | A-24 mapping | gap recorded | unaudited under D-39; **discharge:** standing Lane B CA extension (no D-40 dependency) | standing Lane B | 3f |
+| OP-17 | Closeout §6 P1 message-substring enforcement across matrix rejections | open | bare `pytest.raises(ValueError)` (no `match=`) in `test_lane_b_rejected_set_window_rolls_back_whole_state` (parametrized `bad_call`) and stale-table install in `test_lane_b_polygon_incompatible_spatial_change_rolls_back` | set_window reject identity | A-24 regrade; enumerated from code | gap recorded | unaudited under D-39; **discharge:** D-40 entry-path error-identity unification (do not write `match=` against the current split) | D-40 | 3f |
 | I1 | Sim/lik mass atoms | active | lik + _sim_cox | bg | seasonal_integral | direct | none | keep | — |
 | I3/I4 | Pair window contract | active | utils, lik, sim | pairs | identities | direct | none | keep | — |
 | I5 | Single factor site | active | inference_functions | model | test_smoke | direct | none | keep | — |

@@ -118,7 +118,7 @@
 \large \texttt{yuxinlg/\allowbreak{}BSTPP-for-illegal-dumping} --- \texttt{refactor}\\[2pt]
 \large Part I frozen at tip \texttt{476c2a0}; Part II append-only}
 \author{}
-\date{Part I: 2026-07-18. Part II: opened 2026-07-27, entries A-1--A-23\\ (corrections appended 2026-07-28 to A-5, A-12, A-15, A-17; pre-3f freeze A-21 on 2026-07-29; Phase 3f opened A-22/A-23 on 2026-08-04).}
+\date{Part I: 2026-07-18. Part II: opened 2026-07-27, entries A-1--A-24\\ (corrections appended 2026-07-28 to A-5, A-12, A-15, A-17; pre-3f freeze A-21 on 2026-07-29; Phase 3f opened A-22/A-23 on 2026-08-04; closeout decisions adopted A-24 on 2026-08-04).}
 
 \begin{document}
 \maketitle
@@ -1110,6 +1110,10 @@ D-20 & Stage 3 SBC at R = 200 (full Cox--Hawkes) is the mandatory statistical Ph
 \amdnew{A-14} \textbf{D-33} & \textbf{Public state mutation is transactional.} Validation, pair construction, cutoff resolution, support construction, provenance, and mass-table installation are prepared in local state and committed once; a failure at any step leaves every observable field unchanged. Rationale: a half-applied window change is the silent-corruption mode this refactor was convened to eliminate --- the object would report one cutoff and integrate another. & invariant & team; \texttt{798f551}, \texttt{8580364} \\
 \amdnew{A-16} \textbf{D-34} & \textbf{CRS is never adopted, overridden, or inferred silently.} A CRS-bearing domain requires covariates to declare a matching CRS; tabular (CSV / plain \texttt{DataFrame}) covariates require an explicit \texttt{spatial\_cov\_crs}; a mismatch reaching internal attachment raises rather than being rewritten. Rationale: the real-unit trigger contract (D-15, §5.10) is meaningless if coordinates can be reinterpreted without the user's knowledge. & contract & team; \texttt{c22aa51}, \texttt{adea3d3}, \texttt{2cf326d} \\
 \amdnew{A-22} \textbf{D-35} & \textbf{Every freeze ships with its enforcement, in the same commit.} A configuration object that does not validate its own invariants at construction is not done: validation lives in \texttt{\_\_post\_init\_\_} behind a single factory per object, not at scattered call sites. Applies to the Phase~3f frozen configs (starting with \texttt{NumericalConfig}: measured mass-table budget policy, $\sigma$-bound coherence, support-mode compatibility). & invariant / process & team; Phase 3f opening \\
+\amdnew{A-24} \textbf{D-36} & \textbf{Phase blocker test.} An issue blocks opening the next phase if and only if it can change the likelihood event term, the compensator, the simulator, the accepted configuration space, a public state transition, provenance content or persistence, the validity of a verification gate, or the surface the next phase will freeze (clauses B1--B6 of \texttt{refactor-patches/pre-3f-stabilization/phase3e\_closeout\_and\_3f\_readiness.tex} §3.1, generalized from ``3f'' to ``the next phase''). \emph{Corollary, stated because it is easily lost}: a defect on a path over which a pin or trace baseline of that next phase is taken is a blocker regardless of severity, because deterministic trace equivalence would certify its preservation. Severity is not the criterion; position relative to the pins and the freeze surface is. & invariant / process & team; A-24 \\
+\amdnew{A-24} \textbf{D-37} & \textbf{Finite readiness rule (principle).} A phase opening is governed by a pre-registered closed readiness rule evaluated on one frozen candidate tip; no condition of the form ``and no further defect is known'' may appear in it; termination is bounded by a stated iteration cap; the instance is recorded in the amendment that opens the phase. The Phase~3f instance (R1--R9) is recorded in A-24, not in this decision. & process & team; A-24 \\
+\amdnew{A-24} \textbf{D-38} & \textbf{Compatibility and state-transition matrix as a standing gate.} The executable Lane~B gate --- \texttt{tests/test\_lane\_b\_config\_matrix.py} together with \texttt{refactor-patches/pre-3f-stabilization/covering\_array\_rows.json} --- is added to the §12 acceptance matrix as a mandatory gate (\textbf{M}) for every commit that changes the constructor signature, \texttt{set\_window}, the trigger or support selection logic, the cutoff interface, or provenance construction; and as a mandatory exit gate (\textbf{E}) at the Phase~3 tip alongside D-20's Stage~3 SBC run. It does not replace the pins, the SBC gates, or the polygon conservation tests; its sensitivity is near-disjoint from all three. & validation / process & team; A-24 \\
+\amdnew{A-24} \textbf{D-39} & \textbf{Coverage is recorded; absence of findings is not evidence.} Two artifacts are part of the development record and are maintained thereafter: a register-to-test traceability matrix (\texttt{refactor-patches/pre-3f-stabilization/traceability\_matrix.md}; closeout §7 design origin) and an audit coverage map (\texttt{refactor-patches/pre-3f-stabilization/audit\_coverage\_map.md}; closeout §8 design origin). ``Unaudited'' is a recorded state rather than an implicit claim, and a clean audit is interpretable only against the coverage it declares. \emph{Enforcement:} every commit that moves a production site updates its traceability rows in the same commit; a row whose check no longer exists after a move is a finding, not a formatting issue. & process / contract & team; A-24 \\
 \end{longtable}
 
 \textbf{Superseded statements (do not carry forward unqualified):}
@@ -1514,6 +1518,7 @@ Prep (freeze) & M (recorded) & M (recorded) & M (suite green at tip) & M & M (ar
 3e & M (fixed cutoffs) & M (fixed cutoffs) & M (unit/conversion) & M & C & C & C & --- & M (tail-mass formulas) & M (cutoff-consistent) & M (cutoff provenance) & M (spec addendum) \\
 3f & M & M & M & M & C & C & C & M (regression) & C & M (regression) & M (decoder contract) & M \\
 3g / exit & E (all families) & E & E & \textbf{E (all three families end-to-end)} & C & C & \textbf{E (new R=200 at Phase 3 tip)} & E & E & E & E & E \\
+\amdnew{A-24} Lane~B matrix (D-38) & --- & --- & \textbf{M} when constructor signature, \texttt{set\_window}, trigger/support selection, cutoff interface, or provenance construction changes (\texttt{tests/test\_lane\_b\_config\_matrix.py} + \texttt{covering\_array\_rows.json}) & --- & --- & --- & \textbf{E} at Phase~3 tip with D-20 Stage~3 SBC & --- & --- & --- & --- & --- \\
 \end{longtable}
 \end{landscape}
 
@@ -1534,6 +1539,8 @@ Notes:
   \amdnew{A-18} Gate results per phase are recorded in Part II (A-18) and in the per-phase \texttt{rebaseline\_record.md} files, never in this matrix. The matrix states what \emph{must} be satisfied; it is not a status board.
 \item
   \amdnew{A-7} The 3c conditional (C) escalation fired and was discharged by adding SBC stage 2p rather than rerunning stage 2 --- see A-7. This is the intended operation of the C column.
+\item
+  \amdnew{A-24} The Lane~B matrix row (D-38) is \textbf{M} on the listed trigger surfaces and \textbf{E} at the Phase~3 tip alongside D-20; it does not replace pins, SBC gates, or polygon conservation tests. See A-24 for the §6 naming ruling and the closeout-to-Lane~B coverage delta.
 \end{itemize}
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
@@ -1735,6 +1742,10 @@ OP-8 & Exact commit removing legacy \texttt{args} & final 3f commit, after all c
 \amdnew{A-10} OP-11 & Polygon mass for custom (non-Gaussian) spatial triggers & per-kernel polygon-mass backend, selected by trigger capability & the present exact-type gate is a placeholder that keeps an invalid likelihood unconstructible, not a design decision to forbid custom kernels & keep the restriction permanently; or admit subclasses with a declared-compatible kernel & permanent restriction forecloses the extensible Trigger interface the package advertises & post-Phase-3 \\
 \amdnew{A-20} OP-13 & Placement of \emph{all} post-freeze configuration, not only cutoffs & one numerical/computational configuration object distinct from model and prior configuration & OP-7 was scoped to cutoffs when it was written; Phase 3 added excitation support mode, σ bounds, mass-table handle, five cutoff arguments, design scales, contract mode, and covariate CRS --- each of which is either a model commitment, a numerical device, or an input contract, and they are presently all constructor keywords & resolve each argument's placement individually at 3f & provenance that cannot distinguish a model choice from a numerical device defeats the purpose of recording it & before 3f config freeze; subsumes OP-7 \\
 \amdnew{A-9} OP-12 & Derivative-accuracy gate for the polygon mass table & derive a gate from gradient-driven sampler behavior, or justify the present provisional value & τ\_deriv was set equal to τ\_abs as a numerical-stability criterion; unlike τ\_abs it is \textbf{not} derived from compensator truncation error & retain the provisional equality; or gate on NUTS diagnostics instead & an underjustified derivative gate could pass a table whose slopes degrade sampling without degrading values & before polygon-regime SBC \\
+\amdnew{A-24} OP-14 & Closeout §6 P2 three-leg leg consistency at every Lane~B covered point & assert event term, compensator, and simulator consume the same support/cutoff atoms at each covering-array success (object identity where single-sourced) & Lane~B today asserts \texttt{excitation\_support} / mass-table object identity and \texttt{cutoff\_provenance} presence, not the full three-leg contract of closeout P2. Sites: covering-array success path in \texttt{tests/test\_lane\_b\_config\_matrix.py} (\texttt{\_exercise\_covering\_row} / \texttt{test\_lane\_b\_covering\_array\_row\_admissible}) and forced-success identity checks. Discharged by standing Lane~B completion (no dependency on D-40). & leave the gap unrecorded & an unaudited closeout assertion family is exactly the D-39 failure mode & standing Lane~B completion \\
+\amdnew{A-24} OP-15 & Closeout §6 P3 provenance completeness in Lane~B & bit-identical untouched-axis provenance after accepted transitions, and \texttt{save\_rslts} round-trip of the whole record & Lane~B documents \texttt{save\_rslts} under strict xfail (\texttt{test\_lane\_b\_save\_rslts\_roundtrips\_cutoff\_provenance}; ledger G2 / A-22); covering-array success checks provenance presence, not untouched-axis bit-identity. \textbf{Discharge:} \texttt{save\_rslts} half by G2; untouched-axis half by standing Lane~B hardening. & treat G2 alone as sufficient without a register open point & D-39 requires the gap named as unaudited state & 3f G2 + Lane~B hardening \\
+\amdnew{A-24} OP-16 & Closeout §6 C5 level ``\texttt{set\_window} rejected'' as a covering-array axis level & include reject outcomes in the pairwise covering array (or an equivalent forced cross of reject×other axes) & Lane~B \texttt{entry\_path} levels are \{\texttt{constructor}, \texttt{set\_window}\}; reject paths are separate forced/rollback tests (\texttt{test\_lane\_b\_rejected\_set\_window\_rolls\_back\_whole\_state}, \texttt{test\_lane\_b\_polygon\_incompatible\_spatial\_change\_rolls\_back}), not pairwise-crossed. Discharged by standing Lane~B covering-array extension (no dependency on D-40). & keep reject coverage only as isolated tests & reject×configuration combinations remain systematically under-sampled & standing Lane~B completion \\
+\amdnew{A-24} OP-17 & Closeout §6 P1 message-substring enforcement across matrix rejections & every matrix rejection asserts error type \emph{and} a message substring (\texttt{match=}), never bare \texttt{pytest.raises(Exception)} / bare \texttt{ValueError} & Two matrix rejections in \texttt{tests/test\_lane\_b\_config\_matrix.py} use bare \texttt{pytest.raises(ValueError)} with no \texttt{match=}: \texttt{test\_lane\_b\_rejected\_set\_window\_rolls\_back\_whole\_state} (parametrized \texttt{bad\_call}) and the stale-table install in \texttt{test\_lane\_b\_polygon\_incompatible\_spatial\_change\_rolls\_back}. \textbf{Discharge path:} OP-17 is discharged by the D-40 entry-path error-identity unification, not by a separate pass --- writing \texttt{match=} against the current constructor/\texttt{set\_window} split would freeze the asymmetry into the suite. & leave bare \texttt{ValueError} accepts as sufficient & \texttt{NumericalConfigError} subclasses \texttt{ValueError}, so bare raises cannot distinguish constructor vs \texttt{set\_window} identity; the entry-path asymmetry WP1.4b introduced would have been caught by a fully enforced P1 & D-40 unification \\
 \end{longtable}
 \end{landscape}
 
@@ -1922,6 +1933,7 @@ A-20 & OP-13 --- placement of post-freeze configuration & DOC & §17 \\
 A-21 & Pre-3f audit, decision freeze, and local correctness repairs & DOC + CF + API + SC & A-9, A-14, A-15, A-17, A-18, A-20; OP-3/4/10/13 \\
 A-22 & Phase 3f opened; ordering and enforcement rule & DOC & §9 criterion; D-35; G1/G2 \\
 A-23 & Config objects: frozen dataclasses, not Pydantic (deviates A-21) & DOC / DEF & A-21 configuration boundary \\
+A-24 & Closeout decisions adopted as D-36--D-39; Lane~B named as §12 gate & DOC & §8 (D-36--D-39); §12; §17 (OP-14--OP-17) \\
 \end{longtable}
 
 \hypertarget{a-1}{%
@@ -2557,5 +2569,82 @@ Phase~3f implements the five named objects --- \texttt{ModelConfig}, \texttt{Pri
 
 \paragraph{Reversibility constraints.}
 All validation remains in \texttt{\_\_post\_init\_\_} behind a single factory --- a later migration to Pydantic should then be mechanical. Do not mix idioms: if Pydantic is revisited at G2 (schema versioning / validated deserialization), all five objects migrate together or none do. Even at G2 the configs will hold NumPy arrays and mass tables that Pydantic does not serialize natively, so custom serializers are required regardless.
+
+
+\hypertarget{a-24}{%
+\subsection{A-24 --- Closeout decisions adopted as D-36--D-39}\label{a-24}}
+
+\textbf{Opened} 2026-08-04. \textbf{Class} DOC. \textbf{Establishes} D-36--D-39; opens OP-14--OP-17. \textbf{Adopts} the decisions proposed in \texttt{refactor-patches/pre-3f-stabilization/phase3e\_closeout\_and\_3f\_readiness.tex}, renumbered. \textbf{Amends} §8, §12, §17.
+
+\paragraph{Renumbering.}
+The closeout drafted these as D-35--D-38. D-35 was allocated concurrently by A-22 to the freeze-ships-with-enforcement rule. They land here as D-36--D-39. Mapping for a reader holding the closeout: closeout D-35 $\rightarrow$ register D-36; closeout D-36 $\rightarrow$ register D-37; closeout D-37 $\rightarrow$ register D-38; closeout D-38 $\rightarrow$ register D-39.
+
+\paragraph{Retroactivity.}
+D-36 and D-37 were pre-registered in \texttt{refactor-patches/pre-3f-stabilization/pre3f\_stabilization\_audit\_protocol.md} (blocker rule §5; finite readiness / iteration cap §9) and applied at tip \texttt{fe44de4} when A-22 opened Phase~3f; they are adopted into this register on 2026-08-04. Stating the retroactivity is required: a rule that appears in the register after the event it authorized, without that sentence, reads as post-hoc justification --- the failure mode the pre-3f series was convened to eliminate.
+
+\paragraph{R1--R9 readiness instance (3f; not part of D-37).}
+The Phase~3f opening instance of D-37 is the closed readiness rule of closeout §5 (R1--R9), evaluated on one frozen candidate tip and recorded in \texttt{refactor-patches/pre-3f-stabilization/readiness\_report.md} (headline \texttt{READY FOR 3F}; candidate tip \texttt{359c031}; §8 battery tip \texttt{c5e4871}; iteration 3 of 3). Cross-walk, citing the closeout text and the artifacts that discharged each condition:
+
+\begin{itemize}
+\tightlist
+\item \textbf{R1} (every known blocker under the blocker test fixed or reachability-recorded) --- closeout §5 R1 / protocol §5; readiness report: B1--B6 closed; ledger in \texttt{findings\_ledger.md}.
+\item \textbf{R2} (focused RED-before-GREEN regression per fixed blocker) --- closeout §5 R2; readiness report: Commit~A RED at \texttt{143d219}; B/C CF; E test.
+\item \textbf{R3} (compatibility matrix passes) --- closeout §5 R3; discharged by the executable Lane~B gate (see §6 resolution below), not by the unimplemented closeout deliverable \texttt{tests/test\_config\_matrix.py}.
+\item \textbf{R4} (standing gates on the candidate tip) --- closeout §5 R4; readiness §8 battery: suite, pins, Lane~B, polygon I11, ruff, \texttt{jax\_enable\_x64}.
+\item \textbf{R5} (register-to-test traceability matrix exists) --- closeout §5 R5 / closeout §7; artifact \texttt{refactor-patches/pre-3f-stabilization/traceability\_matrix.md}.
+\item \textbf{R6} (audit coverage map exists; no 3f-seam module \texttt{unaudited}) --- closeout §5 R6 / closeout §8; artifact \texttt{refactor-patches/pre-3f-stabilization/audit\_coverage\_map.md}.
+\item \textbf{R7} (OP-3, OP-4, OP-7, OP-8, OP-13 dispositions recorded for 3f) --- closeout §5 R7; A-21/A-22/A-23 and the readiness residual-gap table.
+\item \textbf{R8} (one final bounded audit finds no new blocker) --- closeout §5 R8; termination rule closeout §9 / protocol §9.
+\item \textbf{R9} (every remaining non-blocking finding in the ledger with owner) --- closeout §5 R9; readiness residual gaps G1--G3, G6--G8.
+\end{itemize}
+
+\paragraph{Three-iteration cap.}
+Recorded alongside the readiness instance: the final bounded audit is capped at three iterations (closeout §9; protocol §9: ``Cap: three iterations''). Iteration~$k{+}1$ must differ from iteration~$k$ in auditor or method. The 3f opening used iteration 3 of 3.
+
+\paragraph{§6 resolution (why D-38 names files, not section numbers).}
+D-38 cites the executable Lane~B gate by filename --- \texttt{tests/test\_lane\_b\_config\_matrix.py} and \texttt{refactor-patches/pre-3f-stabilization/covering\_array\_rows.json} --- not by any document's section number. Two reasons, both load-bearing:
+
+\begin{enumerate}
+\tightlist
+\item Closeout §6's proposed deliverable \texttt{tests/test\_config\_matrix.py} is not implemented. D-35 requires a freeze to ship with its enforcement in the same commit; binding §12 to a gate with no code would manufacture the register/gate gap this series exists to close, at the moment of adoption.
+\item The bridge ``Lane~B is the implementation of closeout §6'' is not verified true: the axis sets differ (closeout five configuration axes against a nine-axis covering array) and the assertion families are not the covering array's rows. An unverified equivalence in the governing record is worse than no claim.
+\end{enumerate}
+
+Section numbers collide across the two committed documents (closeout §6 = matrix design; protocol §6 = audit lanes); filenames do not.
+
+\paragraph{Coverage delta (closeout §6 design origin $\rightarrow$ Lane~B).}
+Closeout §6 remains the design origin of Lane~B and must not evaporate into a filename. It specifies five configuration axes (C1--C5) and five assertion families (P1--P5). Mapping below was read from \texttt{tests/test\_lane\_b\_config\_matrix.py} against that design; statuses are \emph{asserts} / \emph{partially asserts} / \emph{does not assert}. Every partial or missing item is a recorded unaudited state under D-39.
+
+\subparagraph{Assertion families.}
+\begin{itemize}
+\tightlist
+\item \textbf{P1 Admissibility} --- \textbf{partially asserts.} Closeout P1 requires every rejection in the matrix to assert error type \emph{and} a message substring, not bare \texttt{pytest.raises(Exception)}. Forced reject rows and most covering-array rejects do so; two matrix rejections do not --- \texttt{test\_lane\_b\_rejected\_set\_window\_rolls\_back\_whole\_state} (parametrized \texttt{bad\_call}) and the stale-table install in \texttt{test\_lane\_b\_polygon\_incompatible\_spatial\_change\_rolls\_back} use bare \texttt{pytest.raises(ValueError)} with no \texttt{match=}. Both sit inside P4 rollback tests where the state assertion is the point; that does not change the P1 grade. \textbf{Why it matters:} \texttt{NumericalConfigError} subclasses \texttt{ValueError}, so a bare \texttt{pytest.raises(ValueError)} cannot distinguish the constructor's error from \texttt{set\_window}'s. A fully enforced P1 would have caught the entry-path error asymmetry at the moment WP1.4b created it --- the unasserted assertion family and the defect that slipped past it are the same gap, the concrete instance of D-39's claim. Recorded as OP-17; discharged by the D-40 unification work, not by writing \texttt{match=} against the current split (that would freeze the asymmetry into the suite).
+\item \textbf{P2 Leg consistency} --- \textbf{partially asserts.} Lane~B checks \texttt{excitation\_support is args['excitation\_support']}, mass-table install identity, and \texttt{cutoff\_provenance is not None}. It does \emph{not} assert at every covered success that the event term, compensator, and simulator consume the same support/cutoff atoms (closeout P2). Recorded as OP-14.
+\item \textbf{P3 Provenance} --- \textbf{partially asserts.} Success paths require provenance presence; \texttt{save\_rslts} round-trip is present as a \emph{strict xfail} (ledger G2 / A-22 declared API change). Covering-array success does not assert bit-identical untouched-axis provenance after an accepted \texttt{set\_window}. Recorded as OP-15.
+\item \textbf{P4 Transactionality} --- \textbf{asserts.} Rejected \texttt{set\_window} paths compare whole observable state to a pre-call snapshot (\texttt{\_assert\_window\_state\_unchanged}).
+\item \textbf{P5 Numerical budget} --- \textbf{asserts.} \texttt{test\_lane\_b\_polygon\_shipped\_defaults\_meet\_panel\_budget} requires \texttt{measured\_max\_abs\_residual} $\le$ \texttt{PRODUCTION\_TAU\_ABS} at shipped defaults, with \texttt{BUDGET\_REFERENCE\_GL\_ORDER} recorded in install provenance (production measures against the elevated-GL reference in host float64; \texttt{BUDGET\_REFERENCE\_GL\_ORDER}${}={}32$, oracle bound $10^{-6}$). \textbf{Finding:} contrary to the expectation that P5 would remain unimplemented behind the closeout's former \texttt{[[FILL]]} anchors, the measured residual gate is live in production and asserted by Lane~B. The panel-ratio check in the same test is an additional prefilter, not a substitute for the residual.
+\end{itemize}
+
+\subparagraph{Configuration axes.}
+\begin{itemize}
+\tightlist
+\item \textbf{C1 Model family} --- covered by Lane~B axis \texttt{model\_family} \{\texttt{hawkes}, \texttt{cox\_hawkes}, \texttt{lgcp}\}.
+\item \textbf{C2 Trigger specification} --- covered by remapping, not by identity: closeout C2 is one axis with levels \{built-in Gaussian$\otimes$exponential, power-law temporal, custom\}; Lane~B factors this into \texttt{temporal\_trigger} $\times$ \texttt{spatial\_trigger}. Not an unaudited gap; the factorization differs from the closeout design.
+\item \textbf{C3 Excitation support mode} --- covered by Lane~B axis \texttt{support}.
+\item \textbf{C4 Cutoff input} --- covered by Lane~B axis \texttt{cutoff\_input}.
+\item \textbf{C5 State path} --- \textbf{partially asserts.} Closeout levels are \{\texttt{constructor} only, \texttt{set\_window} success, \texttt{set\_window} rejected\}; Lane~B \texttt{entry\_path} is \{\texttt{constructor}, \texttt{set\_window}\}. Reject outcomes are separate forced/rollback tests, not pairwise-crossed covering-array levels. Recorded as OP-16.
+\end{itemize}
+
+\subparagraph{Extensions beyond closeout C1--C5.}
+A map that lists only shortfalls would imply that everything unlisted matches the design exactly, which is false in both directions. Levels below are taken from \texttt{refactor-patches/pre-3f-stabilization/covering\_array\_rows.json} (17 rows). No OP: these are coverage the design did not ask for, recorded so the declaration is symmetric under D-39.
+\begin{itemize}
+\tightlist
+\item \texttt{builder\_numerics} --- \{\texttt{default\_panel\_gl}, \texttt{guided\_small\_panel}, \texttt{nondefault\_gl\_order}\}.
+\item \texttt{standardization} --- \{\texttt{bool\_rejected}, \texttt{domain\_area}, \texttt{none}\}.
+\item \texttt{sigma\_bounds} --- \{\texttt{both}, \texttt{custom\_spatial\_rejects}, \texttt{neither\_rect}, \texttt{polygon\_min\_required}\}.
+\end{itemize}
+
+\paragraph{Decisions as adopted (register text).}
+See Part~I §8 rows D-36--D-39 (tagged \amdnew{A-24}). Material departures from the closeout draft, beyond renumbering: D-36 generalizes ``the surface 3f will freeze into typed configuration objects'' to ``the surface the next phase will freeze''; D-37 is the readiness \emph{principle}, with R1--R9 kept in this entry as the 3f instance; D-38 names the executable Lane~B filenames per the ruling above; D-39 adds same-commit traceability-row enforcement.
 
 \end{document}
