@@ -118,7 +118,7 @@
 \large \texttt{yuxinlg/\allowbreak{}BSTPP-for-illegal-dumping} --- \texttt{refactor}\\[2pt]
 \large Part I frozen at tip \texttt{476c2a0}; Part II append-only}
 \author{}
-\date{Part I: 2026-07-18. Part II: opened 2026-07-27, entries A-1--A-21\\ (corrections appended 2026-07-28 to A-5, A-12, A-15, A-17; pre-3f freeze A-21 on 2026-07-29).}
+\date{Part I: 2026-07-18. Part II: opened 2026-07-27, entries A-1--A-23\\ (corrections appended 2026-07-28 to A-5, A-12, A-15, A-17; pre-3f freeze A-21 on 2026-07-29; Phase 3f opened A-22/A-23 on 2026-08-04).}
 
 \begin{document}
 \maketitle
@@ -1109,6 +1109,7 @@ D-20 & Stage 3 SBC at R = 200 (full Cox--Hawkes) is the mandatory statistical Ph
 \amdnew{A-15} \textbf{D-32} & \textbf{Held-out data are a complete standalone realization} over the model domain and horizon --- for example a different year at the same location --- not a subset of a split, which would sever the parent structure the Hawkes term depends on. All state derived from parent events is therefore rebuilt from that realization: excitation pairs, and in polygon mode the rows M\_A(s\_j, σ) of the excitation-mass table. Event term and compensator both use the held-out realization's own times and locations; no training-event-indexed row is reused. This is a correctness requirement of the existing held-out likelihood, not a change to its scientific target. & model / contract & team; \texttt{8c4a702}, \texttt{8580364} \\
 \amdnew{A-14} \textbf{D-33} & \textbf{Public state mutation is transactional.} Validation, pair construction, cutoff resolution, support construction, provenance, and mass-table installation are prepared in local state and committed once; a failure at any step leaves every observable field unchanged. Rationale: a half-applied window change is the silent-corruption mode this refactor was convened to eliminate --- the object would report one cutoff and integrate another. & invariant & team; \texttt{798f551}, \texttt{8580364} \\
 \amdnew{A-16} \textbf{D-34} & \textbf{CRS is never adopted, overridden, or inferred silently.} A CRS-bearing domain requires covariates to declare a matching CRS; tabular (CSV / plain \texttt{DataFrame}) covariates require an explicit \texttt{spatial\_cov\_crs}; a mismatch reaching internal attachment raises rather than being rewritten. Rationale: the real-unit trigger contract (D-15, §5.10) is meaningless if coordinates can be reinterpreted without the user's knowledge. & contract & team; \texttt{c22aa51}, \texttt{adea3d3}, \texttt{2cf326d} \\
+\amdnew{A-22} \textbf{D-35} & \textbf{Every freeze ships with its enforcement, in the same commit.} A configuration object that does not validate its own invariants at construction is not done: validation lives in \texttt{\_\_post\_init\_\_} behind a single factory per object, not at scattered call sites. Applies to the Phase~3f frozen configs (starting with \texttt{NumericalConfig}: measured mass-table budget policy, $\sigma$-bound coherence, support-mode compatibility). & invariant / process & team; Phase 3f opening \\
 \end{longtable}
 
 \textbf{Superseded statements (do not carry forward unqualified):}
@@ -1918,6 +1919,9 @@ A-17 & Ancillary fixes; deferred-work rescoping & fix / DEF & §18 \\
 A-18 & Gate ledger and outstanding obligations at \texttt{2cf326d} & record & §12 \\
 A-19 & Change class CF added; A-14 and A-15 reclassified & DOC (taxonomy) & §7.2, A-14, A-15 \\
 A-20 & OP-13 --- placement of post-freeze configuration & DOC & §17 \\
+A-21 & Pre-3f audit, decision freeze, and local correctness repairs & DOC + CF + API + SC & A-9, A-14, A-15, A-17, A-18, A-20; OP-3/4/10/13 \\
+A-22 & Phase 3f opened; ordering and enforcement rule & DOC & §9 criterion; D-35; G1/G2 \\
+A-23 & Config objects: frozen dataclasses, not Pydantic (deviates A-21) & DOC / DEF & A-21 configuration boundary \\
 \end{longtable}
 
 \hypertarget{a-1}{%
@@ -2507,5 +2511,49 @@ Ruff clean on touched modules/tests; repository-wide Ruff still reports legacy f
 Wheel build + Requires-Dist inspection + disposable-venv \texttt{import bstpp} succeeded.
 No change to \texttt{PRODUCTION\_TAU\_ABS}, \texttt{TAU\_DERIV}, $K{=}64$, GL-16, or JAX global precision.
 Document build: same MiKTeX L3 failure; content recorded pending a capable toolchain.
+
+
+\subsection{A-22 --- Phase 3f opened at \texttt{fe44de4}}\label{a-22}}
+
+\textbf{Opened} 2026-08-04. \textbf{Class} DOC. \textbf{Establishes} D-35. \textbf{Amends} A-21's ``does not begin 3f'' framing; records the pre-3f closeout verdict.
+
+\paragraph{Opening.}
+Phase 3f opens at tip \texttt{fe44de4} against the pre-registered §9 criterion in \texttt{pre3f\_stabilization\_audit\_protocol.md}. Closeout artifacts live under \texttt{refactor-patches/pre-3f-stabilization/}. The phase is many commits; each work package gets its own brief. This entry is not a mandate for an open-ended rewrite.
+
+\paragraph{Declared changes owned by 3f (from the closeout ledger).}
+\begin{itemize}
+\tightlist
+\item \textbf{G1} --- membership predicate consolidated to a single \texttt{covers\_xy} used by validation and simulation. Structural; no numerical change expected.
+\item \textbf{G2} --- \texttt{save\_rslts} implements the A-21 save/load contract with provenance and hard-fail incompatibility. Declared \textbf{API} change; Lane~B strict xfail flips to a passing assertion in the same commit.
+\end{itemize}
+
+\paragraph{Ordering.}
+Bottom-up, adapter last. Introduce config and prepared objects \emph{behind} the existing \texttt{args} structure; the adapter translates. \texttt{args} remains the safety net for pin-equivalent intermediate commits. OP-8 (legacy-\texttt{args} removal) is the final work package, not the first. Seam~4 (RNG ownership) is already settled by pre-3f Commit~B (\texttt{6ba2194}) and is a constraint the new objects must honor.
+
+\paragraph{Enforcement rule (D-35).}
+Every freeze ships with its enforcement in the same commit. A config object that does not validate its own invariants at construction is not done. \texttt{NumericalConfig} carrying \texttt{panel\_h\_m} and \texttt{gl\_order} must assert the Commit~C measured-budget policy (\texttt{PRODUCTION\_TAU\_ABS}${}={}10^{-5}$, \texttt{BUDGET\_REFERENCE\_GL\_ORDER}${}={}32$) at construction, together with $\sigma$-bound coherence and support-mode compatibility --- not leave those checks solely to downstream call sites.
+
+\paragraph{Gate profile (every 3f commit).}
+Full suite; Lane~B covering array; four-config pins (\texttt{PIN\_DIFFS 0 MATCH}); ruff on touch; \texttt{jax\_enable\_x64} unchanged. A pin diff during a behavior-preserving commit stops the phase for human decision.
+
+
+\subsection{A-23 --- Config objects as frozen dataclasses (deviation from A-21 Pydantic)}\label{a-23}}
+
+\textbf{Opened} 2026-08-04. \textbf{Class} DOC / DEF. \textbf{Amends} A-21 configuration-boundary paragraph (``strict, frozen Pydantic models''). \textbf{Decided by} Terhi.
+
+\paragraph{Deviation.}
+\supsd{A-21}{The five user-authored configurations will be strict, frozen Pydantic models.}
+Phase~3f implements the five named objects --- \texttt{ModelConfig}, \texttt{PriorConfig}, \texttt{PartitionDecoderConfig}, \texttt{NumericalConfig}, \texttt{InferenceRunConfig} --- as \texttt{@dataclass(frozen=True)} with validation in \texttt{\_\_post\_init\_\_}, constructed through a single factory per object. No new runtime dependency is added.
+
+\paragraph{Reasoning (WP1.0).}
+\begin{enumerate}
+\tightlist
+\item Pydantic v2 ships a compiled Rust core; adopting it perturbs the declared environment during the one phase whose central claim is bit-identical trace equivalence \emph{within} that environment, and it touches the runtime pin set guarded by \texttt{test\_wheel\_requires\_dist\_contains\_critical\_runtime\_pins}.
+\item These objects are constructed internally behind the adapter from arguments that already cleared data contracts. Pydantic's value is parsing untrusted external input; every validation that matters here is a custom validator either way.
+\item Silent type coercion is an active hazard where float32-vs-float64 is load-bearing and JAX and NumPy arrays are not interchangeable.
+\end{enumerate}
+
+\paragraph{Reversibility constraints.}
+All validation remains in \texttt{\_\_post\_init\_\_} behind a single factory --- a later migration to Pydantic should then be mechanical. Do not mix idioms: if Pydantic is revisited at G2 (schema versioning / validated deserialization), all five objects migrate together or none do. Even at G2 the configs will hold NumPy arrays and mass tables that Pydantic does not serialize natively, so custom serializers are required regardless.
 
 \end{document}
