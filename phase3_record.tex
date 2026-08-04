@@ -1518,10 +1518,26 @@ Prep (freeze) & M (recorded) & M (recorded) & M (suite green at tip) & M & M (ar
 3e & M (fixed cutoffs) & M (fixed cutoffs) & M (unit/conversion) & M & C & C & C & --- & M (tail-mass formulas) & M (cutoff-consistent) & M (cutoff provenance) & M (spec addendum) \\
 3f & M & M & M & M & C & C & C & M (regression) & C & M (regression) & M (decoder contract) & M \\
 3g / exit & E (all families) & E & E & \textbf{E (all three families end-to-end)} & C & C & \textbf{E (new R=200 at Phase 3 tip)} & E & E & E & E & E \\
-\amdnew{A-24} Lane~B matrix (D-38) & --- & --- & \textbf{M} when constructor signature, \texttt{set\_window}, trigger/support selection, cutoff interface, or provenance construction changes (\texttt{tests/test\_lane\_b\_config\_matrix.py} + \texttt{covering\_array\_rows.json}) & --- & --- & --- & \textbf{E} at Phase~3 tip with D-20 Stage~3 SBC & --- & --- & --- & --- & --- \\
 \end{longtable}
 \end{landscape}
 
+\amdnew{A-24}
+\paragraph{Standing gates added after the freeze.}
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 6\tabcolsep) * \real{0.2800}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 6\tabcolsep) * \real{0.3600}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 6\tabcolsep) * \real{0.2000}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 6\tabcolsep) * \real{0.1600}}@{}}
+\toprule\noalign{}
+Gate & Mandatory (\textbf{M}) on & Exit (\textbf{E}) & Source \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\amdnew{A-24} Lane~B compatibility / state-transition matrix (\texttt{tests/test\_lane\_b\_config\_matrix.py} + \texttt{refactor-patches/pre-3f-stabilization/covering\_array\_rows.json}) & constructor signature; \texttt{set\_window}; trigger or support selection logic; cutoff interface; provenance construction & at the Phase~3 tip alongside D-20's Stage~3 SBC run & A-24 / D-38 \\
+\end{longtable}
+
+\amdnew{A-24} These gates are additional to the §12.2 matrix and replace nothing in it --- they do not replace the pins, the SBC gates, or the polygon conservation tests.
 
 Notes:
 
@@ -1540,7 +1556,7 @@ Notes:
 \item
   \amdnew{A-7} The 3c conditional (C) escalation fired and was discharged by adding SBC stage 2p rather than rerunning stage 2 --- see A-7. This is the intended operation of the C column.
 \item
-  \amdnew{A-24} The Lane~B matrix row (D-38) is \textbf{M} on the listed trigger surfaces and \textbf{E} at the Phase~3 tip alongside D-20; it does not replace pins, SBC gates, or polygon conservation tests. See A-24 for the §6 naming ruling and the closeout-to-Lane~B coverage delta.
+  \amdnew{A-24} The Lane~B gate (D-38) is recorded in the standing-gates table after §12.2 (not as a matrix phase row): \textbf{M} on the listed trigger surfaces and \textbf{E} at the Phase~3 tip alongside D-20; it does not replace pins, SBC gates, or polygon conservation tests. See A-24 for the §6 naming ruling, the closeout-to-Lane~B coverage delta, and the correction of the earlier transposed matrix row.
 \end{itemize}
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
@@ -2548,6 +2564,7 @@ Every freeze ships with its enforcement in the same commit. A config object that
 
 \paragraph{Gate profile (every 3f commit).}
 Full suite; Lane~B covering array; four-config pins (\texttt{PIN\_DIFFS 0 MATCH}); ruff on touch; \texttt{jax\_enable\_x64} unchanged. A pin diff during a behavior-preserving commit stops the phase for human decision.
+\amdnew{A-24} \emph{Documentation-only profile (amends this paragraph).} A commit qualifies as documentation-only when its diff touches no file that any gate reads. The rule is stated by what reads a file, not by directory: e.g.\ \texttt{refactor-patches/pre-3f-stabilization/covering\_array\_rows.json} is read by \texttt{tests/test\_lane\_b\_config\_matrix.py}, and \texttt{refactor-patches/pin\_check\_v2.py} with \texttt{baselines-2026-07/pins.json} are the pin harness --- those are not documentation-only paths; an inert document beside them (e.g.\ \texttt{traceability\_matrix.md}) may be. On a documentation-only commit, pins and suite are recorded as \emph{not run} with the reason and the file list; the discriminating gates are the document build (when the toolchain permits), the structural \texttt{\textbackslash hypertarget} check, and any content checks that catch category errors the suite cannot see. Anything that touches a gate-read file runs the full profile above. Declaration and first use land together (this A-24 paragraph; first use in the same commit that repairs the §12.2 transposed row).
 
 
 \hypertarget{a-23}{%
@@ -2646,5 +2663,11 @@ A map that lists only shortfalls would imply that everything unlisted matches th
 
 \paragraph{Decisions as adopted (register text).}
 See Part~I §8 rows D-36--D-39 (tagged \amdnew{A-24}). Material departures from the closeout draft, beyond renumbering: D-36 generalizes ``the surface 3f will freeze into typed configuration objects'' to ``the surface the next phase will freeze''; D-37 is the readiness \emph{principle}, with R1--R9 kept in this entry as the 3f instance; D-38 names the executable Lane~B filenames per the ruling above; D-39 adds same-commit traceability-row enforcement.
+
+\paragraph{§12.2 transposed-row correction.}
+The D-38 gate was first recorded (commit \texttt{beb0482}) as a row in the §12.2 matrix. The matrix's row axis is Phase, so placing ``Lane~B matrix (D-38)'' in column~1 was a category error: the thirteen fields then landed in gate-family columns by position, with the substantive marks falling in Unit/property tests (column~4) and Stage~3 SBC (column~8). Column~8 contradicted D-38's own non-replacement clause one page earlier. The row was syntactically valid at thirteen fields, so it compiled and the structural \texttt{\textbackslash hypertarget} check passed --- neither existing gate could see this class of error. The correction relocates D-38 to a separate standing-gates table immediately after §12.2 (additional to the matrix; replaces nothing in it). A row that compiled, passed the structural check, and contradicted the decision it implements is a useful instance of what D-39 is about.
+
+\paragraph{Documentation-only gate profile (declaration).}
+A-22's gate-profile paragraph is amended in the same commit as this correction (see the \amdnew{A-24} clause under A-22): a commit is documentation-only when its diff touches no file that any gate reads; pins and suite are then recorded as not run with the reason and the file list; the discriminating gates are the document build, the structural check, and content checks such as the §12.2 column-1 phase-name check. Declaration and first use land together --- relaxing a declared profile without recording the relaxation is the process form of the gap D-35 exists to close.
 
 \end{document}
