@@ -1,6 +1,7 @@
 # READY FOR 3F
 
-**Candidate tip:** `c5e48713ec1abd58034a9dfc32f0cb8577ba756f` (`refactor`)  
+**Candidate tip:** `359c0315531665a72cf5faf58e084db64ae5dd77` (`refactor`; DOC refresh)  
+**§8 battery tip:** `c5e48713ec1abd58034a9dfc32f0cb8577ba756f` (identical production tree)  
 **Iteration:** 3 of 3  
 **Environment:** jax==0.4.23, numpyro==0.15.0, numpy==1.26.4, scipy==1.11.4, geopandas==1.1.3, `jax_enable_x64=False`, cpu  
 
