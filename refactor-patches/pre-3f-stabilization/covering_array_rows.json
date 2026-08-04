@@ -1,0 +1,189 @@
+[
+  {
+    "model_family": "hawkes",
+    "support": "rectangle",
+    "temporal_trigger": "Temporal_Power_Law",
+    "spatial_trigger": "Spatial_Symmetric_Gaussian",
+    "cutoff_input": "explicit_None_via_set_window",
+    "entry_path": "set_window",
+    "builder_numerics": "guided_small_panel",
+    "standardization": "bool_rejected",
+    "sigma_bounds": "custom_spatial_rejects"
+  },
+  {
+    "model_family": "cox_hawkes",
+    "support": "polygon",
+    "temporal_trigger": "custom",
+    "spatial_trigger": "custom",
+    "cutoff_input": "physical",
+    "entry_path": "constructor",
+    "builder_numerics": "guided_small_panel",
+    "standardization": "domain_area",
+    "sigma_bounds": "both"
+  },
+  {
+    "model_family": "lgcp",
+    "support": "polygon",
+    "temporal_trigger": "Temporal_Exponential",
+    "spatial_trigger": "custom",
+    "cutoff_input": "omitted",
+    "entry_path": "set_window",
+    "builder_numerics": "nondefault_gl_order",
+    "standardization": "none",
+    "sigma_bounds": "neither_rect"
+  },
+  {
+    "model_family": "lgcp",
+    "support": "rectangle",
+    "temporal_trigger": "custom",
+    "spatial_trigger": "Spatial_Symmetric_Gaussian",
+    "cutoff_input": "tolerance",
+    "entry_path": "constructor",
+    "builder_numerics": "default_panel_gl",
+    "standardization": "none",
+    "sigma_bounds": "polygon_min_required"
+  },
+  {
+    "model_family": "hawkes",
+    "support": "polygon",
+    "temporal_trigger": "Temporal_Power_Law",
+    "spatial_trigger": "custom",
+    "cutoff_input": "tolerance",
+    "entry_path": "constructor",
+    "builder_numerics": "default_panel_gl",
+    "standardization": "bool_rejected",
+    "sigma_bounds": "neither_rect"
+  },
+  {
+    "model_family": "cox_hawkes",
+    "support": "rectangle",
+    "temporal_trigger": "Temporal_Exponential",
+    "spatial_trigger": "Spatial_Symmetric_Gaussian",
+    "cutoff_input": "tolerance",
+    "entry_path": "set_window",
+    "builder_numerics": "nondefault_gl_order",
+    "standardization": "domain_area",
+    "sigma_bounds": "both"
+  },
+  {
+    "model_family": "hawkes",
+    "support": "polygon",
+    "temporal_trigger": "Temporal_Exponential",
+    "spatial_trigger": "custom",
+    "cutoff_input": "explicit_None_via_set_window",
+    "entry_path": "constructor",
+    "builder_numerics": "nondefault_gl_order",
+    "standardization": "domain_area",
+    "sigma_bounds": "polygon_min_required"
+  },
+  {
+    "model_family": "cox_hawkes",
+    "support": "polygon",
+    "temporal_trigger": "Temporal_Power_Law",
+    "spatial_trigger": "Spatial_Symmetric_Gaussian",
+    "cutoff_input": "omitted",
+    "entry_path": "constructor",
+    "builder_numerics": "default_panel_gl",
+    "standardization": "domain_area",
+    "sigma_bounds": "custom_spatial_rejects"
+  },
+  {
+    "model_family": "lgcp",
+    "support": "rectangle",
+    "temporal_trigger": "custom",
+    "spatial_trigger": "Spatial_Symmetric_Gaussian",
+    "cutoff_input": "physical",
+    "entry_path": "set_window",
+    "builder_numerics": "nondefault_gl_order",
+    "standardization": "bool_rejected",
+    "sigma_bounds": "custom_spatial_rejects"
+  },
+  {
+    "model_family": "cox_hawkes",
+    "support": "rectangle",
+    "temporal_trigger": "Temporal_Exponential",
+    "spatial_trigger": "custom",
+    "cutoff_input": "omitted",
+    "entry_path": "set_window",
+    "builder_numerics": "guided_small_panel",
+    "standardization": "bool_rejected",
+    "sigma_bounds": "polygon_min_required"
+  },
+  {
+    "model_family": "hawkes",
+    "support": "rectangle",
+    "temporal_trigger": "Temporal_Power_Law",
+    "spatial_trigger": "custom",
+    "cutoff_input": "physical",
+    "entry_path": "set_window",
+    "builder_numerics": "default_panel_gl",
+    "standardization": "none",
+    "sigma_bounds": "both"
+  },
+  {
+    "model_family": "cox_hawkes",
+    "support": "rectangle",
+    "temporal_trigger": "custom",
+    "spatial_trigger": "Spatial_Symmetric_Gaussian",
+    "cutoff_input": "explicit_None_via_set_window",
+    "entry_path": "constructor",
+    "builder_numerics": "guided_small_panel",
+    "standardization": "none",
+    "sigma_bounds": "neither_rect"
+  },
+  {
+    "model_family": "lgcp",
+    "support": "rectangle",
+    "temporal_trigger": "Temporal_Exponential",
+    "spatial_trigger": "custom",
+    "cutoff_input": "tolerance",
+    "entry_path": "set_window",
+    "builder_numerics": "guided_small_panel",
+    "standardization": "none",
+    "sigma_bounds": "custom_spatial_rejects"
+  },
+  {
+    "model_family": "lgcp",
+    "support": "rectangle",
+    "temporal_trigger": "Temporal_Power_Law",
+    "spatial_trigger": "custom",
+    "cutoff_input": "explicit_None_via_set_window",
+    "entry_path": "set_window",
+    "builder_numerics": "default_panel_gl",
+    "standardization": "bool_rejected",
+    "sigma_bounds": "both"
+  },
+  {
+    "model_family": "lgcp",
+    "support": "polygon",
+    "temporal_trigger": "Temporal_Exponential",
+    "spatial_trigger": "custom",
+    "cutoff_input": "physical",
+    "entry_path": "set_window",
+    "builder_numerics": "default_panel_gl",
+    "standardization": "domain_area",
+    "sigma_bounds": "neither_rect"
+  },
+  {
+    "model_family": "hawkes",
+    "support": "polygon",
+    "temporal_trigger": "custom",
+    "spatial_trigger": "Spatial_Symmetric_Gaussian",
+    "cutoff_input": "omitted",
+    "entry_path": "constructor",
+    "builder_numerics": "guided_small_panel",
+    "standardization": "domain_area",
+    "sigma_bounds": "both"
+  },
+  {
+    "model_family": "cox_hawkes",
+    "support": "rectangle",
+    "temporal_trigger": "Temporal_Power_Law",
+    "spatial_trigger": "custom",
+    "cutoff_input": "physical",
+    "entry_path": "constructor",
+    "builder_numerics": "nondefault_gl_order",
+    "standardization": "none",
+    "sigma_bounds": "polygon_min_required"
+  }
+]
