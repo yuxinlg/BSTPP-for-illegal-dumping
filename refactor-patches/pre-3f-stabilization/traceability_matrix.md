@@ -1,104 +1,110 @@
 # Traceability matrix + Lane B state machine
 
-**Candidate tip:** `cd62288`  
-**Marks:** verified / reported / inferred as noted.
+**Candidate tip:** `c5e48713ec1abd58034a9dfc32f0cb8577ba756f`  
+**Iteration:** 3  
+**Marks:** verified / reported / inferred as noted.  
+**Governing record:** repository-root `phase3_record.tex`. Untracked root `phase3_baseline_and_decisions.tex` is **not** governing.
 
 ## Lane B — axis level sets (from code)
 
 | Axis | Level set (verified in code) | Primary sites |
 |---|---|---|
-| Model family | `{plain Hawkes: cox_background=False, Cox–Hawkes: cox_background in {True,'cox'}, LGCP: LGCP_Model}` | `bstpp/main.py` `Hawkes_Model.__init__`, `LGCP_Model` |
-| Support | `{rectangle, polygon}`; array domains default `rectangle`; GeoDataFrame nonrectangular requires explicit mode (D-23) | `resolve_excitation_support_mode`, `build_excitation_support` |
-| Trigger temporal | `{Temporal_Exponential, Temporal_Power_Law, custom class}` — exponential-only kwargs gated by exact type | `trigger.py`, capability gates in `Hawkes_Model` |
-| Trigger spatial | `{Spatial_Symmetric_Gaussian, custom}`; polygon requires **exact** Gaussian type | same |
-| Cutoff input | physical `window` / `temporal_cutoff_days` / `spatial_window`; tols `temporal_cutoff_tol` / `spatial_cutoff_tol` / `cutoff_tol`; design scales; omitted → untruncated defaults; `set_window` `_UNSET` vs explicit `None` | `cutoffs.py`, `Hawkes_Model.set_window` |
-| Entry path | constructor; `Hawkes_Model.set_window`; `LGCP_Model.set_window` → always `NotImplementedError`; no other public mutators found | `main.py` |
-| Builder numerics | `panel_h_m` / `gl_order` on `prepare_polygon_mass_table` / `build_excitation_support` defaults; **not** Hawkes constructor kwargs | `polygon_mass.py`, `excitation_support.py` |
-| Standardization | `standardize_cov in {None, "domain_area"}`; default **`None`**; bool rejected | `main.py:236`, `tests/test_standardization_api.py` (**verified**) |
-| σ bounds | polygon: `min_sigma` required; `max_sigma` default 5 km via CRS; rectangle: both or neither | `resolve_sigma_bounds` |
-| Outcomes | success; named `ValueError`/`TypeError`/`NotImplementedError` at validation points; transactional rollback on failed `set_window` | Phase 3d/3e tests |
+| Model family | `{plain Hawkes, Cox–Hawkes, LGCP}` | `main.py` |
+| Support | `{rectangle, polygon}`; GeoDataFrame nonrectangular requires explicit mode (D-23) | `resolve_excitation_support_mode` |
+| Trigger temporal | `{Temporal_Exponential, Temporal_Power_Law, custom}` | `trigger.py`, capability gates |
+| Trigger spatial | `{Spatial_Symmetric_Gaussian, custom}`; polygon exact Gaussian | same |
+| Cutoff input | physical / tol / omitted / `set_window` `_UNSET` vs `None` | `cutoffs.py`, `set_window` |
+| Entry path | constructor; `Hawkes_Model.set_window`; `LGCP_Model.set_window` → `NotImplementedError` | `main.py` |
+| Builder numerics | on `prepare_polygon_mass_table` only (`build_excitation_support` has no panel/gl kwargs after `86ca179`) | `polygon_mass.py` |
+| Standardization | `{None, "domain_area"}`; bool rejected | `main.py`, `test_standardization_api` |
+| σ bounds | polygon `min_sigma` required; rectangle both or neither | `resolve_sigma_bounds` |
 
-### `PRODUCTION_TAU_ABS` disposition
+### `PRODUCTION_TAU_ABS` disposition (corrected)
 
 | Source | Value | Status |
 |---|---|---|
-| Protocol §6 derivation text (10% of 3σ cutoff) | `5.392e-4` | **stale vs A-21**; retained historically as `LEGACY_SHOOTOUT_TAU_ABS` |
-| A-21 / code | `PRODUCTION_TAU_ABS = TAU_ABS = 1e-5` | **verified** `polygon_mass.py:62–63` |
-| Derivative gate | `TAU_DERIV = 5.39e-4` provisional (OP-12 open) | **verified** |
+| A-21 / code | `PRODUCTION_TAU_ABS = TAU_ABS = 1e-5` | **authority for mass-table budget** (`polygon_mass.py:62–63`) |
+| Legacy shootout / old derivation text | `LEGACY_SHOOTOUT_TAU_ABS = 5.39e-4` | **not** the production mass budget |
+| OP-12 | `TAU_DERIV = 5.39e-4` provisional | open; not mass-table accept/reject |
 
-## Pairwise / forced coverage sketch
+### Mass-table budget design (`13a8525` + Commit C `86ca179`)
 
-| Family × support | Existing discriminating evidence | Gap |
+| Question | Answer (verified) |
+|---|---|
+| Where do install sites read `h_panel`/`gl_order`? | From the **table** inside `validate_polygon_mass_table`. |
+| Budget assertion? | **Measured** residual vs host float64 elevated-GL (`BUDGET_REFERENCE_GL_ORDER=32`) ≤ `PRODUCTION_TAU_ABS`; panel-ratio is a prefilter only (surrogate invalid at `gl_order=8`). |
+| `build_excitation_support` kwargs? | **Removed** (`panel_h_m` / `gl_order` no longer in signature). |
+| Change class | **CF** |
+
+### Pairwise / forced coverage
+
+| Family × support | Evidence | Gap |
 |---|---|---|
-| Hawkes × rectangle | pins + smoke + identities + cutoffs | Lane B full pairwise matrix suite **absent** as one gate |
-| Hawkes × polygon | phase3d, heldout, mass prepare/compat; Lane B matrix + B1 install suite | B1 closed (`13a8525`) |
-| Cox–Hawkes × rectangle | pin + smoke + Lane B | — |
-| Cox–Hawkes × polygon | Lane B `test_lane_b_cox_hawkes_polygon_constructs` | deepen in iteration 2 |
-| LGCP × rectangle | pin + smoke + sim union filter | n/a excitation |
-| LGCP × polygon domain (background only) | SBC stage2p artifact (**reported**); `set_window` rejected | n/a |
+| Hawkes × rectangle | pins + Lane B | — |
+| Hawkes × polygon | phase3d + B1 + Lane B + I11 | — |
+| Cox–Hawkes × rectangle/polygon | smoke + Lane B | — |
+| LGCP × rectangle | smoke + Lane B set_window reject | — |
 
-**Forced reject rows with tests (verified by suite subset):** unsupported kernel kwargs (`test_kernel_capability_gates`); LGCP `set_window` (`test_lgcp_set_window`); polygon without mass_table; held-out without/wrong table; bool `standardize_cov`; sentinel/`None` semantics (`test_set_window_sentinel`, untouched provenance).
+**Executable gate:** `tests/test_lane_b_config_matrix.py`. Claim: **forced rows + nine-axis pairwise covering array (fraction 1.000)** — see `docs/config_matrix.md`.
 
-**Specify (do not add in this pass):**
+## Register traceability
 
-1. `test_polygon_install_uses_table_or_model_panel_gl_settings` — CRS-less `min_sigma` small enough that default panel fails prepare; prepare with `panel_h_m <= 8*min_sigma`; construct with matching settings → success; construct without forwarding → current failure (RED on tip).  
-2. `test_nondefault_gl_order_round_trips_install` — prepare `gl_order=8`, install with same → success; mismatch → named error.  
-3. Shared state-machine parametrization over every public mutator (currently only `set_window`) for success/sentinel/rollback/provenance identity.  
-4. Pairwise family×support×cutoff-entry forced rows as one marked Lane B module.
-
-## Register traceability (active IDs)
-
-Register inventory from `phase3_record.tex` at tip: **D-1…D-34** contiguous; **A-1…A-21**; **OP-2…OP-13** (OP-1 never allocated); **I1, I3–I6, I8/I8a/I8b, I9–I12** (I2, I7 absent).
+Register inventory: **D-1…D-34**; **A-1…A-21**; **OP-2…OP-13** (OP-1 never allocated); **I1, I3–I6, I8/I8a/I8b, I9–I12**.
 
 | ID | Contract (short) | Register status | Production sites | Execution legs | Existing evidence | Evidence type | Gap | Treatment | Owner |
 |---|---|---|---|---|---|---|---|---|---|
-| D-1 | Hybrid phase ordering | active | process | n/a | A-21 / this audit | manual review | n/a | follow ordering | team |
-| D-2 | A is scientific+observed domain | active | `data_contracts`, `prepare_domain` | validate/sim | `test_data_contracts`, clipped support | integration | none material | keep | 3g docs |
-| D-3 | Events outside A rejected | active | `validate_events`, membership | ctor/held-out | tests outside-domain | direct | none | keep | — |
-| D-4 | Boundary points inside | active | `shapely.covers` / `covers_xy` | validate/sim | boundary tests | direct | duplicate predicates | structural single-source in 3f | 3f |
-| D-5/D-22 | Half-open unique membership | active | membership helpers | grid joins | `test_membership_d22` | direct | none | keep | — |
-| D-6/D-7 | Clipped support areas | active | `preparation` refinement | bg/lik | `test_clipped_support`, likelihood atoms | integration | none | keep | — |
-| D-8/D-9 | District vs citywide excitation | active | model domain choice | n/a | doc | inferred | executable citywide test absent | review check | post-Phase-3 |
-| D-10–D-12 | Standardization principles | active | `standardize_cov` | prep | `test_standardization_api` | direct | OP-5 weights deferred | keep | — |
-| D-13/D-14/D-21 | Infinite kernels; cutoffs; square | active | `cutoffs`, `utils`, lik, sim | all three legs | phase3e + identities | integration | none | keep | — |
-| D-15/D-16 | Human units; β mean lag | active | triggers/cutoffs | ctor | phase3e, capability gates | direct | none | keep | — |
-| D-17/D-18/D-23 | Two modes; one support object; no silent default | active | `ExcitationSupport` | parenting+compensator | phase3d | structural | none | keep | — |
+| D-1 | Hybrid phase ordering | active | process | n/a | A-21 | inferred | n/a | follow ordering | team |
+| D-2 | A is scientific+observed domain | active | data_contracts, prepare_domain | validate/sim | tests | integration | none material | keep | 3g |
+| D-3 | Events outside A rejected | active | validate_events | ctor | tests + hole probe | direct | none | keep | — |
+| D-4 | Boundary points inside | active | covers / covers_xy | validate/sim | tests + hole covers_xy | direct | duplicate preds | 3f single-source | 3f |
+| D-5/D-22 | Half-open membership | active | membership | grid | test_membership_d22 | direct | none | keep | — |
+| D-6/D-7 | Clipped support areas | active | preparation | bg/lik | clipped tests | integration | none | keep | — |
+| D-8/D-9 | District vs citywide | active | domain choice | n/a | doc | inferred | no executable citywide | post-Phase-3 | post-Phase-3 |
+| D-10–D-12 | Standardization | active | standardize_cov | prep | test_standardization_api | direct | OP-5 deferred | keep | — |
+| D-13/D-14/D-21 | Infinite kernels; cutoffs; square | active | cutoffs, utils, lik, sim | three legs | phase3e + identities | integration | none | keep | — |
+| D-15/D-16 | Human units; β mean lag | active | triggers/cutoffs | ctor | phase3e, gates | direct | none | keep | — |
+| D-17/D-18/D-23 | Two modes; one support; no silent default | active | ExcitationSupport | parenting+comp | phase3d + Lane B | structural | none | keep | — |
 | D-19 | City-scale out of scope | active | n/a | n/a | doc | inferred | n/a | defer | post-Phase-3 |
-| D-20 | Stage3 SBC R=200 exit | active | SBC harness | exit gate | baselines-2026-07 stage3 (**reported**); tip exit **not** rerun | integration | tip exit outstanding | run at Phase3 tip | Phase3 exit |
-| D-24–D-27 | Cutoff tol; Hermite table; hard-require; compat identity | active | cutoffs, polygon_mass, excitation_support | prepare/install/score | phase3d/e, compat, heldout | direct | **B1** install vs defaults | CF+API repair | pre-3f |
-| D-28/D-29 | Prior truncation; σ bounds disclosure | active | `truncate_sigmax_2_prior` | polygon ctor | truncated_lognormal, onesided tests | direct | extreme float32 notes | property suite later | 3g/num |
-| D-30 | Union area authoritative | active | `PreparedDomain`, sim filter, hawkes bg | area/sim/bg | domain_union, hawkes_bg_union, simulate_* | direct | `_plot_grid` multi-row (plot only) | defer plot | 3g |
+| D-20 | Stage3 SBC R=200 exit | active | SBC | exit | baselines (**reported**); tip not rerun | integration | tip exit | Phase3 exit | Phase3 exit |
+| D-24 | Cutoff tol + provenance | active | cutoffs | ctor/set_window | phase3e | direct | none | keep | — |
+| D-25 | Hermite mass table | active | polygon_mass | prepare/eval | production + B1 | numerical | none | keep | — |
+| D-26 | Hard-require prepared table | active | excitation_support, main | install | B1 + heldout | direct | B4 mutate-after-install | freeze/copy | pre-3f |
+| D-27 | Compat identity ≠ equal counts | active | validate_polygon_mass_table | install | compat suite | direct | none | keep | — |
+| D-28/D-29 | Prior truncation; σ disclosure | active | truncate_sigmax_2_prior | polygon | TLN tests | direct | G3 | 3g | 3g |
+| D-30 | Union area authoritative | active | PreparedDomain, sim, bg | area/sim | domain_union + iter2 OV probe | direct | B3 alias of bounds | copy bounds | pre-3f |
 | D-31 | data_contracts default reject | active | ctor | validate | data_contracts tests | direct | none | keep | — |
-| D-32 | Held-out standalone realization | active | `log_expected_likelihood` | scoring | `test_heldout_polygon_mass` | direct | none on instance | keep | — |
-| D-33 | Transactional set_window | active | `set_window` | mutator | sentinel + untouched + phase3e | direct | class-level mutator matrix incomplete (only one mutator) | extend matrix | 3f |
-| D-34 | (see record) | active | per record | per record | A-21 text | reported | confirm in record row if needed | review | — |
-| A-1…A-20 | Phase amendments | active/historical | various | various | rebaseline records | reported | re-established selectively this pass | see closeouts | — |
-| A-21 | Pre-3f freeze + CF series | active | many | many | `pre3f_audit_e0d7e43.md` + this audit | mixed | panel plumbing deferred but **B1** bites now | repair B1 before READY | pre-3f |
-| OP-2 | Support mode default | **resolved→D-23** | resolve mode | ctor | phase3d | direct | none | closed | — |
-| OP-3/OP-4 | Standardization default/API | **settled A-21**; Part I historical text still says open | `standardize_cov=None` | prep | `test_standardization_api` **verified** | direct | Part I prose stale by design | treat A-21 as operative | — |
-| OP-5 | User weights | open/deferred | n/a | n/a | register | inferred | deferred | YAGNI | post-Phase-3 |
-| OP-6 | Cutoff interface | **resolved→D-24** | cutoffs | ctor/set_window | phase3e | direct | none | closed | — |
-| OP-7 | Cutoff config placement | **subsumed by OP-13** | future NumericalConfig | 3f | A-20/A-21 | inferred | implement in 3f | 3f | 3f |
-| OP-8 | Remove legacy `args` | **open** (3f design) | `self.args` everywhere | all | A-21 | inferred | removal sequencing | 3f design | 3f |
-| OP-9 | Polygon backend | **resolved→D-25** | polygon_mass | prepare/eval | production gate + shootout | numerical | none | closed | — |
-| OP-10 | max_sigma default | **settled A-21** keep 5 km disclosed | `resolve_sigma_bounds` | polygon | code meta `default_5km` | direct | none | closed | — |
-| OP-11 | Custom polygon mass | open post-Phase-3 | exact-type gate | polygon ctor | capability/phase3d | direct | placeholder gate | post-Phase-3 | post-Phase-3 |
-| OP-12 | Derivative gate | **open** | `TAU_DERIV` | table QA | production gate reports separately | numerical | policy unsettled | before polygon SBC | pre-polygon-SBC |
-| OP-13 | Config object placement | **settled A-21** five Pydantic models | not implemented | 3f | A-21 binding text | inferred | objects not created | implement in 3f | 3f |
-| I1 | Sim/lik mass atoms | active | lik + `_sim_cox` | bg | seasonal_integral, likelihood_atoms | direct | none | keep | — |
-| I3/I4 | Pair window contract | active | utils, lik, sim | pairs | pairs + identities | direct | none | keep | — |
-| I5 | Single factor site | active | inference_functions | model | `test_smoke` | direct | none | keep | — |
-| I6 | Seasonal coordinate | active | `_scale_xyt` | prep | record cites tests | reported | n/a | keep | — |
-| I8/I8a/I8b | Special-case reductions | active | identities | model | `test_identities` | direct | none | keep | — |
+| D-32 | Held-out standalone | active | log_expected_likelihood | scoring | heldout suite | direct | none | keep | — |
+| D-33 | Transactional set_window | active | set_window | mutator | sentinel + Lane B rollback | direct | only one mutator | 3f | 3f |
+| D-34 | CRS never adopted/inferred silently; tabular cov requires `spatial_cov_crs` | active | data_contracts, preparation attach | ctor | A-16 commits + `tests/test_crs_set_crs_paths.py` (suite presence); record text | **verified** (record+sites); suite not re-run iter2 | none material | keep | — |
+| A-1…A-5 | Early Phase 3a–3c amendments (contracts, standardization freeze path, area union) | historical/active | various | various | phase3a/c rebaseline records | **reported** | not re-executed tip | keep records | 3g |
+| A-6 / A-9…A-16 | 3c–3e contract amendments establishing D-23…D-34 cluster | active | see D-rows | ctor/set_window | phase3d/e records + tip suites | **re-established** selectively via suites/probes this series | — | keep | — |
+| A-7 / A-17…A-18 | SBC 2p / scope / tip verification hygiene | active/historical | SBC, docs | exit | baselines + tip verify md | **reported** | Stage3 tip exit outstanding | Phase3 exit | Phase3 exit |
+| A-19 | CF class | active | process | n/a | used for B1 | verified process | n/a | keep | — |
+| A-20 / A-21 | Config placement + pre-3f freeze | active | many | many | A-21 text + this audit | mixed | B2–B4 open | repair then re-verdict | pre-3f |
+| OP-2 | → D-23 | resolved | resolve mode | ctor | phase3d | direct | none | closed | — |
+| OP-3/OP-4 | standardize default/API | settled A-21 | standardize_cov | prep | test_standardization_api | verified | Part I stale | A-21 operative | — |
+| OP-5 | User weights | deferred | n/a | n/a | register | inferred | YAGNI | post-Phase-3 | post-Phase-3 |
+| OP-6 | → D-24 | resolved | cutoffs | ctor/set_window | phase3e | direct | none | closed | — |
+| OP-7 | subsumed OP-13 | subsumed | NumericalConfig | 3f | A-20/21 | inferred | 3f | 3f | 3f |
+| OP-8 | Remove `args` | open | self.args | all | A-21 | inferred | 3f design | 3f | 3f |
+| OP-9 | → D-25 | resolved | polygon_mass | prepare | B1/production | numerical | none | closed | — |
+| OP-10 | max_sigma default | settled A-21 | resolve_sigma_bounds | polygon | code | direct | none | closed | — |
+| OP-11 | Custom polygon mass | open post-Phase-3 | exact-type gate | polygon | capability | direct | placeholder | post-Phase-3 | post-Phase-3 |
+| OP-12 | Derivative gate | open | TAU_DERIV | table QA | production | numerical | unsettled | pre-polygon-SBC | pre-polygon-SBC |
+| OP-13 | Config objects | settled A-21 design | not implemented | 3f | A-21 | inferred | implement 3f | 3f | 3f |
+| I1 | Sim/lik mass atoms | active | lik + _sim_cox | bg | seasonal_integral | direct | none | keep | — |
+| I3/I4 | Pair window contract | active | utils, lik, sim | pairs | identities | direct | none | keep | — |
+| I5 | Single factor site | active | inference_functions | model | test_smoke | direct | none | keep | — |
+| I6 | Derived seasonal coordinate | active | `_scale_xyt` | prep | `tests/test_smoke.py::test_A_derivation` | **verified** EXIT:0 iter2 | none | keep | — |
+| I8* | Special-case reductions | active | identities | model | test_identities | direct | none | keep | — |
 | I9 | Refinement invariance | active | clipped support | prep | clipped tests | direct | none | keep | — |
-| I10 | (per suite) | active | identities header | — | test_identities | reported | confirm label mapping | review | — |
-| I11 | Conservation E[n]≈Λ | active | simulate + compensator | rectangle Hawkes | `test_simulated_count_matches_compensator` (+ finite w_s variants) | integration | **polygon excitation conservation not standing** | add polygon regime test | pre-3f/3g |
-| I12 | Real-unit nonsquare invariance | active | utils/trigger/sim | nonsquare | pin 4:1 + identity tests | direct | none | keep | — |
-| C6 | Guide identity | open | docs | n/a | A-21: does not block 3f start | inferred | unresolved identity | 3g/guide | 3g |
+| I10 | Unit covariance / real-unit spatial kernel (internal affine invariance; non-uniform rescaling changes loglik) | active | identities + real-unit boundary | lik/sim | `test_spatial_similarity_covariance`, `test_spatial_kernel_family_is_real_unit_not_internal` | **verified** EXIT:0 iter2 | none | keep | — |
+| I11 | Conservation E[n]≈Λ | active | simulate + compensator | rect+polygon | rectangle standing test; polygon `test_polygon_i11_conservation` R=40 @ 3·se (`c5e4871`) | integration | — | standing test | pre-3f |
+| I12 | Real-unit nonsquare | active | utils/trigger/sim | nonsquare | pins + identities | direct | none | keep | — |
+| C6 | Guide identity | open | docs | n/a | A-21 | inferred | unresolved | 3g | 3g |
 
-**Duplicated / missing / contradictory notes (Step 0, rechecked):**
+**Duplicated / missing / contradictory notes:**
 
-- OP-1 missing (never allocated) — not a contradiction.  
-- I2/I7 missing from inventory — not referenced as active obligations here.  
-- Part I / A-5 prose still saying OP-3/4 open + legacy count default **contradicts** A-21 + code; amendment rules make A-21 operative (**disposition: not §5.5 blocker** if Part II governs).  
-- Untracked root `phase3_baseline_and_decisions.tex` must not be treated as governing.
+- OP-1 missing (never allocated). I2/I7 absent.  
+- Part I OP-3/4 prose vs A-21: Part II governs (G8).  
+- Untracked `phase3_baseline_and_decisions.tex` not governing.
