@@ -202,3 +202,82 @@ def test_polygon_incompatible_replacement_rolls_back_everything():
     with pytest.raises(ValueError):
         m.set_window(spatial_window=40.0, mass_table=bad)
     _assert_window_state_unchanged(before, m)
+
+
+def test_set_window_mass_table_rebuilds_numerical_config():
+    """D-35: successful mass_table= install updates NumericalConfig (WP1.4b)."""
+    from bstpp.polygon_mass import prepare_polygon_mass_table
+    from bstpp.preparation import prepare_domain
+    from shapely.geometry import box as shapely_box
+
+    A_poly = np.array([[0.0, 200.0], [0.0, 200.0]])
+    rng = np.random.default_rng(4)
+    data = pd.DataFrame({
+        "X": rng.uniform(20, 180, 6),
+        "Y": rng.uniform(20, 180, 6),
+        "T": np.sort(rng.uniform(0.5, T_DAYS - 0.5, 6)),
+    })
+    table = prepare_table_for_model(
+        data, A_poly, min_sigma=5.0, max_sigma=40.0, spatial_window=50.0)
+    m = Hawkes_Model(
+        data, A_poly, T_DAYS, cox_background=False,
+        excitation_support="polygon",
+        min_sigma=5.0, max_sigma=40.0,
+        window=25.0, spatial_window=50.0,
+        mass_table=table,
+        a_0=dist.Normal(0, 5), alpha=dist.Beta(2, 2),
+        beta=dist.HalfNormal(1.0), sigmax_2=dist.HalfNormal(40.0),
+    )
+    assert m.numerical_config.panel_h_m == pytest.approx(float(table.h_panel))
+    assert m.numerical_config.gl_order == int(table.gl_order)
+
+    dom = prepare_domain(A_poly)
+    geom = shapely_box(0.0, 0.0, 200.0, 200.0)
+    new_table = prepare_polygon_mass_table(
+        geom,
+        data["X"].to_numpy(dtype=float),
+        data["Y"].to_numpy(dtype=float),
+        min_sigma=5.0,
+        max_sigma=40.0,
+        spatial_window=40.0,
+        panel_h_m=10.0,
+        gl_order=8,
+        crs=dom.crs,
+    )
+    m.set_window(spatial_window=40.0, mass_table=new_table)
+    assert m.numerical_config.panel_h_m == pytest.approx(10.0)
+    assert m.numerical_config.gl_order == 8
+    assert m.excitation_support.mass_table.h_panel == pytest.approx(10.0)
+    assert int(m.excitation_support.mass_table.gl_order) == 8
+
+
+def test_set_window_rejected_mass_table_leaves_numerical_config():
+    """D-35: rejected mass_table= install leaves NumericalConfig unchanged."""
+    A_poly = np.array([[0.0, 200.0], [0.0, 200.0]])
+    rng = np.random.default_rng(5)
+    data = pd.DataFrame({
+        "X": rng.uniform(20, 180, 6),
+        "Y": rng.uniform(20, 180, 6),
+        "T": np.sort(rng.uniform(0.5, T_DAYS - 0.5, 6)),
+    })
+    table = prepare_table_for_model(
+        data, A_poly, min_sigma=5.0, max_sigma=40.0, spatial_window=50.0)
+    m = Hawkes_Model(
+        data, A_poly, T_DAYS, cox_background=False,
+        excitation_support="polygon",
+        min_sigma=5.0, max_sigma=40.0,
+        window=25.0, spatial_window=50.0,
+        mass_table=table,
+        a_0=dist.Normal(0, 5), alpha=dist.Beta(2, 2),
+        beta=dist.HalfNormal(1.0), sigmax_2=dist.HalfNormal(40.0),
+    )
+    before_cfg = m.numerical_config
+    before_panel = before_cfg.panel_h_m
+    before_gl = before_cfg.gl_order
+    bad = prepare_table_for_model(
+        data, A_poly, min_sigma=5.0, max_sigma=40.0, spatial_window=50.0)
+    with pytest.raises(ValueError):
+        m.set_window(spatial_window=40.0, mass_table=bad)
+    assert m.numerical_config is before_cfg
+    assert m.numerical_config.panel_h_m == pytest.approx(before_panel)
+    assert m.numerical_config.gl_order == before_gl

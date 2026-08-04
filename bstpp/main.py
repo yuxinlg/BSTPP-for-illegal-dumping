@@ -46,7 +46,7 @@ from .excitation_support import (
     resolve_sigma_bounds,
     truncate_sigmax_2_prior,
 )
-from .polygon_mass import warn_if_sigma_near_bound
+from .polygon_mass import assert_polygon_mass_table_budget, warn_if_sigma_near_bound
 from .cutoffs import (
     CutoffProvenance,
     SpatialCutoffRecord,
@@ -2277,6 +2277,42 @@ class Hawkes_Model(Point_Process_Model):
             raise ValueError(
                 "mass_table is only accepted for polygon excitation_support")
 
+        # Prospective NumericalConfig for a newly supplied mass_table (WP1.4b).
+        # Built in local state before install; committed only with support.
+        # Mode, CRS, and σ constructor args are stable across set_window.
+        new_numerical_config = self.args.get("numerical_config")
+        installing_new_table = (
+            mode == "polygon"
+            and mass_table is not _UNSET
+            and mass_table is not None
+        )
+        if installing_new_table:
+            lo_cfg, hi_cfg, _ = resolve_sigma_bounds(
+                mode=mode,
+                min_sigma=self._min_sigma_arg,
+                max_sigma=self._max_sigma_arg,
+                crs=self.prepared_domain.crs,
+            )
+            prev_cfg = self.args["numerical_config"]
+            # Panel-ratio prefilter before rebuilding NumericalConfig so a
+            # too-coarse supplied table still raises
+            # assert_polygon_mass_table_budget's message before
+            # NumericalConfigError (set_window error-precedence CF).
+            assert_polygon_mass_table_budget(
+                table_arg,
+                sigma_min=lo_cfg,
+                numerical_config=prev_cfg,
+            )
+            new_numerical_config = NumericalConfig.create(
+                panel_h_m=table_arg.h_panel,
+                gl_order=table_arg.gl_order,
+                support_mode=mode,
+                min_sigma=lo_cfg,
+                max_sigma=hi_cfg,
+                default_temporal_tol=prev_cfg.default_temporal_tol,
+                default_spatial_tol=prev_cfg.default_spatial_tol,
+            )
+
         # Prepare the full replacement state before mutating self.
         coords, t_vals, x_vals, y_vals = aligned_difference_pairs(
             self.args['t_events'],
@@ -2366,10 +2402,11 @@ class Hawkes_Model(Point_Process_Model):
             event_y_real=y_real,
             mass_table=table_arg,
             union_geometry=self.prepared_domain.union_geometry,
-            numerical_config=self.args.get("numerical_config"),
+            numerical_config=new_numerical_config,
         )
 
-        # Atomic commit: windows, pairs, support, and provenance together.
+        # Atomic commit: windows, pairs, support, provenance, and
+        # NumericalConfig together (D-33 / WP1.4b).
         self.args['window'] = new_window
         self.args['spatial_window'] = new_sw
         self.args['coords'] = coords
@@ -2381,6 +2418,8 @@ class Hawkes_Model(Point_Process_Model):
         self.excitation_support = support
         self.excitation_provenance = dict(support.provenance)
         self.cutoff_provenance = cutoff_provenance
+        self.numerical_config = new_numerical_config
+        self.args["numerical_config"] = new_numerical_config
 
     def export_polygon_mass_table(self, path):
         """Export the polygon-mode Hermite table for later refit reload."""
