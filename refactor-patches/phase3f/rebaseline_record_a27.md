@@ -5,6 +5,17 @@ and not to be described as such.
 
 Base tip `f70ac7d`. Analysis machine; pins are machine-local (A-1).
 
+> **Labels renumbered by A-30.** What this record calls `CI-1`–`CI-6`
+> was written `I1`–`I6` when the commit landed. **Complete mapping:**
+> `I1`→`CI-1` rectangle both-or-neither · `I2`→`CI-2` polygon requires
+> `min_sigma` · `I3`→`CI-3` `min_sigma` finite and positive ·
+> `I4`→`CI-4` `min_sigma < max_sigma` · `I5`→`CI-5` support-mode
+> validity · `I6`→`CI-6` builder requires `max_sigma` — so a citation
+> of an old label resolves here rather than dangling. The old
+> numbering collided with the Phase-3 model identities `I1`–`I12`, a
+> different and entrenched sequence. Substituted in place under D-41;
+> this note is the supersession record.
+
 ---
 
 ## 1. The brief's premise, corrected
@@ -40,7 +51,7 @@ the assert caught it.
 
 ### Six raise sites, not two
 
-| # | Site | Type | I3 text | I4 text |
+| # | Site | Type | CI-3 text | CI-4 text |
 |---|---|---|---|---|
 | 1 | `excitation_support._validate_sigma_pair` | `ValueError` | `min_sigma must be finite and positive; got {lo}` | `require min_sigma < max_sigma; got …` |
 | 2 | `config.NumericalConfig._validate_sigma_pair` | `NumericalConfigError` | *byte-identical to 1* | `sigma-bound coherence requires min_sigma < max_sigma; got …` |
@@ -49,10 +60,10 @@ the assert caught it.
 | 5 | `polygon_mass.prepare_polygon_mass_table` | `ValueError` | `min_sigma must be finite and > 0; got …` | — |
 | 6 | `polygon_mass.build_quad_table` | `ValueError` | `sigma_min must be finite and positive; got …` | `require finite sigma_max > sigma_min; got …` |
 
-Two types, five distinct I3 messages, three distinct I4 messages. Site 6 is a
+Two types, five distinct CI-3 messages, three distinct CI-4 messages. Site 6 is a
 verbatim copy of site 1 with the parameters renamed.
 
-I5 had three implementations (`resolve_excitation_support_mode`,
+CI-5 had three implementations (`resolve_excitation_support_mode`,
 `build_excitation_support`, config) **plus a fourth behaviour**:
 `resolve_sigma_bounds` did not validate `mode` at all — its `else` branch *was*
 the polygon branch, so `mode='triangle'` returned `(0.05, 0.5)`.
@@ -62,12 +73,12 @@ the polygon branch, so `mode='triangle'` returned `(0.05, 0.5)`.
 Line tracer over 28 public entry-path calls at `f70ac7d`:
 
 ```
-config.py:133  I5 support_mode validity                            NEVER EXECUTED
-config.py:196  I1 rectangle both-or-neither                        NEVER EXECUTED
-config.py:207  I2 polygon requires min_sigma                       NEVER EXECUTED
-config.py:213  I3 min_sigma finite/positive (polygon max=None)     NEVER EXECUTED
-config.py:230  I3 min_sigma finite/positive (_validate_sigma_pair) NEVER EXECUTED
-config.py:233  I4 min_sigma < max_sigma                            NEVER EXECUTED
+config.py:133  CI-5 support_mode validity                            NEVER EXECUTED
+config.py:196  CI-1 rectangle both-or-neither                        NEVER EXECUTED
+config.py:207  CI-2 polygon requires min_sigma                       NEVER EXECUTED
+config.py:213  CI-3 min_sigma finite/positive (polygon max=None)     NEVER EXECUTED
+config.py:230  CI-3 min_sigma finite/positive (_validate_sigma_pair) NEVER EXECUTED
+config.py:233  CI-4 min_sigma < max_sigma                            NEVER EXECUTED
 ```
 
 After the change, same tracer and battery: `config.validate_sigma_pair` is
@@ -84,25 +95,25 @@ the constructor's arguments.
 
 | Invariant | E1 rect ctor | E2 poly ctor | E3/E4/E5 | E6 LGCP | E7 builder |
 |---|---|---|---|---|---|
-| I1 | `exsup:119` | n/a | frozen | no σ params | n/a |
-| I2 | n/a | `exsup:131` | frozen | n/a | `polygon_mass:1043` **bare TypeError** |
-| I3 | `exsup:151` | `exsup:151` | frozen | n/a | `polygon_mass:1045` |
-| I4 | `exsup:154` | `exsup:154` | frozen | n/a | `polygon_mass:928` |
-| I5 | `exsup:82` | `exsup:82` | `exsup:82` | n/a (literal) | n/a |
+| CI-1 | `exsup:119` | n/a | frozen | no σ params | n/a |
+| CI-2 | n/a | `exsup:131` | frozen | n/a | `polygon_mass:1043` **bare TypeError** |
+| CI-3 | `exsup:151` | `exsup:151` | frozen | n/a | `polygon_mass:1045` |
+| CI-4 | `exsup:154` | `exsup:154` | frozen | n/a | `polygon_mass:928` |
+| CI-5 | `exsup:82` | `exsup:82` | `exsup:82` | n/a (literal) | n/a |
 
 ## 3. Design adopted — three families, owners by quantity
 
 Signed off before implementation. `\supsd` refinement of D-40, no new decision
 number.
 
-- **I1, I2 are argument invariants** — they test which argument was omitted, and
+- **CI-1, CI-2 are argument invariants** — they test which argument was omitted, and
   defaulting erases that. Only `resolve_sigma_bounds` can express them.
-- **I3, I4 are resolved-bound invariants** — I4 is only meaningful after
+- **CI-3, CI-4 are resolved-bound invariants** — CI-4 is only meaningful after
   defaulting. `NumericalConfig` already validated the right quantity.
-- **I5 is a mode invariant**, upstream of both.
+- **CI-5 is a mode invariant**, upstream of both.
 
 Delegating everything to the config after resolution would have silently dropped
-I1 and I2 — a **reject→accept** change on two of five.
+CI-1 and CI-2 — a **reject→accept** change on two of five.
 
 Single-source functions in `bstpp/config.py`:
 `rectangle_bounds_invariant_clause`, `polygon_min_sigma_invariant_clause`,
@@ -114,8 +125,8 @@ arrangement; `config` imports `polygon_mass` for its constants).
 ## 4. Declared behavioural changes
 
 1. **Error type on all five**: bare `ValueError` → `NumericalConfigError`
-   (subclass; `ValueError` catchers unaffected). Message text changes for I1,
-   I2, I4, I5. I3's two implementations were already byte-identical; the
+   (subclass; `ValueError` catchers unaffected). Message text changes for CI-1,
+   CI-2, CI-4, CI-5. CI-3's two implementations were already byte-identical; the
    canonical clause keeps that text.
 2. **`prepare_polygon_mass_table(min_sigma=None)`**: `TypeError` →
    `NumericalConfigError`. **Not a subclass relation** — a caller catching
@@ -153,7 +164,7 @@ other gate.
 every public model path (`resolve_sigma_bounds` rejects first, and
 `validate_polygon_mass_table` requires `table.sigma_min == sigma_min`, which
 `build_quad_table` now refuses to build). Reachable only by direct call, which is
-what the Lane B I3 row does. **Labelled, not assumed.**
+what the Lane B CI-3 row does. **Labelled, not assumed.**
 
 ## 5. Test edits (signed off at Step 1, before any test was touched)
 
@@ -178,7 +189,7 @@ Restoration verified: post-restore `git diff --stat` byte-identical to pre-RED.
 
 The 7 that passed are **recorded as non-discriminating by construction**, not
 claimed as evidence: the frozen-asymmetry pin (must pass both sides — that is
-what freezing means) and the I3/I4 equality rows whose canonical clause
+what freezing means) and the CI-3/CI-4 equality rows whose canonical clause
 deliberately kept the text the config already used.
 
 ## 7. Gates

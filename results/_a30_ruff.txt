@@ -1,0 +1,3 @@
+### ruff on touch
+All checks passed!
+EXIT:0

@@ -5,6 +5,17 @@ behaviour-preserving, and not to be described as such.
 
 Base tip `426d60a`. Analysis machine; pins are machine-local (A-1).
 
+> **Labels renumbered by A-30.** What this record calls `CI-1`–`CI-6`
+> was written `I1`–`I6` when the commit landed. **Complete mapping:**
+> `I1`→`CI-1` rectangle both-or-neither · `I2`→`CI-2` polygon requires
+> `min_sigma` · `I3`→`CI-3` `min_sigma` finite and positive ·
+> `I4`→`CI-4` `min_sigma < max_sigma` · `I5`→`CI-5` support-mode
+> validity · `I6`→`CI-6` builder requires `max_sigma` — so a citation
+> of an old label resolves here rather than dangling. The old
+> numbering collided with the Phase-3 model identities `I1`–`I12`, a
+> different and entrenched sequence. Substituted in place under D-41;
+> this note is the supersession record.
+
 ---
 
 ## 1. The family question, and the answer
@@ -19,10 +30,10 @@ prepare_polygon_mass_table(max_sigma=None)
 ```
 
 The brief left the family to be decided from the code. **It is a distinct
-invariant — I6 — not a member of I2.** A-27's own test decides it: owners of one
+invariant — CI-6 — not a member of CI-2.** A-27's own test decides it: owners of one
 invariant validate the same *quantity*.
 
-| | I2 (polygon requires `min_sigma`) | I6 (builder requires `max_sigma`) |
+| | CI-2 (polygon requires `min_sigma`) | CI-6 (builder requires `max_sigma`) |
 |---|---|---|
 | Quantity | `min_sigma` | `max_sigma` |
 | Owners | constructor, `resolve_sigma_bounds`, `NumericalConfig.create`, public builder | the two builders only |
@@ -31,7 +42,7 @@ invariant validate the same *quantity*.
 The third row is decisive. `resolve_sigma_bounds` defaults an omitted polygon
 `max_sigma` to `DEFAULT_MAX_SIGMA_KM` through the projected CRS
 (`excitation_support.py:153-157`), and `NumericalConfig` accepts `max_sigma=None`
-outright — the asymmetry A-27 froze and pinned. I2's clause reads *"min_sigma is
+outright — the asymmetry A-27 froze and pinned. CI-2's clause reads *"min_sigma is
 required and has no default"*. Rendering it for a `max_sigma` violation would
 **raise a message asserting a package-wide requirement that does not exist**. A
 borrowed clause here is not untidy; it is untrue.
@@ -59,9 +70,9 @@ call order:
 
 | # | Site | Pre-change | Disposition |
 |---|---|---|---|
-| 1 | `prepare_polygon_mass_table` `:1092` | `TypeError` from `float(max_sigma)` | **fixed** → I6 |
-| 2 | `build_quad_table` `:935` | `TypeError` from `float(sigma_max)` | **fixed** → I6 |
-| 2b | `build_quad_table` `:935` | `TypeError` from `float(sigma_min)` | **fixed** → I2 |
+| 1 | `prepare_polygon_mass_table` `:1092` | `TypeError` from `float(max_sigma)` | **fixed** → CI-6 |
+| 2 | `build_quad_table` `:935` | `TypeError` from `float(sigma_max)` | **fixed** → CI-6 |
+| 2b | `build_quad_table` `:935` | `TypeError` from `float(sigma_min)` | **fixed** → CI-2 |
 | 3 | `validate_polygon_mass_table` `:810` | `TypeError` from `float(sigma_max)` | **left**, OP-21 |
 
 Site 2 exists because `validate_sigma_pair` deliberately does not coerce
@@ -71,7 +82,7 @@ Site 2 exists because `validate_sigma_pair` deliberately does not coerce
 unnamed `TypeError` one line from this commit's own guard — recreating the exact
 situation the commit exists to close. Both are fixed; site 2b is declared.
 
-Non-owners, confirmed accepting (this is the contrast I6 rests on):
+Non-owners, confirmed accepting (this is the contrast CI-6 rests on):
 
 ```
 resolve_sigma_bounds(polygon, max_sigma=None, crs=EPSG:32618) -> ACCEPTED (1000.0, 5000.0)
@@ -83,7 +94,7 @@ NumericalConfig.create(polygon, max_sigma=None)               -> ACCEPTED  max=N
 1. `prepare_polygon_mass_table(max_sigma=None)`: `TypeError` → `NumericalConfigError`.
    **Not a subclass relation — a caller catching `TypeError` IS affected.**
 2. `build_quad_table(sigma_max=None)`: same change, same clause.
-3. `build_quad_table(sigma_min=None)`: `TypeError` → `NumericalConfigError` (I2).
+3. `build_quad_table(sigma_min=None)`: `TypeError` → `NumericalConfigError` (CI-2).
 
 **No accept→reject change reaches any model constructor**, and none of the three
 is reachable from one: every model path resolves bounds before building, and
@@ -95,13 +106,13 @@ At `426d60a`, `max_sigma=None` **lost to every other check** in
 `prepare_polygon_mass_table` (measured, `..._BEFORE.log`):
 
 ```
-(min=None, max=None)        -> I2  polygon requires min_sigma
-(min=0.0,  max=None)        -> I3  min_sigma finite and positive
+(min=None, max=None)        -> CI-2  polygon requires min_sigma
+(min=0.0,  max=None)        -> CI-3  min_sigma finite and positive
 (min=5.0,  max=None, h=1e6) -> panel ratio
 (min=5.0,  max=None)        -> TypeError            <- the only case reaching float()
 ```
 
-The I6 guard is therefore placed **last**, immediately before the delegation.
+The CI-6 guard is therefore placed **last**, immediately before the delegation.
 Guarding earlier would have changed which error a doubly-invalid call reports —
 an *undeclared* behaviour change riding along with the declared ones.
 
@@ -135,7 +146,7 @@ capture cannot silently describe a different object.
 **labelled, not assumed**, in A-27's manner with `assert_polygon_mass_table_budget`.
 
 It is not a builder: it compares a *built* table's recorded range against the
-*model's resolved* bound, so its quantity is the model-side bound and the I6
+*model's resolved* bound, so its quantity is the model-side bound and the CI-6
 clause would misdescribe it. It is unreachable from every model path —
 `excitation_support.py:404` asserts `lo is not None and hi is not None` before
 the call — and reachable only by direct call.

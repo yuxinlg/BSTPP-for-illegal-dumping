@@ -1,7 +1,7 @@
 # Traceability matrix + Lane B state machine
 
-**Candidate tip:** Phase 3f (opened at `fe44de4`; A-22/A-23/D-35; A-24 adopts D-36–D-39 / OP-14–OP-17; A-25 records WP1 execution and corrects the WP1.4c suite figures; A-26 establishes D-40 and closes OP-17)  
-**Iteration:** 3f-WP1 + A-24 register adoption + A-25 execution record + A-26 error-identity unification (WP1.4e-1)  
+**Candidate tip:** Phase 3f (opened at `fe44de4`; A-22/A-23/D-35; A-24 adopts D-36–D-39 / OP-14–OP-17; A-25 records WP1 execution and corrects the WP1.4c suite figures; A-26 establishes D-40 and closes OP-17; A-27 refines D-40 to owners-by-quantity; A-28 adds `CI-6` and opens OP-21; A-29 extends the ASCII sweep and opens OP-22; A-30 renumbers the config invariants to `CI-n`)  
+**Iteration:** 3f-WP1 + A-24 register adoption + A-25 execution record + A-26/A-27/A-28 error-identity unification (WP1.4e-1 … WP1.4f) + A-29 gate coverage + A-30 label renumbering  
 **Marks:** verified / reported / inferred as noted.  
 **Governing record:** repository-root `phase3_record.tex`. Untracked root `phase3_baseline_and_decisions.tex` is **not** governing.
 
@@ -49,7 +49,7 @@
 
 ## Register traceability
 
-Register inventory: **D-1…D-40**; **A-1…A-26**; **OP-2…OP-19** (OP-1 never allocated. No OP was opened for an unaudited *identity*: all guide I1–I11 have live `tests/` coverage after the WP1.4c inventory. OP-18 is the restated I10 derivation; **OP-19** is A-26's held-out budget-policy source, not an identity gap); **I1, I3–I6, I8/I8a/I8b, I9–I12**.
+Register inventory: **D-1…D-40**; **A-1…A-30**; **OP-2…OP-22** (OP-1 never allocated. No OP was opened for an unaudited *identity*: all guide I1–I11 have live `tests/` coverage after the WP1.4c inventory. OP-18 is the restated I10 derivation; **OP-19** is A-26's held-out budget-policy source, not an identity gap); **I1, I3–I6, I8/I8a/I8b, I9–I12**.
 
 | ID | Contract (short) | Register status | Production sites | Execution legs | Existing evidence | Evidence type | Gap | Treatment | Owner |
 |---|---|---|---|---|---|---|---|---|---|
@@ -135,15 +135,24 @@ Register inventory: **D-1…D-40**; **A-1…A-26**; **OP-2…OP-19** (OP-1 never
 - Part I OP-3/4 prose vs A-21: Part II governs (G8).  
 - Untracked `phase3_baseline_and_decisions.tex` not governing.
 - WP1.4c OP range opened in this series: **OP-18** only (I1–I11 all have live coverage).
-- **Two `I`-numberings are in use and they collide.** The `I1`–`I12` rows in this
-  matrix are the Phase-3 **model identities** (mass atoms, pair window, seasonal
-  coordinate, …). A-27's `I1`–`I5` and A-28's `I6` are the **σ/mode invariants**
-  under D-40, a separate and unrelated sequence — so matrix `I6` ("Derived
-  seasonal coordinate") and σ-`I6` ("builder requires `max_sigma`") are different
-  things with the same label, as are `I1`, `I3`, `I4`, `I5`. The collision was
-  created at A-27 and is recorded at A-28 rather than deepened silently. The two
-  sides are **not equally expensive to renumber**: the model identities are
-  entrenched (guide, phase0 archive, `test_polygon_i11_conservation.py`, several
-  amendments), while the σ labels are days old. Renumbering is a real option on
-  the σ side only, deferred to its own commit rather than folded into a CF
-  change — see A-29.
+- **The `I`-numbering collision is RESOLVED by A-30.** Two sequences briefly
+  shared one set of labels: the `I1`–`I12` rows in this matrix are the Phase-3
+  **model identities** (mass atoms, pair window, seasonal coordinate, …), while
+  A-27's `I1`–`I5` and A-28's `I6` were the **config invariants** under D-40. So
+  matrix `I6` ("derived seasonal coordinate") and the D-40 `I6` ("builder
+  requires `max_sigma`") were different things with the same label, as were
+  `I1`, `I3`, `I4`, `I5`. Created at A-27, recorded at A-28, resolved at A-30.
+  **The config sequence was renumbered `CI-1`…`CI-6`; the model identities did
+  not move.** Three reasons: the model identities are entrenched (guide, phase0
+  archive, `test_polygon_i11_conservation.py`, several amendments) while the
+  config labels were days old; a `σ-` prefix fails exactly where it is needed,
+  since a Greek letter cannot enter an identifier or a filename — and test IDs
+  and filenames are where a collision does damage; and **four more sequences are
+  coming** (`ModelConfig`, `PriorConfig`, `PartitionDecoderConfig`,
+  `InferenceRunConfig` in WP2–WP5), so a σ-specific patch would have bought the
+  same conversation four more times.
+- **`CI-n` is one sequence across all config objects, not a per-object one.**
+  `CI-1` rectangle both-or-neither · `CI-2` polygon requires `min_sigma` ·
+  `CI-3` `min_sigma` finite and positive · `CI-4` `min_sigma < max_sigma` ·
+  `CI-5` support-mode validity · `CI-6` builder requires `max_sigma`. Extended
+  as each new config lands its own invariants; never restarted per object.

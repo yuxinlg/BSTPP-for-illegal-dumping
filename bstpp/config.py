@@ -102,8 +102,8 @@ def raise_panel_ratio_violation(
 #     in polygon mode with max_sigma omitted there is no user-supplied pair to
 #     compare. NumericalConfig owns these and validates the right quantity.
 #   * support-mode validity is a MODE invariant, upstream of both.
-#   * builder-requires-max_sigma (I6, A-28) is a BUILDER-ARGUMENT invariant.
-#     It reads like I2 and is not: the resolver DEFAULTS an omitted polygon
+#   * builder-requires-max_sigma (CI-6, A-28) is a BUILDER-ARGUMENT invariant.
+#     It reads like CI-2 and is not: the resolver DEFAULTS an omitted polygon
 #     max_sigma and NumericalConfig accepts None for it, so the requirement is
 #     the mass-table builder's alone, where max_sigma is the top knot of the
 #     log-sigma grid rather than a prior bound. Same test as always -- a
@@ -116,7 +116,7 @@ def raise_panel_ratio_violation(
 
 def rectangle_bounds_invariant_clause(
     *, min_sigma: object, max_sigma: object) -> str:
-    """Render the canonical rectangle both-or-neither clause (I1)."""
+    """Render the canonical rectangle both-or-neither clause (CI-1)."""
     return (
         "support-mode compatibility (rectangle): min_sigma and max_sigma must "
         f"both be supplied or both omitted; got min_sigma={min_sigma!r}, "
@@ -136,7 +136,7 @@ def raise_rectangle_bounds_violation(
 
 
 def polygon_min_sigma_invariant_clause() -> str:
-    """Render the canonical polygon-requires-min_sigma clause (I2)."""
+    """Render the canonical polygon-requires-min_sigma clause (CI-2)."""
     return (
         "support-mode compatibility (polygon): min_sigma is required and has "
         "no default; supply an explicit finite positive min_sigma in "
@@ -152,17 +152,17 @@ def raise_polygon_min_sigma_violation(*, remediation: str = "") -> NoReturn:
 
 
 def builder_max_sigma_invariant_clause() -> str:
-    """Render the canonical builder-requires-``max_sigma`` clause (I6).
+    """Render the canonical builder-requires-``max_sigma`` clause (CI-6).
 
-    I6 is a DISTINCT invariant, not a member of the I2 family, and the reason
+    CI-6 is a DISTINCT invariant, not a member of the CI-2 family, and the reason
     is the D-40 sigma/mode test above: owners of one invariant validate the
-    same QUANTITY. I2's quantity is ``min_sigma``; this one's is ``max_sigma``.
-    They are also not the same claim. I2 holds package-wide -- nothing
+    same QUANTITY. CI-2's quantity is ``min_sigma``; this one's is ``max_sigma``.
+    They are also not the same claim. CI-2 holds package-wide -- nothing
     anywhere defaults ``min_sigma``. "Polygon requires ``max_sigma``" is FALSE
     at the model boundary: ``resolve_sigma_bounds`` defaults an omitted polygon
     ``max_sigma`` to ``DEFAULT_MAX_SIGMA_KM`` through the projected CRS, and
     ``NumericalConfig`` accepts ``max_sigma=None`` outright (the asymmetry
-    A-27 froze). Rendering I2's clause here would assert a package-wide
+    A-27 froze). Rendering CI-2's clause here would assert a package-wide
     requirement that does not exist.
 
     The requirement is the BUILDER's alone, because ``max_sigma`` there is not
@@ -187,7 +187,7 @@ def raise_builder_max_sigma_violation(*, remediation: str = "") -> NoReturn:
 
 
 def min_sigma_positive_invariant_clause(*, min_sigma: float) -> str:
-    """Render the canonical min_sigma positivity clause (I3)."""
+    """Render the canonical min_sigma positivity clause (CI-3)."""
     return f"min_sigma must be finite and positive; got {float(min_sigma)}"
 
 
@@ -202,7 +202,7 @@ def raise_min_sigma_positive_violation(
 
 def sigma_order_invariant_clause(
     *, min_sigma: float, max_sigma: float) -> str:
-    """Render the canonical sigma-bound ordering clause (I4)."""
+    """Render the canonical sigma-bound ordering clause (CI-4)."""
     return (
         "sigma-bound coherence requires min_sigma < max_sigma; got "
         f"min_sigma={float(min_sigma)}, max_sigma={float(max_sigma)}")
@@ -219,7 +219,7 @@ def raise_sigma_order_violation(
 
 
 def support_mode_invariant_clause(*, support_mode: object) -> str:
-    """Render the canonical excitation-support-mode clause (I5)."""
+    """Render the canonical excitation-support-mode clause (CI-5)."""
     return (
         "excitation support mode must be 'rectangle' or 'polygon'; got "
         f"{support_mode!r}")
@@ -235,7 +235,7 @@ def raise_support_mode_violation(
 
 
 def validate_sigma_pair(min_sigma: float, max_sigma: float) -> None:
-    """The single implementation of the resolved-bound invariants (I3, I4).
+    """The single implementation of the resolved-bound invariants (CI-3, CI-4).
 
     Every site that checks a resolved sigma pair calls this, so the predicate
     and the identity have one spelling. Callers that must coerce their inputs

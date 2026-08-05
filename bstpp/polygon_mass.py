@@ -934,9 +934,9 @@ def build_quad_table(
     #
     # A-28: both coercions below used to die in float(None) with an unnamed
     # TypeError -- validate_sigma_pair deliberately does not coerce (OP-20), so
-    # a None argument never reached a named check. max_sigma is I6, this
+    # a None argument never reached a named check. max_sigma is CI-6, this
     # function being the second builder owner alongside
-    # prepare_polygon_mass_table; min_sigma is I2 at a site A-27 covered only
+    # prepare_polygon_mass_table; min_sigma is CI-2 at a site A-27 covered only
     # at the public builder. Both are declared type changes.
     from .config import (
         raise_builder_max_sigma_violation,
@@ -1108,9 +1108,9 @@ def prepare_polygon_mass_table(
                 f"(here effective_panel_h={h_panel})."),
         )
 
-    # A-28 / I6. Placed HERE, last, deliberately: at the pre-change tip
+    # A-28 / CI-6. Placed HERE, last, deliberately: at the pre-change tip
     # max_sigma=None lost to every other check in this function (measured --
-    # (None, None) reported I2, (0.0, None) reported I3, a coarse panel
+    # (None, None) reported CI-2, (0.0, None) reported CI-3, a coarse panel
     # reported the panel ratio). Guarding earlier would have changed which
     # error a doubly-invalid call reports, an undeclared behaviour change on
     # top of the declared one. build_quad_table owns the same invariant; this

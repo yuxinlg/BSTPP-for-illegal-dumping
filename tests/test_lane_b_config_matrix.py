@@ -706,7 +706,7 @@ def _sigma_mode_owners():
 
     return [
         (
-            "I1 rectangle both-or-neither",
+            "CI-1 rectangle both-or-neither",
             rectangle_bounds_invariant_clause(min_sigma=5.0, max_sigma=None),
             [
                 ("model constructor", rect_ctor(min_sigma=5.0)),
@@ -718,7 +718,7 @@ def _sigma_mode_owners():
             ],
         ),
         (
-            "I2 polygon requires min_sigma",
+            "CI-2 polygon requires min_sigma",
             polygon_min_sigma_invariant_clause(),
             [
                 ("model constructor", ctor(min_sigma=None)),
@@ -734,7 +734,7 @@ def _sigma_mode_owners():
             ],
         ),
         (
-            "I3 min_sigma finite and positive",
+            "CI-3 min_sigma finite and positive",
             min_sigma_positive_invariant_clause(min_sigma=0.0),
             [
                 ("model constructor", ctor(min_sigma=0.0)),
@@ -763,7 +763,7 @@ def _sigma_mode_owners():
             ],
         ),
         (
-            "I4 min_sigma < max_sigma",
+            "CI-4 min_sigma < max_sigma",
             sigma_order_invariant_clause(min_sigma=40.0, max_sigma=5.0),
             [
                 ("model constructor", ctor(min_sigma=40.0, max_sigma=5.0)),
@@ -780,7 +780,7 @@ def _sigma_mode_owners():
             ],
         ),
         (
-            "I5 support-mode validity",
+            "CI-5 support-mode validity",
             support_mode_invariant_clause(support_mode="triangle"),
             [
                 ("model constructor", rect_ctor(excitation_support="triangle")),
@@ -897,13 +897,13 @@ def test_lane_b_prepare_polygon_mass_table_rejects_none_min_sigma_by_name():
 
 
 def test_lane_b_builder_max_sigma_error_identity_is_owner_invariant():
-    """A-28 / I6: ``max_sigma=None`` at the two mass-table builders.
+    """A-28 / CI-6: ``max_sigma=None`` at the two mass-table builders.
 
     The sibling of A-27's ``min_sigma=None`` defect, one line away in the same
-    function, and it is a DISTINCT invariant rather than a member of I2. The
+    function, and it is a DISTINCT invariant rather than a member of CI-2. The
     test of that claim is in this row: the two builders REJECT while the model
-    boundary ACCEPTS the same omission. I2 admits no such split -- nothing
-    anywhere defaults ``min_sigma`` -- so borrowing I2's clause here would
+    boundary ACCEPTS the same omission. CI-2 admits no such split -- nothing
+    anywhere defaults ``min_sigma`` -- so borrowing CI-2's clause here would
     assert a package-wide requirement that does not exist.
 
     Both owners are compared to each other before the shared text is pinned to
@@ -928,22 +928,22 @@ def test_lane_b_builder_max_sigma_error_identity_is_owner_invariant():
     # 1. One identity, compared across owners rather than each to a literal.
     types = {type(exc) for _, exc in raised}
     assert len(types) == 1, (
-        f"I6: one invariant must have one error identity from every owner "
+        f"CI-6: one invariant must have one error identity from every owner "
         f"(D-40); got\n{detail}")
     assert types == {NumericalConfigError}, (
-        f"I6: the identity must be NumericalConfigError; got\n{detail}")
+        f"CI-6: the identity must be NumericalConfigError; got\n{detail}")
 
     # 2. Declared type change: TypeError -> NumericalConfigError, NOT a
     #    subclass relation. A caller catching TypeError is affected.
     for name, exc in raised:
         assert not isinstance(exc, TypeError), (
-            f"I6: {name} still raises an unnamed TypeError from float(None)")
+            f"CI-6: {name} still raises an unnamed TypeError from float(None)")
 
     # 3. One canonical clause, single-sourced, rendered byte for byte.
     clause = builder_max_sigma_invariant_clause()
     for name, exc in raised:
         assert str(exc).startswith(clause), (
-            f"I6: {name} restates the invariant instead of rendering the "
+            f"CI-6: {name} restates the invariant instead of rendering the "
             f"canonical clause.\n  expected prefix: {clause!r}\n"
             f"  got:             {str(exc)!r}")
 
@@ -952,9 +952,9 @@ def test_lane_b_builder_max_sigma_error_identity_is_owner_invariant():
     #    public builder is advised about an internal one.
     for name, exc in raised:
         assert name in str(exc)[len(clause):], (
-            f"I6: {name}'s remediation does not name {name}")
+            f"CI-6: {name}'s remediation does not name {name}")
 
-    # 5. I6 is not I2. If a future refactor folds them together this fails.
+    # 5. CI-6 is not CI-2. If a future refactor folds them together this fails.
     assert clause != polygon_min_sigma_invariant_clause()
     for _, exc in raised:
         assert polygon_min_sigma_invariant_clause() not in str(exc)
@@ -965,13 +965,13 @@ def test_lane_b_builder_max_sigma_error_identity_is_owner_invariant():
 
 
 def test_lane_b_model_boundary_accepts_the_max_sigma_the_builders_reject():
-    """A-28: the asymmetry that makes I6 a distinct invariant, pinned.
+    """A-28: the asymmetry that makes CI-6 a distinct invariant, pinned.
 
     ``max_sigma=None`` is legitimate at the model boundary and illegitimate at
     the builder. Both halves are asserted here because the family decision
     rests on the contrast, not on either half alone: if a later change gives
     the builders a default, or makes the resolver reject, this row fails and
-    the I6/I2 split has to be re-argued rather than silently dissolving.
+    the CI-6/CI-2 split has to be re-argued rather than silently dissolving.
     """
     from bstpp.excitation_support import DEFAULT_MAX_SIGMA_KM
 
@@ -997,28 +997,28 @@ def test_lane_b_model_boundary_accepts_the_max_sigma_the_builders_reject():
 
 
 def test_lane_b_builder_max_sigma_guard_preserves_error_precedence():
-    """A-28: I6 is checked last in prepare_polygon_mass_table, on purpose.
+    """A-28: CI-6 is checked last in prepare_polygon_mass_table, on purpose.
 
     At the pre-change tip ``max_sigma=None`` lost to every other check in that
     function. Guarding earlier would have changed which error a doubly-invalid
     call reports -- an undeclared behaviour change riding along with the
     declared one. These three combinations must still report what they
-    reported before I6 existed.
+    reported before CI-6 existed.
     """
     poly = box(0.0, 0.0, 200.0, 200.0)
     ex, ey = np.array([10.0, 20.0]), np.array([10.0, 20.0])
 
-    # min_sigma=None with max_sigma=None still reports I2, not I6.
+    # min_sigma=None with max_sigma=None still reports CI-2, not CI-6.
     assert str(_raised(lambda: prepare_polygon_mass_table(
         poly, ex, ey, min_sigma=None, max_sigma=None, panel_h_m=1.0),
     )).startswith(polygon_min_sigma_invariant_clause())
 
-    # A non-positive min_sigma still reports I3, not I6.
+    # A non-positive min_sigma still reports CI-3, not CI-6.
     assert str(_raised(lambda: prepare_polygon_mass_table(
         poly, ex, ey, min_sigma=0.0, max_sigma=None, panel_h_m=1.0),
     )).startswith(min_sigma_positive_invariant_clause(min_sigma=0.0))
 
-    # A too-coarse panel still reports the panel ratio, not I6.
+    # A too-coarse panel still reports the panel ratio, not CI-6.
     assert str(_raised(lambda: prepare_polygon_mass_table(
         poly, ex, ey, min_sigma=5.0, max_sigma=None, panel_h_m=1e6),
     )).startswith(panel_ratio_invariant_clause(
@@ -1027,12 +1027,12 @@ def test_lane_b_builder_max_sigma_guard_preserves_error_precedence():
 
 
 def test_lane_b_build_quad_table_rejects_none_min_sigma_by_name():
-    """A-28: I2 at ``build_quad_table``, a site A-27 covered only at the
+    """A-28: CI-2 at ``build_quad_table``, a site A-27 covered only at the
     public builder.
 
     ``validate_sigma_pair`` deliberately does not coerce (OP-20), so
     ``float(sigma_min)`` in front of it swallowed ``None`` as an unnamed
-    TypeError. Declared type change, same clause and identity as I2 elsewhere.
+    TypeError. Declared type change, same clause and identity as CI-2 elsewhere.
     """
     with pytest.raises(NumericalConfigError) as ei:
         build_quad_table(

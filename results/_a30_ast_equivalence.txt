@@ -1,0 +1,24 @@
+### git status
+ M phase3_record.tex
+ M refactor-patches/phase3f/rebaseline_record_a27.md
+ M refactor-patches/phase3f/rebaseline_record_a28.md
+ M results/_a30_ast_equivalence.py
+ M results/_a30_ast_equivalence.txt
+ M results/_a30_hypertarget.txt
+ M results/_a30_label_check.txt
+### A-30 AST equivalence (baseline PINNED to A-29 = 1dd0d7a; after = working tree)
+1. PRODUCTION vs 1dd0d7a: AST must be IDENTICAL
+   (labels live in comments and docstrings only; comments never
+    reach the AST, docstrings are stripped)
+   IDENTICAL    bstpp/config.py
+   IDENTICAL    bstpp/polygon_mass.py
+
+2. TESTS vs 1dd0d7a: only STRING LITERALS may differ
+   Parametrize labels and assertion messages are real constants, so
+   they do reach the AST. With every str blanked, the remaining
+   structure must be identical -- that is 'renames only, no
+   assertion touched', checked rather than asserted.
+   IDENTICAL    tests/test_lane_b_config_matrix.py   (structure; strings differ: True)
+
+PASS - production AST identical; test changes are string literals only, no assertion structure touched
+EXIT:0
