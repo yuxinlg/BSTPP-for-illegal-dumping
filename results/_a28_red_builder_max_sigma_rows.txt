@@ -1,0 +1,387 @@
+### RED capture: polygon_mass.py reverted to 426d60a, config.py + tests at candidate
+ M bstpp/config.py
+ M tests/test_lane_b_config_matrix.py
+?? batch_park_fits.py
+?? build/
+?? cbg-park-seasonal.ipynb
+?? nuts_recover_log.txt
+?? phase3_baseline_and_decisions.tex
+?? pins2d_2.json
+?? pins2d_3.json
+?? pins2d_4.json
+?? pins2d_base.json
+?? pins_1.json
+?? pins_2.json
+?? pins_3.json
+?? pins_4.json
+?? pins_5.json
+?? pins_base.json
+?? pins_final.json
+?? pins_wt_2b.json
+?? pins_wt_2c1.json
+?? pins_wt_2c2.json
+?? refactor-patches/commit_prompt_sbc_stage3.md
+?? refactor-patches/pre-3f-stabilization/_patch_validate.py
+?? refactor-patches/pre-3f-stabilization/commit0_g9_gate.md
+?? refactor-patches/pre-3f-stabilization/commit1_red_at_705d040.md
+?? refactor-patches/pre-3f-stabilization/commit1_red_evidence.txt
+?? refactor-patches/pre-3f-stabilization/iteration2_report.md
+?? refactor-patches/pre-3f-stabilization/probe_iter2_b1_design.log
+?? refactor-patches/pre-3f-stabilization/probe_iter2_lane_b_coverage.log
+?? refactor-patches/pre-3f-stabilization/probe_iter2_lane_b_coverage.py
+?? refactor-patches/pre-3f-stabilization/probe_iter2_lane_d.py
+?? refactor-patches/pre-3f-stabilization/probe_iter2_lane_d_alias_geom.log
+?? refactor-patches/pre-3f-stabilization/probe_iter2_poly_conservation.log
+?? refactor-patches/pre-3f-stabilization/probe_iter2_poly_conservation.py
+?? refactor-patches/pre-3f-stabilization/probe_iter2_rng_fallback.log
+?? refactor-patches/pre-3f-stabilization/probe_iter2_rng_fallback.py
+?? refactor-patches/pre-3f-stabilization/probe_membership_predicates.py
+?? refactor-patches/pre-3f-stabilization/probe_panel_gl_install.py
+?? refactor-patches/pre-3f-stabilization/probe_wp14f_max_sigma_sites.py
+?? refactor-patches/pre-3f-stabilization/probe_wp14f_max_sigma_sites_BEFORE.log
+?? refactor-patches/sbc1/
+?? refactor-patches/sbc2/
+?? refactor-patches/sbc_runbook_stage3.md
+?? refactor-patches/sbc_v3.py
+?? refactor-patches/test_sbc_smoke_v3.py
+?? results/_a21_continuation_append.tex
+?? results/_a27_git_status_suite.txt
+?? results/_a28_red_builder_max_sigma_rows.txt
+?? results/_c1_commit_msg.txt
+?? results/_c1_hypertarget_check.txt
+?? results/_c1_latex_build.txt
+?? results/_c1_pins.txt
+?? results/_c1_pins_stderr.txt
+?? results/_c1_pytest.txt
+?? results/_c2_amend_commit_msg.txt
+?? results/_c2_amend_hypertarget.txt
+?? results/_c2_amend_latex.txt
+?? results/_c2_amend_miktex_update.txt
+?? results/_c2_amend_miktex_update2.txt
+?? results/_c2_amend_pins.txt
+?? results/_c2_amend_pins_stderr.txt
+?? results/_c2_amend_pytest.txt
+?? results/_c2_commit_msg.txt
+?? results/_c2_dejavu_install.txt
+?? results/_c2_fndb.txt
+?? results/_c2_hypertarget_check.txt
+?? results/_c2_latex_build.txt
+?? results/_c2_pins.txt
+?? results/_c2_pins_stderr.txt
+?? results/_c2_pytest.txt
+?? results/_c2b_column1_check.txt
+?? results/_c2b_commit_msg.txt
+?? results/_c2b_diff_scope.txt
+?? results/_c2b_hypertarget.txt
+?? results/_c2b_miktex_repair.txt
+?? results/_confirmation_8580364.txt
+?? results/_full_suite_3c.txt
+?? results/_full_suite_ab.txt
+?? results/_full_suite_crs.txt
+?? results/_full_suite_pre3f_cont.txt
+?? results/_full_suite_reaudit.txt
+?? results/_pins_1ab_candidate.json
+?? results/_pins_3c_candidate.json
+?? results/_pins_3f_wp11_stderr.txt
+?? results/_pins_3f_wp12_stderr.txt
+?? results/_pins_3f_wp13_stderr.txt
+?? results/_pins_3f_wp14a_stderr.txt
+?? results/_pins_ab_candidate.json
+?? results/_pins_b1_cf_candidate.json
+?? results/_pins_b1_cf_stderr.txt
+?? results/_pins_commitB_candidate.json
+?? results/_pins_commitC_candidate.json
+?? results/_pins_crs_candidate.json
+?? results/_pins_iter3_candidate.json
+?? results/_pins_pre3f_candidate.json
+?? results/_pins_pre3f_cont_candidate.json
+?? results/_pins_pre3f_cont_stderr.txt
+?? results/_pins_pre3f_final_candidate.json
+?? results/_pins_pre3f_final_stderr.txt
+?? results/_pins_pre3f_stderr.txt
+?? results/_pins_reaudit_candidate.json
+?? results/_pins_reaudit_stderr.txt
+?? results/_reaudit_polygon_group.txt
+?? results/_sbc_stage2_batch_driver.py
+?? results/_wp14c_collect_phase0.txt
+?? results/_wp14c_collect_tests_only.txt
+?? results/_wp14c_pin_compare.py
+?? results/_wp14c_pins.txt
+?? results/_wp14c_pins_stderr.txt
+?? results/_wp14c_pytest_bare.txt
+?? results/_wp14c_pytest_refactor_patches.txt
+?? results/_wp14c_pytest_tests.txt
+?? results/_wp14c_ruff.txt
+?? results/_wp14c_triage_magnitude.txt
+?? results/_wp14c_triage_summary.txt
+?? results/_wp14c_triage_test_covariate_refinement_invariance_False_.txt
+?? results/_wp14c_triage_test_covariate_refinement_invariance_True_.txt
+?? results/_wp14c_triage_test_simulated_count_matches_compensator.txt
+?? results/_wp14c_triage_test_spatial_affine_unit_invariance.txt
+?? results/phase3_record.log
+?? results/polygon_mass_backend_shootout/tables/
+?? results/sbc_stage1_adaptive_chunk470.log
+?? results/sbc_stage1_adaptive_chunk520.log
+?? results/sbc_stage1_adaptive_chunk570.log
+?? results/sbc_stage1_adaptive_chunk600.log
+?? results/sbc_stage1_adaptive_probe420.log
+?? results/sbc_stage1_adaptive_run.log
+?? results/sbc_stage1_ess_pilot/
+?? results/sbc_stage1_run.log
+?? results/sbc_stage2_chunk100.log
+?? results/sbc_stage2_chunk200.log
+?? results/sbc_stage2_chunk300.log
+?? results/sbc_stage2_chunk400.log
+?? results/sbc_stage2_chunk500.log
+?? results/sbc_stage2_chunk600.log
+?? results/sbc_stage2_driver.log
+?? results/sbc_stage2p/
+?? results/sbc_stage2p_run.log
+?? results/sbc_stage3_run.log
+### git diff --stat bstpp/
+ bstpp/config.py | 41 +++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 41 insertions(+)
+
+FF.F                                                                     [100%]
+================================== FAILURES ===================================
+_______ test_lane_b_builder_max_sigma_error_identity_is_owner_invariant _______
+
+    def test_lane_b_builder_max_sigma_error_identity_is_owner_invariant():
+        """A-28 / I6: ``max_sigma=None`` at the two mass-table builders.
+    
+        The sibling of A-27's ``min_sigma=None`` defect, one line away in the same
+        function, and it is a DISTINCT invariant rather than a member of I2. The
+        test of that claim is in this row: the two builders REJECT while the model
+        boundary ACCEPTS the same omission. I2 admits no such split -- nothing
+        anywhere defaults ``min_sigma`` -- so borrowing I2's clause here would
+        assert a package-wide requirement that does not exist.
+    
+        Both owners are compared to each other before the shared text is pinned to
+        the single-sourced clause, so agreement cannot be coincidental, and each
+        must name the function the caller actually called in its remediation.
+        """
+        owners = [
+            ("prepare_polygon_mass_table", lambda: prepare_polygon_mass_table(
+                box(0.0, 0.0, 200.0, 200.0),
+                np.array([10.0, 20.0]), np.array([10.0, 20.0]),
+                min_sigma=5.0, max_sigma=None, panel_h_m=1.0)),
+            ("build_quad_table", lambda: build_quad_table(
+                box(0.0, 0.0, 200.0, 200.0),
+                np.array([10.0, 20.0]), np.array([10.0, 20.0]),
+                5.0, None, ws=None, h_panel=1.0,
+                gl_order=int(DEFAULT_GL_ORDER))),
+        ]
+        raised = [(name, _raised(fn)) for name, fn in owners]
+        detail = "\n".join(
+            f"    {name}: {type(exc).__name__}: {exc}" for name, exc in raised)
+    
+        # 1. One identity, compared across owners rather than each to a literal.
+        types = {type(exc) for _, exc in raised}
+        assert len(types) == 1, (
+            f"I6: one invariant must have one error identity from every owner "
+            f"(D-40); got\n{detail}")
+>       assert types == {NumericalConfigError}, (
+            f"I6: the identity must be NumericalConfigError; got\n{detail}")
+E       AssertionError: I6: the identity must be NumericalConfigError; got
+E             prepare_polygon_mass_table: TypeError: float() argument must be a string or a real number, not 'NoneType'
+E             build_quad_table: TypeError: float() argument must be a string or a real number, not 'NoneType'
+E       assert {<class 'TypeError'>} == {<class 'bstp...ConfigError'>}
+E         
+E         Extra items in the left set:
+E         <class 'TypeError'>
+E         Extra items in the right set:
+E         <class 'bstpp.config.NumericalConfigError'>
+E         Use -v to get more diff
+
+tests\test_lane_b_config_matrix.py:933: AssertionError
+____ test_lane_b_model_boundary_accepts_the_max_sigma_the_builders_reject _____
+
+    def test_lane_b_model_boundary_accepts_the_max_sigma_the_builders_reject():
+        """A-28: the asymmetry that makes I6 a distinct invariant, pinned.
+    
+        ``max_sigma=None`` is legitimate at the model boundary and illegitimate at
+        the builder. Both halves are asserted here because the family decision
+        rests on the contrast, not on either half alone: if a later change gives
+        the builders a default, or makes the resolver reject, this row fails and
+        the I6/I2 split has to be re-argued rather than silently dissolving.
+        """
+        from bstpp.excitation_support import DEFAULT_MAX_SIGMA_KM
+    
+        # Model boundary: accepts, and defaults from the projected CRS.
+        _, hi, meta = resolve_sigma_bounds(
+            mode="polygon", min_sigma=1000.0, max_sigma=None,
+            crs=gpd.GeoSeries([box(0.0, 0.0, 1.0, 1.0)], crs=_CRS_M).crs)
+        assert hi == pytest.approx(DEFAULT_MAX_SIGMA_KM * 1000.0)
+        assert meta["max_sigma_source"] == "default_5km"
+    
+        # NumericalConfig: accepts None outright (the A-27 frozen asymmetry).
+        assert NumericalConfig.create(
+            support_mode="polygon", min_sigma=5.0, max_sigma=None,
+            panel_h_m=1.0).max_sigma is None
+    
+        # The builder: rejects the same omission, by name.
+        with pytest.raises(NumericalConfigError) as ei:
+>           prepare_polygon_mass_table(
+                box(0.0, 0.0, 200.0, 200.0),
+                np.array([10.0, 20.0]), np.array([10.0, 20.0]),
+                min_sigma=5.0, max_sigma=None, panel_h_m=1.0)
+
+tests\test_lane_b_config_matrix.py:992: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+domain_geom = <POLYGON ((200 0, 200 200, 0 200, 0 0, 200 0))>
+event_x_real = array([10., 20.]), event_y_real = array([10., 20.])
+min_sigma = 5.0, max_sigma = None, spatial_window = None, crs = None
+panel_h_m = 1.0, gl_order = 16, extra_provenance = None
+
+    def prepare_polygon_mass_table(
+        domain_geom,
+        event_x_real,
+        event_y_real,
+        *,
+        min_sigma: float,
+        max_sigma: float,
+        spatial_window: float | None = None,
+        crs=None,
+        panel_h_m: float = DEFAULT_PANEL_H_M,
+        gl_order: int = DEFAULT_GL_ORDER,
+        extra_provenance: Optional[dict] = None,
+    ) -> PolygonMassTable:
+        """Explicit public preparation API for polygon Hermite mass tables.
+    
+        ``min_sigma`` and ``max_sigma`` are spatial standard deviations in real
+        coordinate units. When the model prior is expressed as ``sigmax_2``
+        (variance), the compatible interval is ``[min_sigma**2, max_sigma**2]``.
+    
+        Builds entirely in host NumPy/SciPy float64. Does not mutate process-global
+        JAX precision. Online fitting may later consume the table at the process
+        default JAX precision.
+    
+        Descriptive ``extra_provenance`` is copied under nested
+        ``provenance['extra']`` and cannot overwrite builder-owned compatibility
+        fields. Tables are schema
+        ``hybrid_quad_hermite_numpy_v2`` with exact little-endian float64 event
+        identity; legacy v1 / decimal-``.9g`` hashes are intentionally
+        incompatible and must be rebuilt.
+        """
+        from .excitation_support import metres_to_crs_units
+    
+        if crs is not None and not getattr(crs, "is_geographic", False):
+            h_panel = float(metres_to_crs_units(float(panel_h_m), crs))
+        else:
+            h_panel = float(panel_h_m)
+    
+        # D-40: one identity per invariant. `min_sigma=None` used to die in
+        # float(None) with a bare TypeError -- an unnamed error, failing Lane B
+        # admissibility. It is the polygon-requires-min_sigma invariant at the
+        # builder and now raises that clause.
+        from .config import (
+            raise_min_sigma_positive_violation,
+            raise_polygon_min_sigma_violation,
+        )
+        if min_sigma is None:
+            raise_polygon_min_sigma_violation(
+                remediation=(
+                    "prepare_polygon_mass_table builds the table over "
+                    "[min_sigma, max_sigma] and cannot choose the lower bound "
+                    "for you."))
+        min_s = float(min_sigma)
+        if not (math.isfinite(min_s) and min_s > 0):
+            raise_min_sigma_positive_violation(
+                min_sigma=min_s,
+                remediation="Refusing to build a table over this sigma range.")
+        if not (math.isfinite(h_panel) and h_panel > 0):
+            raise ValueError(
+                f"effective panel height must be finite and > 0; got {h_panel!r} "
+                f"(from panel_h_m={panel_h_m!r})")
+        if h_panel / min_s > MAX_PANEL_TO_MIN_SIGMA_RATIO:
+            # D-40: same invariant, same identity and canonical clause as install;
+            # build time is a different situation, so the remediation differs.
+            from .config import raise_panel_ratio_violation
+            raise_panel_ratio_violation(
+                panel_h_m=h_panel, min_sigma=min_s,
+                ratio_ceil=MAX_PANEL_TO_MIN_SIGMA_RATIO,
+                tau_abs=PRODUCTION_TAU_ABS,
+                remediation=(
+                    "Refusing to build this table. Pass a smaller explicit "
+                    "panel_h_m so effective_panel_h / min_sigma <= "
+                    f"{MAX_PANEL_TO_MIN_SIGMA_RATIO}; panel_h_m is metres under a "
+                    "projected CRS and domain-coordinate units otherwise "
+                    f"(here effective_panel_h={h_panel})."),
+            )
+    
+        return build_quad_table(
+            domain_geom,
+            np.asarray(event_x_real, dtype=np.float64),
+            np.asarray(event_y_real, dtype=np.float64),
+            float(min_sigma),
+>           float(max_sigma),
+            ^^^^^^^^^^^^^^^^
+            ws=None if spatial_window is None else float(spatial_window),
+            h_panel=h_panel,
+            gl_order=int(gl_order),
+            extra_provenance=extra_provenance,
+        )
+E       TypeError: float() argument must be a string or a real number, not 'NoneType'
+
+bstpp\polygon_mass.py:1092: TypeError
+_________ test_lane_b_build_quad_table_rejects_none_min_sigma_by_name _________
+
+    def test_lane_b_build_quad_table_rejects_none_min_sigma_by_name():
+        """A-28: I2 at ``build_quad_table``, a site A-27 covered only at the
+        public builder.
+    
+        ``validate_sigma_pair`` deliberately does not coerce (OP-20), so
+        ``float(sigma_min)`` in front of it swallowed ``None`` as an unnamed
+        TypeError. Declared type change, same clause and identity as I2 elsewhere.
+        """
+        with pytest.raises(NumericalConfigError) as ei:
+>           build_quad_table(
+                box(0.0, 0.0, 200.0, 200.0),
+                np.array([10.0, 20.0]), np.array([10.0, 20.0]),
+                None, 40.0, ws=None, h_panel=1.0,
+                gl_order=int(DEFAULT_GL_ORDER))
+
+tests\test_lane_b_config_matrix.py:1038: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+poly = <POLYGON ((200 0, 200 200, 0 200, 0 0, 200 0))>, x = array([10., 20.])
+y = array([10., 20.]), sigma_min = None, sigma_max = 40.0, ws = None
+h_panel = 1.0, gl_order = 16, extra_provenance = None
+
+    def build_quad_table(
+        poly,
+        x: np.ndarray,
+        y: np.ndarray,
+        sigma_min: float,
+        sigma_max: float,
+        ws: float | None = None,
+        h_panel: float = DEFAULT_PANEL_H_M,
+        gl_order: int = DEFAULT_GL_ORDER,
+        extra_provenance: Optional[dict] = None,
+    ) -> PolygonMassTable:
+        """Build Hermite table with host NumPy/SciPy float64 quadrature + slopes.
+    
+        ``sigma_min`` / ``sigma_max`` are spatial standard deviations in real
+        coordinate units (compatible with ``sqrt(sigmax_2)``). Does not mutate
+        process-global JAX config. Descriptive ``extra_provenance`` is stored
+        under nested ``provenance['extra']`` and never overwrites builder-owned
+        compatibility fields.
+        """
+        import time
+    
+        # D-40: the table's build range is a resolved sigma pair like any other;
+        # it gets the same identity and the same canonical clauses. Deferred
+        # import - config imports this module for its constants.
+        from .config import validate_sigma_pair
+>       validate_sigma_pair(float(sigma_min), float(sigma_max))
+                            ^^^^^^^^^^^^^^^^
+E       TypeError: float() argument must be a string or a real number, not 'NoneType'
+
+bstpp\polygon_mass.py:935: TypeError
+=========================== short test summary info ===========================
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_builder_max_sigma_error_identity_is_owner_invariant
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_model_boundary_accepts_the_max_sigma_the_builders_reject
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_build_quad_table_rejects_none_min_sigma_by_name
+3 failed, 1 passed, 55 deselected in 7.75s
+EXIT:1

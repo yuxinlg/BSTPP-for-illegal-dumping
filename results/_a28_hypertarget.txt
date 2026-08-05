@@ -1,0 +1,52 @@
+### git status
+ M bstpp/config.py
+ M bstpp/polygon_mass.py
+ M phase3_record.tex
+AM refactor-patches/phase3f/rebaseline_record_a28.md
+A  refactor-patches/pre-3f-stabilization/probe_wp14f_max_sigma_sites.py
+A  refactor-patches/pre-3f-stabilization/probe_wp14f_max_sigma_sites_BEFORE.log
+ M refactor-patches/pre-3f-stabilization/traceability_matrix.md
+A  results/_a28_ascii_sweep.txt
+AM results/_a28_citation_sweep.txt
+A  results/_a28_content_checks.txt
+AM results/_a28_hypertarget.txt
+A  results/_a28_pin_compare.py
+A  results/_a28_pins.txt
+A  results/_a28_pins_candidate.json
+A  results/_a28_pins_stderr.txt
+A  results/_a28_probe_after.txt
+A  results/_a28_red_builder_max_sigma_rows.txt
+A  results/_a28_ruff.txt
+AM results/_a28_suite.txt
+ M tests/test_lane_b_config_matrix.py
+### hypertarget
+SUBSECTIONS 28 OK 28 MISSING 0
+OK a-1
+OK a-2
+OK a-3
+OK a-4
+OK a-5
+OK a-6
+OK a-7
+OK a-8
+OK a-9
+OK a-10
+OK a-11
+OK a-12
+OK a-13
+OK a-14
+OK a-15
+OK a-16
+OK a-17
+OK a-18
+OK a-19
+OK a-20
+OK a-21
+OK a-22
+OK a-23
+OK a-24
+OK a-25
+OK a-26
+OK a-27
+OK a-28
+EXIT:0

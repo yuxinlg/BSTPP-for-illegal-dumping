@@ -1,0 +1,20 @@
+=== A-28 / WP1.4f four-config pins (CF rebaseline record) ===
+baseline: refactor-patches/baselines-2026-07/pins.json
+expectation: the change touches only error paths -- two builder guards that
+raise before any quadrature runs -- so pins must MATCH. Expected is not
+measured; this run is the measurement. A diff would mean a guard had been
+placed where it can fire on an accepting path.
+--- git status --porcelain (tracked) ---
+ M bstpp/config.py
+ M bstpp/polygon_mass.py
+ M tests/test_lane_b_config_matrix.py
+--- end ---
+
+PIN_GEN_EXIT:0
+cox_hawkes: MATCH
+hawkes: MATCH
+hawkes_nonsquare_4to1: MATCH
+lgcp: MATCH
+
+PIN_DIFFS 0 MATCH
+PIN_COMPARE_EXIT:0

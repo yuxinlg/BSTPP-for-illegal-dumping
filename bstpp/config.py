@@ -102,6 +102,12 @@ def raise_panel_ratio_violation(
 #     in polygon mode with max_sigma omitted there is no user-supplied pair to
 #     compare. NumericalConfig owns these and validates the right quantity.
 #   * support-mode validity is a MODE invariant, upstream of both.
+#   * builder-requires-max_sigma (I6, A-28) is a BUILDER-ARGUMENT invariant.
+#     It reads like I2 and is not: the resolver DEFAULTS an omitted polygon
+#     max_sigma and NumericalConfig accepts None for it, so the requirement is
+#     the mass-table builder's alone, where max_sigma is the top knot of the
+#     log-sigma grid rather than a prior bound. Same test as always -- a
+#     different quantity is a different invariant.
 #
 # So there is more than one owner, but exactly one identity and one canonical
 # clause per invariant, produced here and rendered byte for byte wherever the
@@ -140,6 +146,41 @@ def polygon_min_sigma_invariant_clause() -> str:
 def raise_polygon_min_sigma_violation(*, remediation: str = "") -> NoReturn:
     """Raise the single identity for the polygon-requires-min_sigma invariant."""
     msg = polygon_min_sigma_invariant_clause()
+    if remediation:
+        msg = f"{msg} {remediation}"
+    raise NumericalConfigError(msg)
+
+
+def builder_max_sigma_invariant_clause() -> str:
+    """Render the canonical builder-requires-``max_sigma`` clause (I6).
+
+    I6 is a DISTINCT invariant, not a member of the I2 family, and the reason
+    is the D-40 sigma/mode test above: owners of one invariant validate the
+    same QUANTITY. I2's quantity is ``min_sigma``; this one's is ``max_sigma``.
+    They are also not the same claim. I2 holds package-wide -- nothing
+    anywhere defaults ``min_sigma``. "Polygon requires ``max_sigma``" is FALSE
+    at the model boundary: ``resolve_sigma_bounds`` defaults an omitted polygon
+    ``max_sigma`` to ``DEFAULT_MAX_SIGMA_KM`` through the projected CRS, and
+    ``NumericalConfig`` accepts ``max_sigma=None`` outright (the asymmetry
+    A-27 froze). Rendering I2's clause here would assert a package-wide
+    requirement that does not exist.
+
+    The requirement is the BUILDER's alone, because ``max_sigma`` there is not
+    a prior bound but the top knot of the table's log-sigma grid
+    (``log_knots(sigma_min, sigma_max)``), and the table prohibits
+    extrapolation past it. The builder cannot borrow the resolver's default
+    either: that default needs a projected CRS, and ``crs`` is optional at the
+    builder.
+    """
+    return (
+        "mass-table build range (polygon): max_sigma is required by the "
+        "mass-table builder and has no default there; supply an explicit "
+        "finite max_sigma in domain-coordinate units.")
+
+
+def raise_builder_max_sigma_violation(*, remediation: str = "") -> NoReturn:
+    """Raise the single identity for the builder-requires-max_sigma invariant."""
+    msg = builder_max_sigma_invariant_clause()
     if remediation:
         msg = f"{msg} {remediation}"
     raise NumericalConfigError(msg)

@@ -1,0 +1,39 @@
+bstpp.__file__ = C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+--- resolve_sigma_bounds(polygon, max_sigma=None, crs=None)
+    RAISED ValueError  MRO=['ValueError', 'Exception', 'BaseException', 'object']
+    MSG   Cannot convert metres to CRS units without a CRS; pass an explicit length in domain-coordinate units instead.
+    SITE  \excitation_support.py:62  raise ValueError(
+--- resolve_sigma_bounds(polygon, max_sigma=None, crs=EPSG:32618)
+    ACCEPTED -> tuple
+    value    1000.0, 5000.0
+--- resolve_sigma_bounds(rectangle, max_sigma=None)
+    RAISED NumericalConfigError  MRO=['NumericalConfigError', 'ValueError', 'Exception', 'BaseException', 'object']
+    MSG   support-mode compatibility (rectangle): min_sigma and max_sigma must both be supplied or both omitted; got min_sigma=5.0, max_sigma=None. Omitting both leaves the sigmax_2 prior unchanged.
+    SITE  \config.py:129  raise NumericalConfigError(msg)
+--- NumericalConfig.create(polygon, max_sigma=None)
+    ACCEPTED -> NumericalConfig
+    stored   min=5.0 max=None
+--- prepare_polygon_mass_table(max_sigma=None)
+    RAISED TypeError  MRO=['TypeError', 'Exception', 'BaseException', 'object']
+    MSG   float() argument must be a string or a real number, not 'NoneType'
+    SITE  \polygon_mass.py:1092  float(max_sigma),
+--- prepare_polygon_mass_table(min_sigma=None, max_sigma=None)
+    RAISED NumericalConfigError  MRO=['NumericalConfigError', 'ValueError', 'Exception', 'BaseException', 'object']
+    MSG   support-mode compatibility (polygon): min_sigma is required and has no default; supply an explicit finite positive min_sigma in domain-coordinate units. prepare_polygon_mass_table builds the table over [min_sigma, max_sigma] and cannot choose the lower bound for you.
+    SITE  \config.py:145  raise NumericalConfigError(msg)
+--- prepare_polygon_mass_table(min_sigma=0.0, max_sigma=None) [precedence]
+    RAISED NumericalConfigError  MRO=['NumericalConfigError', 'ValueError', 'Exception', 'BaseException', 'object']
+    MSG   min_sigma must be finite and positive; got 0.0 Refusing to build a table over this sigma range.
+    SITE  \config.py:159  raise NumericalConfigError(msg)
+--- prepare_polygon_mass_table(min_sigma=5.0, max_sigma=None, bad panel) [precedence]
+    RAISED NumericalConfigError  MRO=['NumericalConfigError', 'ValueError', 'Exception', 'BaseException', 'object']
+    MSG   panel_h_m / min_sigma exceeds max_panel_to_min_sigma_ratio: panel_h_m=1000000.0, min_sigma=5.0, ratio=200000.0, max_panel_to_min_sigma_ratio=8.0. This resolution prefilter is necessary but not sufficient for PRODUCTION_TAU_ABS=1e-05, which is enforced by a measured residual at mass-table install. Refusing to build this table. Pass a smaller explicit panel_h_m so effective_panel_h / min_sigma <= 8.0; panel_h_m is metres under a projected CRS and domain-coordinate units otherwise (here effective_panel_h=1000000.0).
+    SITE  \config.py:86  raise NumericalConfigError(msg)
+--- build_quad_table(sigma_max=None)
+    RAISED TypeError  MRO=['TypeError', 'Exception', 'BaseException', 'object']
+    MSG   float() argument must be a string or a real number, not 'NoneType'
+    SITE  \polygon_mass.py:935  validate_sigma_pair(float(sigma_min), float(sigma_max))
+--- validate_polygon_mass_table(sigma_max=None)
+    RAISED TypeError  MRO=['TypeError', 'Exception', 'BaseException', 'object']
+    MSG   float() argument must be a string or a real number, not 'NoneType'
+    SITE  \polygon_mass.py:810  if float(table.sigma_min) != float(sigma_min) or float(table.sigma_max) != float(sigma_max):

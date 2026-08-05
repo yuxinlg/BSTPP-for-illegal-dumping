@@ -931,7 +931,31 @@ def build_quad_table(
     # D-40: the table's build range is a resolved sigma pair like any other;
     # it gets the same identity and the same canonical clauses. Deferred
     # import - config imports this module for its constants.
-    from .config import validate_sigma_pair
+    #
+    # A-28: both coercions below used to die in float(None) with an unnamed
+    # TypeError -- validate_sigma_pair deliberately does not coerce (OP-20), so
+    # a None argument never reached a named check. max_sigma is I6, this
+    # function being the second builder owner alongside
+    # prepare_polygon_mass_table; min_sigma is I2 at a site A-27 covered only
+    # at the public builder. Both are declared type changes.
+    from .config import (
+        raise_builder_max_sigma_violation,
+        raise_polygon_min_sigma_violation,
+        validate_sigma_pair,
+    )
+    if sigma_min is None:
+        raise_polygon_min_sigma_violation(
+            remediation=(
+                "build_quad_table lays the log-sigma knot grid over "
+                "[sigma_min, sigma_max] and cannot choose the lower bound "
+                "for you."))
+    if sigma_max is None:
+        raise_builder_max_sigma_violation(
+            remediation=(
+                "build_quad_table lays the log-sigma knot grid over "
+                "[sigma_min, sigma_max]; the top knot bounds the table and "
+                "evaluation beyond it is prohibited, so it cannot be chosen "
+                "for you."))
     validate_sigma_pair(float(sigma_min), float(sigma_max))
 
     x = np.asarray(x, dtype=np.float64)
@@ -1083,6 +1107,23 @@ def prepare_polygon_mass_table(
                 "projected CRS and domain-coordinate units otherwise "
                 f"(here effective_panel_h={h_panel})."),
         )
+
+    # A-28 / I6. Placed HERE, last, deliberately: at the pre-change tip
+    # max_sigma=None lost to every other check in this function (measured --
+    # (None, None) reported I2, (0.0, None) reported I3, a coarse panel
+    # reported the panel ratio). Guarding earlier would have changed which
+    # error a doubly-invalid call reports, an undeclared behaviour change on
+    # top of the declared one. build_quad_table owns the same invariant; this
+    # site exists so the remediation names the function the caller called.
+    from .config import raise_builder_max_sigma_violation
+    if max_sigma is None:
+        raise_builder_max_sigma_violation(
+            remediation=(
+                "prepare_polygon_mass_table builds the table over "
+                "[min_sigma, max_sigma] and cannot choose the upper bound for "
+                "you. The model boundary is different: an omitted polygon "
+                "max_sigma there defaults to DEFAULT_MAX_SIGMA_KM km via the "
+                "projected CRS."))
 
     return build_quad_table(
         domain_geom,
