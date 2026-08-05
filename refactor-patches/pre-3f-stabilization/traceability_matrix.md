@@ -49,7 +49,7 @@
 
 ## Register traceability
 
-Register inventory: **D-1…D-39**; **A-1…A-24**; **OP-2…OP-17** (OP-1 never allocated); **I1, I3–I6, I8/I8a/I8b, I9–I12**.
+Register inventory: **D-1…D-39**; **A-1…A-24**; **OP-2…OP-18** (OP-1 never allocated; OP-19+ not opened — all guide I1–I11 have live `tests/` coverage after WP1.4c inventory); **I1, I3–I6, I8/I8a/I8b, I9–I12**.
 
 | ID | Contract (short) | Register status | Production sites | Execution legs | Existing evidence | Evidence type | Gap | Treatment | Owner |
 |---|---|---|---|---|---|---|---|---|---|
@@ -104,19 +104,23 @@ Register inventory: **D-1…D-39**; **A-1…A-24**; **OP-2…OP-17** (OP-1 never
 | OP-15 | Closeout §6 P3 provenance completeness (untouched-axis + save_rslts) | open | `test_lane_b_save_rslts_roundtrips_cutoff_provenance` (strict xfail G2); covering-array success provenance checks | mutator/I/O | A-24 mapping | gap recorded | unaudited under D-39; **discharge:** save_rslts half by G2; untouched-axis by Lane B hardening | 3f G2 + Lane B | 3f |
 | OP-16 | Closeout §6 C5 `set_window` rejected as covering-array axis level | open | `test_lane_b_rejected_set_window_rolls_back_whole_state`; `test_lane_b_polygon_incompatible_spatial_change_rolls_back` (isolated, not CA-crossed) | set_window reject | A-24 mapping | gap recorded | unaudited under D-39; **discharge:** standing Lane B CA extension (no D-40 dependency) | standing Lane B | 3f |
 | OP-17 | Closeout §6 P1 message-substring enforcement across matrix rejections | open | bare `pytest.raises(ValueError)` (no `match=`) in `test_lane_b_rejected_set_window_rolls_back_whole_state` (parametrized `bad_call`) and stale-table install in `test_lane_b_polygon_incompatible_spatial_change_rolls_back` | set_window reject identity | A-24 regrade; enumerated from code | gap recorded | unaudited under D-39; **discharge:** D-40 entry-path error-identity unification (do not write `match=` against the current split) | D-40 | 3f |
+| OP-18 | Restated I10 under D-15: translation invariance holds exactly (bit-identical); invariance under a genuine change of units requires σ, spatial cutoff, and background normalization to transform together and carries a Jacobian from domain-area rescaling — that form is **not derived**; do not write it as a test until derived | open | process / future test design (no production code site yet) | n/a | WP1.4c three-transform table + archive I10 supersession (D-15 §5.9–5.10); live pins `test_spatial_similarity_covariance`, `test_spatial_kernel_family_is_real_unit_not_internal` | gap recorded | derivation open under D-39 | keep as OP | 3f |
+| Suite invocation (enforcement) | Default pytest collection = `tests/` via `pyproject.toml` `testpaths` | **enforced** WP1.4c (register declaration deferred to A-25 / C3 per D-35) | `pyproject.toml` `[tool.pytest.ini_options]` | bare `pytest` | collect-only 582→560 (Δ22 = `refactor-patches/`); bare suite EXIT:0 | verified | short window: register still says “Full suite”, config says `tests` — safe direction | keep | 3f |
+| Gate profile (IV/DOC) | Full profile when gate-read files change (`pyproject.toml` is gate-read); DOC-only only when no gate-read files touch | active process | A-24 DOC-only amendment; WP1.4c uses **full** profile | pins + suites + ruff | this commit | process | — | keep | 3f |
 | I1 | Sim/lik mass atoms | active | lik + _sim_cox | bg | seasonal_integral | direct | none | keep | — |
 | I3/I4 | Pair window contract | active | utils, lik, sim | pairs | identities | direct | none | keep | — |
 | I5 | Single factor site | active | inference_functions | model | test_smoke | direct | none | keep | — |
 | I6 | Derived seasonal coordinate | active | `_scale_xyt` | prep | `tests/test_smoke.py::test_A_derivation` | **verified** EXIT:0 iter2 | none | keep | — |
 | I8* | Special-case reductions | active | identities | model | test_identities | direct | none | keep | — |
 | I9 | Refinement invariance | active | clipped support | prep | clipped tests | direct | none | keep | — |
-| I10 | Unit covariance / real-unit spatial kernel (internal affine invariance; non-uniform rescaling changes loglik) | active | identities + real-unit boundary | lik/sim | `test_spatial_similarity_covariance`, `test_spatial_kernel_family_is_real_unit_not_internal` | **verified** EXIT:0 iter2 | none | keep | — |
+| I10 | Unit covariance / real-unit spatial kernel (similarity with covariant σ; non-uniform rescaling at fixed σ changes loglik). Archive affine-at-fixed-σ loglik invariance **superseded by D-15** | active | identities + real-unit boundary | lik/sim | live: `test_spatial_similarity_covariance`, `test_spatial_kernel_family_is_real_unit_not_internal`; archive `test_spatial_affine_unit_invariance` historical only | **verified** live EXIT:0; archive deliberately red | OP-18 derivation | keep live; archive excluded | 3f |
 | I11 | Conservation E[n]≈Λ | active | simulate + compensator | rect+polygon | rectangle standing test; polygon `test_polygon_i11_conservation` R=40 @ 3·se (`c5e4871`) | integration | — | standing test | pre-3f |
 | I12 | Real-unit nonsquare | active | utils/trigger/sim | nonsquare | pins + identities | direct | none | keep | — |
 | C6 | Guide identity | open | docs | n/a | A-21 | inferred | unresolved | 3g | 3g |
 
 **Duplicated / missing / contradictory notes:**
 
-- OP-1 missing (never allocated). I2/I7 absent.  
+- OP-1 missing (never allocated). Register inventory historically omitted I2/I7; WP1.4c live inventory finds both under `tests/` (seasonal_integral / smoke held-out pairs).  
 - Part I OP-3/4 prose vs A-21: Part II governs (G8).  
 - Untracked `phase3_baseline_and_decisions.tex` not governing.
+- WP1.4c OP range opened in this series: **OP-18** only (I1–I11 all have live coverage).

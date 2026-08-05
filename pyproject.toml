@@ -3,6 +3,7 @@ requires = ['setuptools>=42']
 build-backend = 'setuptools.build_meta'
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
 markers = [
     'slow: long-running tests (e.g. end-to-end NUTS fits); deselect with -m "not slow"',
 ]
