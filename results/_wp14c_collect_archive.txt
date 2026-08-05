@@ -1,0 +1,19 @@
+WP1.4c — what bare collection picked up outside tests/ at 82e9c09^ (dbccd3d). Regenerated for A-25 from a clean tree.
+commit:      dbccd3d1a3d20ecd312c2ea6c2d82f206afd2f1f  (dbccd3d)
+tree:        clean detached git worktree (C:/Users/Terhi/Box/BSTPP_terhi/_a25_wt)
+interpreter: C:/Users/Terhi/miniconda3/envs/illegal-dumping/python.exe
+date:        2026-08-05T01:28:55Z
+--- git status --porcelain (provenance; empty = clean tree) ---
+--- end git status --porcelain ---
+
+$ JAX_PLATFORM_NAME=cpu python -m pytest refactor-patches/ --collect-only -q
+refactor-patches/phase0/test_identities.py::test_offspring_thinning_matches_compensator_mass
+refactor-patches/phase0/test_identities.py::test_alpha_zero_reduces_cox_hawkes_to_lgcp
+refactor-patches/phase0/test_identities.py::test_window_at_horizon_recovers_untruncated_loglik
+refactor-patches/phase0/test_identities.py::test_covariate_refinement_invariance[False]
+refactor-patches/phase0/test_identities.py::test_covariate_refinement_invariance[True]
+refactor-patches/phase0/test_identities.py::test_spatial_affine_unit_invariance
+refactor-patches/phase0/test_identities.py::test_simulated_count_matches_compensator
+
+7 tests collected in 20.31s
+EXIT:0

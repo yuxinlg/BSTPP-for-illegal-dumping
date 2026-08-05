@@ -1,0 +1,28 @@
+A-25 pin comparison
+baseline:  refactor-patches/baselines-2026-07/pins.json
+date:      2026-08-05T01:58:24+00:00
+method:    field-by-field equality of every recorded loglik/gradient string, per config
+configs:   cox_hawkes, hawkes, hawkes_nonsquare_4to1, lgcp
+
+0c112c3 WP1.0        NOT RUN (documentation-only / opening entry)
+296bdf5 WP1.1        cox_hawkes=MATCH | hawkes=MATCH | hawkes_nonsquare_4to1=MATCH | lgcp=MATCH
+                     capture: results/_pins_3f_wp11_candidate.json
+f88ac29 WP1.2        cox_hawkes=MATCH | hawkes=MATCH | hawkes_nonsquare_4to1=MATCH | lgcp=MATCH
+                     capture: results/_pins_3f_wp12_candidate.json
+5fc83a6 WP1.3        cox_hawkes=MATCH | hawkes=MATCH | hawkes_nonsquare_4to1=MATCH | lgcp=MATCH
+                     capture: results/_pins_3f_wp13_candidate.json
+4e7b8e2 WP1.4a       cox_hawkes=MATCH | hawkes=MATCH | hawkes_nonsquare_4to1=MATCH | lgcp=MATCH
+                     capture: results/_pins_3f_wp14a_candidate.json
+560524d WP1.4b       cox_hawkes=MATCH | hawkes=MATCH | hawkes_nonsquare_4to1=MATCH | lgcp=MATCH
+                     capture: results/_pins_3f_wp14b_candidate.json
+5a3710d C1           cox_hawkes=MATCH | hawkes=MATCH | hawkes_nonsquare_4to1=MATCH | lgcp=MATCH
+                     capture: results/_c1_pins_candidate.json
+beb0482 C2           cox_hawkes=MATCH | hawkes=MATCH | hawkes_nonsquare_4to1=MATCH | lgcp=MATCH
+                     capture: results/_c2_pins_candidate.json
+beb0482 C2-amend     cox_hawkes=MATCH | hawkes=MATCH | hawkes_nonsquare_4to1=MATCH | lgcp=MATCH
+                     capture: results/_c2_amend_pins_candidate.json
+dbccd3d C2b          NOT RUN (documentation-only / opening entry)
+82e9c09 WP1.4c       cox_hawkes=MATCH | hawkes=MATCH | hawkes_nonsquare_4to1=MATCH | lgcp=MATCH
+                     capture: results/_pins_wp14c_candidate.json
+
+PIN_DIFFS 0 MATCH at every commit that ran pins, all four configs.

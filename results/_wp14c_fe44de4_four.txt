@@ -1,0 +1,272 @@
+WP1.4c â€” the same four archive failures at the Phase 3f open tip fe44de4. Regenerated for A-25 from a clean tree.
+commit:      fe44de49797ca39532f89805c5a13c1968e87511  (fe44de4)
+tree:        clean detached git worktree (C:/Users/Terhi/Box/BSTPP_terhi/_a25_wt)
+interpreter: C:/Users/Terhi/miniconda3/envs/illegal-dumping/python.exe
+date:        2026-08-05T01:30:16Z
+--- git status --porcelain (provenance; empty = clean tree) ---
+--- end git status --porcelain ---
+
+$ JAX_PLATFORM_NAME=cpu python -m pytest refactor-patches/phase0/test_identities.py -q
+...FFFF                                                                  [100%]
+================================== FAILURES ===================================
+_________________ test_covariate_refinement_invariance[False] _________________
+
+standardize = False
+
+    @pytest.mark.parametrize("standardize", [False, True])
+    def test_covariate_refinement_invariance(standardize):
+        params = {k: np.float32(v) for k, v in
+                  dict(a_0=0.2, alpha=0.3, beta=2.0, sigmax_2=0.1).items()}
+        params["w"] = np.float32([0.7])
+    
+        def build(cov_gdf):
+            return Hawkes_Model(COV_DATA, A_RECT, T_DAYS, cox_background=False,
+                                spatial_cov=cov_gdf, cov_names=["cov"],
+                                standardize_cov=standardize, **PRIORS)
+    
+>       base = build(COV_GDF)
+               ^^^^^^^^^^^^^^
+
+refactor-patches\phase0\test_identities.py:225: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+refactor-patches\phase0\test_identities.py:221: in build
+    return Hawkes_Model(COV_DATA, A_RECT, T_DAYS, cox_background=False,
+bstpp\main.py:2013: in __init__
+    super().__init__(name, data, A, T, **kwargs)
+bstpp\main.py:500: in __init__
+    attach_covariate_partitions(parts, self.prepared_domain,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+partitions = PreparedPartitions(n_t=50, x_t=Array([ 0.,  1.,  2.,  3.,  4.,  5.,  6.,  7.,  8.,  9., 10., 11., 12.,
+       13., 14....)        3, standardization=None, integration_field_indices=None, integration_cov_indices=None, integration_areas=None)
+domain = PreparedDomain(domain=array([[0., 1.],
+       [0., 1.]]), bounds=array([[0., 1.],
+       [0., 1.]]), area_ratio=1, axis_scales=Array([1., 1.], dtype=float32), crs=None, is_polygon=False, union_geometry=None)
+spatial_cov =    cov                                         geometry  cov_ind
+0  0.5    POLYGON ((0.5 0, 0.5 0.5, 0 0.5, 0 0, 0.5 0...LYGON ((0.5 0.5, 0.5 1, 0 1, 0 0.5, 0.5 0.5))        2
+3 -0.5    POLYGON ((1 0.5, 1 1, 0.5 1, 0.5 0.5, 1 0.5))        3
+cov_names = ['cov'], standardize_cov = False, model = 'hawkes'
+
+    def attach_covariate_partitions(partitions: PreparedPartitions,
+                                    domain: PreparedDomain,
+                                    spatial_cov: gpd.GeoDataFrame,
+                                    cov_names: list,
+                                    standardize_cov: Optional[str],
+                                    model: str) -> None:
+        """Attach the covariate leg's partition products (geometry side only).
+    
+        Verbatim extraction: the (standardized) design matrix, and for Cox/LGCP
+        the comp-grid x covariate common refinement with exact intersection
+        areas plus the covariate-based in-domain cell override; for plain
+        Hawkes the covariate-cell areas. Event membership (cov_ind) is NOT
+        built here -- it is event-side and stays with the constructor's
+        membership step.
+        """
+        A_ = domain.bounds
+        # Ownership: do not retain the caller's covariate frame by alias.
+        spatial_cov = spatial_cov.copy(deep=True)
+        partitions.cov_gdf = spatial_cov
+    
+        # 3c-3 (D-7): clipped covariate support C_c \u2229 A, for EVERY model --
+        # the plain-Hawkes compensator areas and background-sampler geometry,
+        # and the "domain_area" standardization weights (rows aligned 1:1 with
+        # cov_ind; zero-area rows KEPT so covariate indexing is unchanged).
+        # Polygon domains consume PreparedDomain.union_geometry (canonical);
+        # rectangle arrays use the bounding box.
+        if domain.is_polygon:
+            if domain.union_geometry is None:
+                raise ValueError(
+                    "PreparedDomain.union_geometry is required for polygon "
+                    "domains (set by prepare_domain)")
+            domain_geom = domain.union_geometry
+        else:
+            domain_geom = box(A_[0, 0], A_[1, 0], A_[0, 1], A_[1, 1])
+        cov_support = spatial_cov.copy()
+        cov_support['geometry'] = (cov_support.geometry
+                                   .intersection(domain_geom)
+                                   .apply(_polygonal_part))
+        partitions.cov_support = cov_support
+        w_area = (cov_support.area / ((A_[0, 1] - A_[0, 0]) * (A_[1, 1] - A_[1, 0]))).values
+    
+        X_s = spatial_cov[cov_names].values
+        if X_s.ndim == 1:
+            X_s = X_s[:, None]
+        # standardize covariates. Standardization is always REPORTED (D-10).
+        # Settled pre-3f (OP-3/OP-4): default off (None); accepted values are
+        # None and "domain_area"; legacy Booleans are rejected explicitly.
+        if isinstance(standardize_cov, bool):
+>           raise ValueError(
+                "standardize_cov no longer accepts booleans; pass None (off, "
+                "default) or 'domain_area' (area-weighted over |C_c \u2229 A|). "
+                f"Got {standardize_cov!r}.")
+E           ValueError: standardize_cov no longer accepts booleans; pass None (off, default) or 'domain_area' (area-weighted over |C_c \u2229 A|). Got False.
+
+bstpp\preparation.py:436: ValueError
+_________________ test_covariate_refinement_invariance[True] __________________
+
+standardize = True
+
+    @pytest.mark.parametrize("standardize", [False, True])
+    def test_covariate_refinement_invariance(standardize):
+        params = {k: np.float32(v) for k, v in
+                  dict(a_0=0.2, alpha=0.3, beta=2.0, sigmax_2=0.1).items()}
+        params["w"] = np.float32([0.7])
+    
+        def build(cov_gdf):
+            return Hawkes_Model(COV_DATA, A_RECT, T_DAYS, cox_background=False,
+                                spatial_cov=cov_gdf, cov_names=["cov"],
+                                standardize_cov=standardize, **PRIORS)
+    
+>       base = build(COV_GDF)
+               ^^^^^^^^^^^^^^
+
+refactor-patches\phase0\test_identities.py:225: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+refactor-patches\phase0\test_identities.py:221: in build
+    return Hawkes_Model(COV_DATA, A_RECT, T_DAYS, cox_background=False,
+bstpp\main.py:2013: in __init__
+    super().__init__(name, data, A, T, **kwargs)
+bstpp\main.py:500: in __init__
+    attach_covariate_partitions(parts, self.prepared_domain,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+partitions = PreparedPartitions(n_t=50, x_t=Array([ 0.,  1.,  2.,  3.,  4.,  5.,  6.,  7.,  8.,  9., 10., 11., 12.,
+       13., 14....)        3, standardization=None, integration_field_indices=None, integration_cov_indices=None, integration_areas=None)
+domain = PreparedDomain(domain=array([[0., 1.],
+       [0., 1.]]), bounds=array([[0., 1.],
+       [0., 1.]]), area_ratio=1, axis_scales=Array([1., 1.], dtype=float32), crs=None, is_polygon=False, union_geometry=None)
+spatial_cov =    cov                                         geometry  cov_ind
+0  0.5    POLYGON ((0.5 0, 0.5 0.5, 0 0.5, 0 0, 0.5 0...LYGON ((0.5 0.5, 0.5 1, 0 1, 0 0.5, 0.5 0.5))        2
+3 -0.5    POLYGON ((1 0.5, 1 1, 0.5 1, 0.5 0.5, 1 0.5))        3
+cov_names = ['cov'], standardize_cov = True, model = 'hawkes'
+
+    def attach_covariate_partitions(partitions: PreparedPartitions,
+                                    domain: PreparedDomain,
+                                    spatial_cov: gpd.GeoDataFrame,
+                                    cov_names: list,
+                                    standardize_cov: Optional[str],
+                                    model: str) -> None:
+        """Attach the covariate leg's partition products (geometry side only).
+    
+        Verbatim extraction: the (standardized) design matrix, and for Cox/LGCP
+        the comp-grid x covariate common refinement with exact intersection
+        areas plus the covariate-based in-domain cell override; for plain
+        Hawkes the covariate-cell areas. Event membership (cov_ind) is NOT
+        built here -- it is event-side and stays with the constructor's
+        membership step.
+        """
+        A_ = domain.bounds
+        # Ownership: do not retain the caller's covariate frame by alias.
+        spatial_cov = spatial_cov.copy(deep=True)
+        partitions.cov_gdf = spatial_cov
+    
+        # 3c-3 (D-7): clipped covariate support C_c \u2229 A, for EVERY model --
+        # the plain-Hawkes compensator areas and background-sampler geometry,
+        # and the "domain_area" standardization weights (rows aligned 1:1 with
+        # cov_ind; zero-area rows KEPT so covariate indexing is unchanged).
+        # Polygon domains consume PreparedDomain.union_geometry (canonical);
+        # rectangle arrays use the bounding box.
+        if domain.is_polygon:
+            if domain.union_geometry is None:
+                raise ValueError(
+                    "PreparedDomain.union_geometry is required for polygon "
+                    "domains (set by prepare_domain)")
+            domain_geom = domain.union_geometry
+        else:
+            domain_geom = box(A_[0, 0], A_[1, 0], A_[0, 1], A_[1, 1])
+        cov_support = spatial_cov.copy()
+        cov_support['geometry'] = (cov_support.geometry
+                                   .intersection(domain_geom)
+                                   .apply(_polygonal_part))
+        partitions.cov_support = cov_support
+        w_area = (cov_support.area / ((A_[0, 1] - A_[0, 0]) * (A_[1, 1] - A_[1, 0]))).values
+    
+        X_s = spatial_cov[cov_names].values
+        if X_s.ndim == 1:
+            X_s = X_s[:, None]
+        # standardize covariates. Standardization is always REPORTED (D-10).
+        # Settled pre-3f (OP-3/OP-4): default off (None); accepted values are
+        # None and "domain_area"; legacy Booleans are rejected explicitly.
+        if isinstance(standardize_cov, bool):
+>           raise ValueError(
+                "standardize_cov no longer accepts booleans; pass None (off, "
+                "default) or 'domain_area' (area-weighted over |C_c \u2229 A|). "
+                f"Got {standardize_cov!r}.")
+E           ValueError: standardize_cov no longer accepts booleans; pass None (off, default) or 'domain_area' (area-weighted over |C_c \u2229 A|). Got True.
+
+bstpp\preparation.py:436: ValueError
+_____________________ test_spatial_affine_unit_invariance _____________________
+
+    def test_spatial_affine_unit_invariance():
+        cx, cy, dx, dy = 3.0, 0.5, -1.0, 2.0        # positive scales, arbitrary offsets
+        data2 = DATA.copy()
+        data2["X"] = cx * DATA["X"] + dx
+        data2["Y"] = cy * DATA["Y"] + dy
+        a2 = np.array([[cx * 0.0 + dx, cx * 1.0 + dx],
+                       [cy * 0.0 + dy, cy * 1.0 + dy]])
+    
+        m1 = Hawkes_Model(DATA, A_RECT, T_DAYS, cox_background=False, **PRIORS)
+        m2 = Hawkes_Model(data2, a2, T_DAYS, cox_background=False, **PRIORS)
+    
+        assert np.allclose(np.asarray(m1.args["t_events"]), np.asarray(m2.args["t_events"]),
+                           rtol=0, atol=1e-6)
+        assert np.allclose(np.asarray(m1.args["xy_events"]), np.asarray(m2.args["xy_events"]),
+                           rtol=0, atol=1e-6)
+        # pair sets identical as sets (construction order is outside the contract, I3)
+        p1 = set(map(tuple, np.asarray(m1.args["coords"]).reshape(-1, 2).tolist()))
+        p2 = set(map(tuple, np.asarray(m2.args["coords"]).reshape(-1, 2).tolist()))
+        assert p1 == p2
+    
+        params = {k: np.float32(v) for k, v in
+                  dict(a_0=0.5, alpha=0.3, beta=2.0, sigmax_2=0.1).items()}
+        ll1, _ = _loglik_at(m1, m1.args, params)
+        ll2, _ = _loglik_at(m2, m2.args, params)
+>       assert ll1 == pytest.approx(ll2, rel=1e-6, abs=1e-4)
+E       assert -55.5338134765625 == -54.16902160644531 ± 1.0e-04
+E         
+E         comparison failed
+E         Obtained: -55.5338134765625
+E         Expected: -54.16902160644531 ± 1.0e-04
+
+refactor-patches\phase0\test_identities.py:268: AssertionError
+__________________ test_simulated_count_matches_compensator ___________________
+
+    def test_simulated_count_matches_compensator():
+>       model = Hawkes_Model(DATA, A_GDF, T_DAYS, cox_background=False, **PRIORS)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+refactor-patches\phase0\test_identities.py:299: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+bstpp\main.py:2027: in __init__
+    mode = resolve_excitation_support_mode(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+is_polygon_domain = True, excitation_support = None
+
+    def resolve_excitation_support_mode(
+        *,
+        is_polygon_domain: bool,
+        excitation_support: Optional[str],
+    ) -> ExcitationSupportMode:
+        """OP-2: nonrectangular domains require an explicit mode choice."""
+        if excitation_support is not None:
+            if excitation_support not in ("rectangle", "polygon"):
+                raise ValueError(
+                    "excitation_support must be 'rectangle' or 'polygon', "
+                    f"got {excitation_support!r}")
+            return excitation_support  # type: ignore[return-value]
+        if is_polygon_domain:
+>           raise ValueError(
+                "Nonrectangular domain requires an explicit excitation_support "
+                "('rectangle' or 'polygon'). Silent defaults are not allowed "
+                "(Phase 3d / OP-2).")
+E           ValueError: Nonrectangular domain requires an explicit excitation_support ('rectangle' or 'polygon'). Silent defaults are not allowed (Phase 3d / OP-2).
+
+bstpp\excitation_support.py:86: ValueError
+=========================== short test summary info ===========================
+FAILED refactor-patches/phase0/test_identities.py::test_covariate_refinement_invariance[False]
+FAILED refactor-patches/phase0/test_identities.py::test_covariate_refinement_invariance[True]
+FAILED refactor-patches/phase0/test_identities.py::test_spatial_affine_unit_invariance
+FAILED refactor-patches/phase0/test_identities.py::test_simulated_count_matches_compensator
+4 failed, 3 passed in 41.01s
+EXIT:1

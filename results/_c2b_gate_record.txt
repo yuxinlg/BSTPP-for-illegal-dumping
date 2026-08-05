@@ -1,0 +1,30 @@
+﻿§12.2 column headers (read from minipage cells in order):
+1. Phase
+2. Det. trace equiv.
+3. Rect. pins
+4. Unit/property tests
+5. Smoke/confirmation
+6. Stage 1 SBC
+7. Stage 2 SBC
+8. Stage 3 SBC
+9. Polygon geometry
+10. Numerical reference
+11. Conservation
+12. Provenance review
+13. Guide/doc review
+
+Column-1 values after edit:
+Prep (freeze)
+3a
+3b
+3c
+3d
+3e
+3f
+3g / exit
+
+Diff scope vs beb0482:
+phase3_record.tex only
+
+Pins/suite: NOT RUN — no gate reads any file in this diff.
+Gate-read examples (not in diff): covering_array_rows.json, pin_check_v2.py, baselines-2026-07/pins.json, tests/*.py, bstpp/*.py

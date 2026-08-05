@@ -1,0 +1,19 @@
+A-25 collection capture
+commit:      5a3710ddbceff33d0536fbf893801950c21d8937
+short:       5a3710d
+tree:        clean detached git worktree (C:/Users/Terhi/Box/BSTPP_terhi/_a25_wt)
+interpreter: C:/Users/Terhi/miniconda3/envs/illegal-dumping/python.exe
+--- git status --porcelain (provenance; empty = clean tree) ---
+--- end git status --porcelain ---
+
+$ JAX_PLATFORM_NAME=cpu python -m pytest tests/ --collect-only -q
+tests/test_truncated_lognormal.py::test_invalid_bounds_raise_with_validate_args[2.0-1.0]
+
+560 tests collected in 37.99s
+EXIT:0
+
+$ JAX_PLATFORM_NAME=cpu python -m pytest --collect-only -q      # bare
+tests/test_truncated_lognormal.py::test_invalid_bounds_raise_with_validate_args[2.0-1.0]
+
+567 tests collected in 29.07s
+EXIT:0

@@ -1,0 +1,20 @@
+A-25 collection series — tests/ vs bare, per WP1 commit
+measured: 2026-08-05T01:59:06Z
+tree:     clean detached git worktree; git status --porcelain EMPTY in every run
+per-run captures: results/_a25_collect_<sha>.txt
+
+commit    tests/   bare   delta
+fe44de4   533      540    7      status_lines=0
+0c112c3   533      540    7      status_lines=0
+296bdf5   533      540    7      status_lines=0
+f88ac29   533      540    7      status_lines=0
+5fc83a6   552      559    7      status_lines=0
+4e7b8e2   558      565    7      status_lines=0
+560524d   560      567    7      status_lines=0
+5a3710d   560      567    7      status_lines=0
+beb0482   560      567    7      status_lines=0
+dbccd3d   560      567    7      status_lines=0
+82e9c09   560      560    0      status_lines=0
+
+Delta is constant at 7 before 82e9c09 and 0 at 82e9c09.
+7 = refactor-patches/phase0/test_identities.py (6 test functions; one parametrized x2).

@@ -76,7 +76,28 @@ No identity left without live coverage → no OP-19+ opened for unaudited identi
 
 ### Suite invocation change
 
-- Bare `pytest --collect-only -q` **before** `testpaths`: **582** (`results/_wp14c_collect_before.txt`)
-- Bare `pytest --collect-only -q` **after**: **560** (`results/_wp14c_collect_after.txt`)
-- Delta: **22** = all of `refactor-patches/` under default discovery (`results/_wp14c_collect_archive.txt`), not only the seven phase0 tests. Phase0 alone collects 7; SBC smokes under `refactor-patches/` account for the rest.
+Figures below were **re-measured for A-25 from a clean detached worktree**; each capture
+carries its own `git status --porcelain` (empty) as provenance. They replace the original
+WP1.4c figures, which were wrong — see the correction note.
+
+- Bare `pytest --collect-only -q` **before** `testpaths` (at `82e9c09^` = `dbccd3d`): **567** (`results/_wp14c_collect_before.txt`)
+- Bare `pytest --collect-only -q` **after** (at `82e9c09`): **560** (`results/_wp14c_collect_after.txt`)
+- Delta: **7**. The composition is **one archive file**, `refactor-patches/phase0/test_identities.py`, collecting seven tests: six test functions, one of them parametrized over two values (`results/_wp14c_collect_archive.txt`, `pytest refactor-patches/ --collect-only -q` at `dbccd3d` → 7 collected). It is the only file matching pytest's default `test_*.py` / `*_test.py` patterns anywhere outside `tests/` in the repository that defines any test function; `scripts/recover_test.py` matches `*_test.py` but defines none, so it contributes nothing to collection. **There are no SBC test files under `refactor-patches/` in the repository.**
 - Other bare pytest invocations (CI / Makefile / scripts expecting bare `pytest`): **none** found (no `.github` workflows; docs/AGENTS already quote `pytest tests/`).
+
+#### Correction note — why the original figure was wrong
+
+The original WP1.4c entry recorded **582** before / 560 after / delta **22**, and attributed
+the difference to "all of `refactor-patches/` under default discovery … SBC smokes account
+for the rest." That was measured in a working tree containing **untracked test files that
+are not in the repository** — `refactor-patches/sbc1/test_sbc_smoke.py`,
+`refactor-patches/sbc2/test_sbc_smoke_v2.py`, and `refactor-patches/test_sbc_smoke_v3.py`,
+three files contributing the fifteen extra collected tests (582 − 567 = 15; 7 + 15 = 22).
+
+This is the finding, not a typo. A collection count is a statement about the repository's
+own structure, and a figure taken in a contaminated tree made a **false statement about
+which files the package contains** — it named a category of archived SBC tests that does
+not exist under version control. That is why A-25's amendment to A-22's gate-profile
+paragraph requires every captured gate run to record `git status --porcelain` alongside its
+result: without it the contamination is invisible in the artifact, and the wrong figure is
+indistinguishable from the right one.

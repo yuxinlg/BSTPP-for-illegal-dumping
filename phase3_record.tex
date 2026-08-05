@@ -118,7 +118,7 @@
 \large \texttt{yuxinlg/\allowbreak{}BSTPP-for-illegal-dumping} --- \texttt{refactor}\\[2pt]
 \large Part I frozen at tip \texttt{476c2a0}; Part II append-only}
 \author{}
-\date{Part I: 2026-07-18. Part II: opened 2026-07-27, entries A-1--A-24\\ (corrections appended 2026-07-28 to A-5, A-12, A-15, A-17; pre-3f freeze A-21 on 2026-07-29; Phase 3f opened A-22/A-23 on 2026-08-04; closeout decisions adopted A-24 on 2026-08-04).}
+\date{Part I: 2026-07-18. Part II: opened 2026-07-27, entries A-1--A-25\\ (corrections appended 2026-07-28 to A-5, A-12, A-15, A-17; pre-3f freeze A-21 on 2026-07-29; Phase 3f opened A-22/A-23 on 2026-08-04; closeout decisions adopted A-24 and WP1 execution recorded A-25 on 2026-08-04).}
 
 \begin{document}
 \maketitle
@@ -1949,7 +1949,8 @@ A-20 & OP-13 --- placement of post-freeze configuration & DOC & §17 \\
 A-21 & Pre-3f audit, decision freeze, and local correctness repairs & DOC + CF + API + SC & A-9, A-14, A-15, A-17, A-18, A-20; OP-3/4/10/13 \\
 A-22 & Phase 3f opened; ordering and enforcement rule & DOC & §9 criterion; D-35; G1/G2 \\
 A-23 & Config objects: frozen dataclasses, not Pydantic (deviates A-21) & DOC / DEF & A-21 configuration boundary \\
-A-24 & Closeout decisions adopted as D-36--D-39; Lane~B named as §12 gate & DOC & §8 (D-36--D-39); §12; §17 (OP-14--OP-17) \\
+A-24 & Closeout decisions adopted as D-36--D-39; Lane~B named as §12 gate & DOC & \amdnew{A-25} A-22; §8 (D-36--D-39); §12; §17 (OP-14--OP-17) \\
+\amdnew{A-25} A-25 & Phase 3f WP1 execution record; suite figures corrected; gate profile invocation and provenance & DOC & A-22 (gate profile); A-24 (scope line); §12 \\
 \end{longtable}
 
 \hypertarget{a-1}{%
@@ -2563,7 +2564,8 @@ Bottom-up, adapter last. Introduce config and prepared objects \emph{behind} the
 Every freeze ships with its enforcement in the same commit. A config object that does not validate its own invariants at construction is not done. \texttt{NumericalConfig} carrying \texttt{panel\_h\_m} and \texttt{gl\_order} must assert the Commit~C measured-budget policy (\texttt{PRODUCTION\_TAU\_ABS}${}={}10^{-5}$, \texttt{BUDGET\_REFERENCE\_GL\_ORDER}${}={}32$) at construction, together with $\sigma$-bound coherence and support-mode compatibility --- not leave those checks solely to downstream call sites.
 
 \paragraph{Gate profile (every 3f commit).}
-Full suite; Lane~B covering array; four-config pins (\texttt{PIN\_DIFFS 0 MATCH}); ruff on touch; \texttt{jax\_enable\_x64} unchanged. A pin diff during a behavior-preserving commit stops the phase for human decision.
+\supsd{A-25}{Full suite}\ \amdnew{A-25} \texttt{pytest tests/}, enforced by \texttt{testpaths = ["tests"]} in \texttt{pyproject.toml} since \texttt{82e9c09}. The supersession is enforcement-first: WP1.4c made the configuration name the suite, and this profile now states the invocation that configuration already enforces, rather than the informal ``full suite'' the profile carried while bare \texttt{pytest} still swept the \texttt{refactor-patches/} archive. Lane~B covering array; four-config pins (\texttt{PIN\_DIFFS 0 MATCH}); ruff on touch; \texttt{jax\_enable\_x64} unchanged. A pin diff during a behavior-preserving commit stops the phase for human decision.
+\amdnew{A-25} \emph{Gate-run provenance (amends this paragraph).} Every captured gate run records \texttt{git status --porcelain} alongside its result, in the same capture file. This applies to \emph{all} gate runs, not only documentation-only ones. The reason: a gate figure produced in a tree containing files absent from the commit is unverifiable, and in WP1.4c one such figure entered the record as a false statement about the repository's own structure --- a collection count measured over three untracked SBC smoke files was recorded as evidence that the archive under \texttt{refactor-patches/} contained tests the repository does not contain (A-25; \texttt{findings\_ledger.md}, ``Suite invocation change''). An empty \texttt{porcelain} result makes the provenance explicit; a non-empty one enumerates exactly what was present that is not in the commit.
 \amdnew{A-24} \emph{Documentation-only profile (amends this paragraph).} A commit qualifies as documentation-only when its diff touches no file that any gate reads. The rule is stated by what reads a file, not by directory: e.g.\ \texttt{refactor-patches/pre-3f-stabilization/covering\_array\_rows.json} is read by \texttt{tests/test\_lane\_b\_config\_matrix.py}, and \texttt{refactor-patches/pin\_check\_v2.py} with \texttt{baselines-2026-07/pins.json} are the pin harness --- those are not documentation-only paths; an inert document beside them (e.g.\ \texttt{traceability\_matrix.md}) may be. On a documentation-only commit, pins and suite are recorded as \emph{not run} with the reason and the file list; the discriminating gates are the document build (when the toolchain permits), the structural \texttt{\textbackslash hypertarget} check, and any content checks that catch category errors the suite cannot see. Anything that touches a gate-read file runs the full profile above. Declaration and first use land together (this A-24 paragraph; first use in the same commit that repairs the §12.2 transposed row).
 
 
@@ -2591,7 +2593,7 @@ All validation remains in \texttt{\_\_post\_init\_\_} behind a single factory --
 \hypertarget{a-24}{%
 \subsection{A-24 --- Closeout decisions adopted as D-36--D-39}\label{a-24}}
 
-\textbf{Opened} 2026-08-04. \textbf{Class} DOC. \textbf{Establishes} D-36--D-39; opens OP-14--OP-17. \textbf{Adopts} the decisions proposed in \texttt{refactor-patches/pre-3f-stabilization/phase3e\_closeout\_and\_3f\_readiness.tex}, renumbered. \textbf{Amends} §8, §12, §17.
+\textbf{Opened} 2026-08-04. \textbf{Class} DOC. \textbf{Establishes} D-36--D-39; opens OP-14--OP-17. \textbf{Adopts} the decisions proposed in \texttt{refactor-patches/pre-3f-stabilization/phase3e\_closeout\_and\_3f\_readiness.tex}, renumbered. \textbf{Amends} \amdnew{A-25} A-22 (gate-profile paragraph, documentation-only profile); §8, §12, §17.
 
 \paragraph{Renumbering.}
 The closeout drafted these as D-35--D-38. D-35 was allocated concurrently by A-22 to the freeze-ships-with-enforcement rule. They land here as D-36--D-39. Mapping for a reader holding the closeout: closeout D-35 $\rightarrow$ register D-36; closeout D-36 $\rightarrow$ register D-37; closeout D-37 $\rightarrow$ register D-38; closeout D-38 $\rightarrow$ register D-39.
@@ -2669,5 +2671,127 @@ The D-38 gate was first recorded (commit \texttt{beb0482}) as a row in the §12.
 
 \paragraph{Documentation-only gate profile (declaration).}
 A-22's gate-profile paragraph is amended in the same commit as this correction (see the \amdnew{A-24} clause under A-22): a commit is documentation-only when its diff touches no file that any gate reads; pins and suite are then recorded as not run with the reason and the file list; the discriminating gates are the document build, the structural check, and content checks such as the §12.2 column-1 phase-name check. Declaration and first use land together --- relaxing a declared profile without recording the relaxation is the process form of the gap D-35 exists to close.
+
+
+\hypertarget{a-25}{%
+\subsection{A-25 --- Phase 3f WP1 execution record; suite figures corrected}\label{a-25}}
+
+\textbf{Opened} 2026-08-04. \textbf{Class} DOC. \textbf{Records} Phase~3f WP1 and WP1.4 execution. \textbf{Amends} A-22 (gate-profile paragraph: suite invocation, and gate-run provenance); A-24 (scope line, which amended A-22 without saying so); §12 summary table.
+
+\paragraph{Commits and classes.}
+Ten commits from the Phase~3f opening through WP1.4c. Classes are as landed; where a commit message carries no class tag, the class is fixed here.
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 6\tabcolsep) * \real{0.1300}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 6\tabcolsep) * \real{0.1100}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 6\tabcolsep) * \real{0.4600}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 6\tabcolsep) * \real{0.2600}}@{}}
+\toprule\noalign{}
+Commit & Class & Scope & Work package \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\texttt{0c112c3} & DOC & Phase 3f opened at \texttt{fe44de4}; A-22 / A-23 / D-35 & WP1.0 \\
+\texttt{296bdf5} & BP & \texttt{NumericalConfig} introduced behind the \texttt{args} adapter & WP1.1 \\
+\texttt{f88ac29} & BP & mass-table validation routed through \texttt{NumericalConfig} & WP1.2 \\
+\texttt{5fc83a6} & IV/DOC & \texttt{NumericalConfig} Lane~B rows; traceability matrix retargeted & WP1.3 \\
+\texttt{4e7b8e2} & CF & \texttt{NumericalConfig} factory type discipline (no silent coercion) & WP1.4a \\
+\texttt{560524d} & CF & \texttt{NumericalConfig} rebuilt on \texttt{set\_window(mass\_table=)} & WP1.4b \\
+\texttt{5a3710d} & DOC & closeout protocol artifacts committed; A-22/A-23 hypertargets repaired & WP1.4b/C1 \\
+\texttt{beb0482} & DOC & closeout decisions adopted as A-24 / D-36--D-39 & C2 \\
+\texttt{dbccd3d} & DOC & D-38 moved to the standing-gates table; DOC-only profile declared & C2b \\
+\texttt{82e9c09} & IV/DOC & archive excluded from default collection (\texttt{testpaths}); OP-18 opened & WP1.4c \\
+\end{longtable}
+
+\paragraph{An untagged commit message.}
+\texttt{82e9c09}'s message carries no change-class tag, unlike every other commit in the phase. It is pushed and cannot be amended without a history rewrite, which is not proposed. \textbf{The class is IV/DOC and this entry is where it is recorded.}
+
+\paragraph{Pins.}
+Four configurations --- \texttt{hawkes}, \texttt{cox\_hawkes}, \texttt{lgcp}, \texttt{hawkes\_nonsquare\_4to1} --- compared field-by-field against \texttt{refactor-patches/baselines-2026-07/pins.json}, from the captured candidate JSON of each commit rather than from the summary line in its message.
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.1400}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3600}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.5000}}@{}}
+\toprule\noalign{}
+Commit & Four configs & Capture \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\texttt{0c112c3} & not run (DOC; opening entry) & --- \\
+\texttt{296bdf5} & all four \texttt{MATCH} & \texttt{results/\allowbreak{}\_pins\_3f\_wp11\_candidate.json} \\
+\texttt{f88ac29} & all four \texttt{MATCH} & \texttt{results/\allowbreak{}\_pins\_3f\_wp12\_candidate.json} \\
+\texttt{5fc83a6} & all four \texttt{MATCH} & \texttt{results/\allowbreak{}\_pins\_3f\_wp13\_candidate.json} \\
+\texttt{4e7b8e2} & all four \texttt{MATCH} & \texttt{results/\allowbreak{}\_pins\_3f\_wp14a\_candidate.json} \\
+\texttt{560524d} & all four \texttt{MATCH} & \texttt{results/\allowbreak{}\_pins\_3f\_wp14b\_candidate.json} \\
+\texttt{5a3710d} & all four \texttt{MATCH} & \texttt{results/\allowbreak{}\_c1\_pins\_candidate.json} \\
+\texttt{beb0482} & all four \texttt{MATCH} & \texttt{results/\allowbreak{}\_c2\_pins\_candidate.json}; \texttt{results/\allowbreak{}\_c2\_amend\_pins\_candidate.json} \\
+\texttt{dbccd3d} & not run --- documentation-only profile & \texttt{results/\allowbreak{}\_c2b\_gate\_record.txt} \\
+\texttt{82e9c09} & all four \texttt{MATCH} & \texttt{results/\allowbreak{}\_pins\_wp14c\_candidate.json} \\
+\end{longtable}
+
+\noindent No rectangle-regime numerical result moved anywhere in WP1, which is the load-bearing claim behind classifying \texttt{296bdf5} and \texttt{f88ac29} BP. Recorded honestly: \texttt{results/\allowbreak{}\_pins\_3f\_wp14b\_stderr.txt} preserves a \emph{failed} first pin attempt at WP1.4b (\texttt{KeyError: 'z\_seasonal'}, i.e.\ a mid-edit tree in which the Cox--Hawkes trace had no seasonal site) timestamped 04:16, followed by the complete four-config capture at 04:24, minutes before the commit at 04:24:40. The failed attempt is not evidence of a defect at the commit; it is evidence that the capture set contains runs from trees that are not the commit, which is the same class of problem the provenance requirement below exists to make visible.
+
+\paragraph{Suite figures --- re-measured, and the correction.}
+\textbf{Commit messages are immutable, and this entry is where the record is corrected.} The figures below are \texttt{tests/} collection at each commit, re-measured for this entry in a clean detached \texttt{git worktree}; every capture carries its own \texttt{git status --porcelain}, empty in all eleven runs (\texttt{results/\allowbreak{}\_a25\_collect\_*.txt}). The bare column is \texttt{pytest --collect-only -q} with no path, shown because the difference between the two columns \emph{is} the archive that WP1.4c excluded.
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 8\tabcolsep) * \real{0.1300}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 8\tabcolsep) * \real{0.1400}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 8\tabcolsep) * \real{0.1100}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 8\tabcolsep) * \real{0.1000}}
+  >{\raggedright\arraybackslash}p{(\columnwidth - 8\tabcolsep) * \real{0.5200}}@{}}
+\toprule\noalign{}
+Commit & \texttt{tests/} & bare & \(\Delta\) & Total stated in the commit message \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+\texttt{fe44de4} & 533 & 540 & 7 & --- (3f open tip, for reference) \\
+\texttt{0c112c3} & 533 & 540 & 7 & none stated \\
+\texttt{296bdf5} & 533 & 540 & 7 & none stated (``full suite EXIT:0'') \\
+\texttt{f88ac29} & 533 & 540 & 7 & none stated (``full suite EXIT:0'') \\
+\texttt{5fc83a6} & 552 & 559 & 7 & none stated (``full suite EXIT:0'') \\
+\texttt{4e7b8e2} & 558 & 565 & 7 & none stated (``tests/ EXIT:0'') \\
+\texttt{560524d} & \textbf{560} & 567 & 7 & \textbf{558} (555 passed, 2 skipped, 1 xfailed) --- \textbf{short by 2}; re-run here gives 557 passed, 2 skipped, 1 xfailed \\
+\texttt{5a3710d} & 560 & 567 & 7 & 560 (557 passed, 2 skipped, 1 xfailed) --- agrees \\
+\texttt{beb0482} & 560 & 567 & 7 & 560 (557 passed, 2 skipped, 1 xfailed) --- agrees \\
+\texttt{dbccd3d} & 560 & 567 & 7 & not run (documentation-only profile) \\
+\texttt{82e9c09} & 560 & \textbf{560} & \textbf{0} & none stated \\
+\end{longtable}
+
+\noindent Three points, and the third is the one that matters.
+
+\begin{enumerate}
+\tightlist
+\item \textbf{The brief that commissioned this entry named \texttt{296bdf5}, \texttt{f88ac29} and \texttt{560524d} as stating totals from a different tree. Only \texttt{560524d} does.} \texttt{296bdf5} and \texttt{f88ac29} state no total at all --- they assert ``full suite EXIT:0'' and nothing more, so there is no figure in them to be wrong. This disagreement is recorded rather than resolved in either direction.
+\item \texttt{560524d}'s stated 558 is two short of the 560 its own tree collects, and the commits on either side of it agree with their measurements. Re-executed here rather than inferred from the collection count: \texttt{pytest tests/ -q} at \texttt{560524d} in a clean worktree returns \textbf{557 passed, 2 skipped, 1 xfailed}, \texttt{EXIT:0} (\texttt{results/\allowbreak{}\_a25\_suite\_560524d.txt}) --- the same shape the message reports, with \textbf{two more passes}. WP1.4b added rows to \texttt{tests/\allowbreak{}test\_set\_window\_sentinel.py}, and the stated figure is what a run taken before the last two of them existed would produce. The commit is green; what is wrong is that its gate line reports a tree that is not the commit.
+\item The \(\Delta\) column is constant at \textbf{7} for every commit before \texttt{82e9c09}, and 7 is the whole of \texttt{refactor-patches/\allowbreak{}phase0/\allowbreak{}test\_identities.py} (six test functions, one parametrized over two values). \textbf{The archive that \texttt{testpaths} excluded is one file, not a directory of them.} The WP1.4c ledger recorded 582 \(\to\) 560, a delta of 22, and attributed the excess to ``SBC smokes under \texttt{refactor-patches/}''. There are no SBC test files under \texttt{refactor-patches/} in the repository. The 582 was measured in a working tree holding three untracked files --- \texttt{refactor-patches/\allowbreak{}sbc1/\allowbreak{}test\_sbc\_smoke.py}, \texttt{refactor-patches/\allowbreak{}sbc2/\allowbreak{}test\_sbc\_smoke\_v2.py}, \texttt{refactor-patches/\allowbreak{}test\_sbc\_smoke\_v3.py} --- contributing the other fifteen tests. The ledger is corrected in the same commit as this entry.
+\end{enumerate}
+
+\noindent That third point is why A-22's gate profile now carries the provenance requirement (\amdnew{A-25} clause under A-22): the wrong figure was not a slip in arithmetic but a \emph{true measurement of the wrong object}, and nothing in the artifact distinguished it from a right one. A collection count is a statement about which files the repository contains, so a contaminated one enters the record as a false structural claim --- here, the existence of a category of archived SBC tests that is not under version control.
+
+\paragraph{Phase0 triage outcome.}
+Not duplicated here. The classification, the per-failure evidence, and the live-coverage inventory are in \texttt{refactor-patches/\allowbreak{}pre-3f-stabilization/\allowbreak{}findings\_ledger.md} (§``WP1.4c''). In summary: four archive failures, identical at \texttt{fe44de4} and at tip; \textbf{none is a numerical defect} under the register; exactly one is a supersession, I10 by \textbf{D-15}, the other three being fixture/construction or signature drift against A-21 and D-23; all of I1--I11 have live coverage under \texttt{tests/}, so no OP-19+ was opened for an unaudited identity; \textbf{OP-18} is open for the restated D-15 unit-change form of I10, which is not yet derived and must not be written as a test before it is.
+
+\paragraph{The build.}
+Stated separately from the structural check, because they are not the same evidence. \textbf{The register compiles.} On a TeX Live installation with the DejaVu family, \texttt{xelatex} over two passes returns \texttt{EXIT:0} at \texttt{dbccd3d}, producing 81 pages with no errors and no undefined or multiply-defined references. That build was not run on the analysis machine of §4.2 and is recorded here as established elsewhere, not re-established here.
+
+A-22's toolchain note is corrected accordingly. The MiKTeX \texttt{.initial:e} failure recorded through \texttt{5a3710d} was a stale \texttt{expl3}, and the \texttt{STATUS\_DLL\_NOT\_FOUND} that followed the partial MiKTeX update at \texttt{beb0482}/\texttt{dbccd3d} is a broken local installation --- the binaries do not load their own shared libraries, so no document can be built with them. \textbf{The document is not the problem, and any future build failure on this machine is local state until shown otherwise on a working toolchain.} The structural \texttt{\textbackslash hypertarget} check and the §12.2 column-1 check remain proxies for a build and are not substitutes for one.
+
+\paragraph{Gate profile of this entry's own commit.}
+Documentation-only under A-24: every path in the diff was enumerated and none is read by any gate (\texttt{results/\allowbreak{}\_a25\_diff\_scope.txt}). The \texttt{results/} captures are inert data --- nothing imports or loads them --- and the pin baseline \texttt{refactor-patches/\allowbreak{}baselines-2026-07/\allowbreak{}pins.json} is untouched, as are \texttt{pyproject.toml}, \texttt{bstpp/}, \texttt{tests/}, \texttt{refactor-patches/\allowbreak{}pin\_check\_v2.py} and \texttt{refactor-patches/\allowbreak{}pre-3f-stabilization/\allowbreak{}covering\_array\_rows.json}. \textbf{Pins and suite are therefore recorded as not run}, with that enumeration as the reason. Gates that did run, each with \texttt{git status --porcelain} captured per the new provenance requirement: the build attempt (\texttt{results/\allowbreak{}\_a25\_build\_attempt.txt}); the structural \texttt{\textbackslash hypertarget} check, 25/25 including this subsection (\texttt{results/\allowbreak{}\_c1\_hypertarget\_check.py}, \texttt{results/\allowbreak{}\_a25\_hypertarget.txt}); the §12.2 column-1 phase-name check together with a longtable field-count check (\texttt{results/\allowbreak{}\_a25\_content\_checks.py}, \texttt{results/\allowbreak{}\_a25\_content\_checks.txt}); and the unreachable-citation sweep (\texttt{results/\allowbreak{}\_a25\_citation\_sweep.py}, \texttt{results/\allowbreak{}\_a25\_citation\_sweep.txt}).
+
+Two of those are new here, and both found something on their first run. The citation sweep found the five \texttt{results/\allowbreak{}\_wp14c\_collect\_*} / \texttt{\_four} captures the WP1.4c ledger cites but never committed, plus eleven pin and gate captures this entry cites --- all now committed. The field-count check found one pre-existing short row in \emph{frozen} Part~I §4.3, where the ``same suite command/result as §1.2.1'' clause was left as its own one-field row in a two-column table instead of continuing the preceding cell; \LaTeX{} supplies the missing cell, so it compiles and renders with an empty right column. It is recorded as \texttt{KNOWN-PREEXISTING} in the check rather than suppressed, and left unedited: Part~I is frozen (A-1), so a correction is Part~II text or 3g editorial work, not an in-place edit.
+
+\paragraph{Open items carried forward.}
+\begin{itemize}
+\tightlist
+\item \textbf{The entry-path error asymmetry} --- \texttt{NumericalConfigError} subclasses \texttt{ValueError}, so a caller cannot distinguish a constructor rejection from a \texttt{set\_window} rejection by exception type. Carried to \textbf{A-26 / D-40}, class \textbf{SC} (it changes the accepted-configuration surface's error identity, which is public behaviour). \textbf{It must land before WP2 opens.}
+\item \textbf{OP-17} --- discharged by D-40, not by a separate pass. Writing \texttt{match=} against the current constructor / \texttt{set\_window} split would freeze the asymmetry into the suite (A-24, P1).
+\item \textbf{OP-18} --- unwritten, pending derivation. See the phase0 triage paragraph above.
+\end{itemize}
 
 \end{document}

@@ -1,0 +1,73 @@
+=== A-25 / C3 structural hypertarget check ===
+date: 2026-08-05T02:16:41Z
+$ python results/_c1_hypertarget_check.py
+SUBSECTIONS 25 OK 25 MISSING 0
+OK a-1
+OK a-2
+OK a-3
+OK a-4
+OK a-5
+OK a-6
+OK a-7
+OK a-8
+OK a-9
+OK a-10
+OK a-11
+OK a-12
+OK a-13
+OK a-14
+OK a-15
+OK a-16
+OK a-17
+OK a-18
+OK a-19
+OK a-20
+OK a-21
+OK a-22
+OK a-23
+OK a-24
+OK a-25
+EXIT:0
+
+--- git status --porcelain (tracked; provenance) ---
+M  phase3_record.tex
+M  refactor-patches/pre-3f-stabilization/findings_ledger.md
+M  refactor-patches/pre-3f-stabilization/traceability_matrix.md
+A  results/_a25_build_attempt.txt
+A  results/_a25_citation_sweep.py
+A  results/_a25_citation_sweep.txt
+A  results/_a25_collect_0c112c3.txt
+A  results/_a25_collect_296bdf5.txt
+A  results/_a25_collect_4e7b8e2.txt
+A  results/_a25_collect_560524d.txt
+A  results/_a25_collect_5a3710d.txt
+A  results/_a25_collect_5fc83a6.txt
+A  results/_a25_collect_82e9c09.txt
+A  results/_a25_collect_beb0482.txt
+A  results/_a25_collect_dbccd3d.txt
+A  results/_a25_collect_f88ac29.txt
+A  results/_a25_collect_fe44de4.txt
+A  results/_a25_collect_series.txt
+A  results/_a25_content_checks.py
+A  results/_a25_content_checks.txt
+A  results/_a25_diff_scope.txt
+AM results/_a25_hypertarget.txt
+A  results/_a25_pin_compare.txt
+A  results/_a25_suite_560524d.txt
+A  results/_c1_hypertarget_check.py
+A  results/_c1_pins_candidate.json
+A  results/_c2_amend_pins_candidate.json
+A  results/_c2_pins_candidate.json
+A  results/_c2b_gate_record.txt
+A  results/_pins_3f_wp11_candidate.json
+A  results/_pins_3f_wp12_candidate.json
+A  results/_pins_3f_wp13_candidate.json
+A  results/_pins_3f_wp14a_candidate.json
+A  results/_pins_3f_wp14b_candidate.json
+A  results/_pins_3f_wp14b_stderr.txt
+A  results/_pins_wp14c_candidate.json
+A  results/_wp14c_collect_after.txt
+A  results/_wp14c_collect_archive.txt
+A  results/_wp14c_collect_before.txt
+A  results/_wp14c_fe44de4_four.txt
+A  results/_wp14c_pytest_archive_four.txt

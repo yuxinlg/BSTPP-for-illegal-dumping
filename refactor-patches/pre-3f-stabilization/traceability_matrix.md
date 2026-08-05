@@ -1,7 +1,7 @@
 # Traceability matrix + Lane B state machine
 
-**Candidate tip:** Phase 3f (opened at `fe44de4`; A-22/A-23/D-35; A-24 adopts D-36–D-39 / OP-14–OP-17)  
-**Iteration:** 3f-WP1 + A-24 register adoption  
+**Candidate tip:** Phase 3f (opened at `fe44de4`; A-22/A-23/D-35; A-24 adopts D-36–D-39 / OP-14–OP-17; A-25 records WP1 execution and corrects the WP1.4c suite figures)  
+**Iteration:** 3f-WP1 + A-24 register adoption + A-25 execution record  
 **Marks:** verified / reported / inferred as noted.  
 **Governing record:** repository-root `phase3_record.tex`. Untracked root `phase3_baseline_and_decisions.tex` is **not** governing.
 
@@ -49,7 +49,7 @@
 
 ## Register traceability
 
-Register inventory: **D-1…D-39**; **A-1…A-24**; **OP-2…OP-18** (OP-1 never allocated; OP-19+ not opened — all guide I1–I11 have live `tests/` coverage after WP1.4c inventory); **I1, I3–I6, I8/I8a/I8b, I9–I12**.
+Register inventory: **D-1…D-39**; **A-1…A-25**; **OP-2…OP-18** (OP-1 never allocated; OP-19+ not opened — all guide I1–I11 have live `tests/` coverage after WP1.4c inventory); **I1, I3–I6, I8/I8a/I8b, I9–I12**.
 
 | ID | Contract (short) | Register status | Production sites | Execution legs | Existing evidence | Evidence type | Gap | Treatment | Owner |
 |---|---|---|---|---|---|---|---|---|---|
@@ -84,7 +84,8 @@ Register inventory: **D-1…D-39**; **A-1…A-24**; **OP-2…OP-18** (OP-1 never
 | A-20 / A-21 | Config placement + pre-3f freeze | active | many | many | A-21 text + this audit | mixed | B2–B4 closed pre-3f | keep | — |
 | A-22 | Phase 3f opened at `fe44de4` | active | process | n/a | register | verified | G1/G2 open | 3f WPs | 3f |
 | A-23 | Frozen dataclasses not Pydantic | active | `bstpp/config.py` | ctor | WP1.0 reasoning in register | verified | — | keep | 3f |
-| A-24 | Closeout decisions D-36–D-39; Lane B named as §12 gate; OP-14–OP-17 | active | process (no production code site) | n/a | A-24 + this matrix | verified DOC | coverage delta OP-14–OP-17 | keep | 3f |
+| A-24 | Closeout decisions D-36–D-39; Lane B named as §12 gate; OP-14–OP-17; amends A-22's gate-profile paragraph | active | process (no production code site) | n/a | A-24 + this matrix | verified DOC | coverage delta OP-14–OP-17 | keep | 3f |
+| A-25 | Phase 3f WP1 execution record; WP1.4c suite figures corrected (582/Δ22 → 567/Δ7); A-22 gate profile: `pytest tests/` supersedes “Full suite”, and every captured gate run records `git status --porcelain` | active | process (no production code site); enforcement site is `pyproject.toml` `testpaths` | n/a | A-25; `results/_a25_collect_*.txt`; `results/_wp14c_collect_*.txt`; `findings_ledger.md` “Suite invocation change” | **verified** (re-measured, clean worktree) | D-40 / OP-17 and OP-18 carried forward | keep | 3f |
 | D-36 | Phase blocker test (B1–B6; pinned-path corollary) | active | **process decision — no code site** | n/a | protocol §5; A-24; applied at `fe44de4` | process | none | keep | team |
 | D-37 | Finite readiness rule (principle; instance in A-24) | active | **process decision — no code site** | n/a | protocol §9; readiness_report.md; A-24 | process | none | keep | team |
 | D-38 | Lane B matrix standing gate (M on triggers; E with D-20) | active | `tests/test_lane_b_config_matrix.py`; `covering_array_rows.json` | ctor/set_window/trigger/cutoff/provenance | Lane B suite; §12 row | direct | OP-14–OP-17 gaps | keep | 3f |
@@ -105,8 +106,8 @@ Register inventory: **D-1…D-39**; **A-1…A-24**; **OP-2…OP-18** (OP-1 never
 | OP-16 | Closeout §6 C5 `set_window` rejected as covering-array axis level | open | `test_lane_b_rejected_set_window_rolls_back_whole_state`; `test_lane_b_polygon_incompatible_spatial_change_rolls_back` (isolated, not CA-crossed) | set_window reject | A-24 mapping | gap recorded | unaudited under D-39; **discharge:** standing Lane B CA extension (no D-40 dependency) | standing Lane B | 3f |
 | OP-17 | Closeout §6 P1 message-substring enforcement across matrix rejections | open | bare `pytest.raises(ValueError)` (no `match=`) in `test_lane_b_rejected_set_window_rolls_back_whole_state` (parametrized `bad_call`) and stale-table install in `test_lane_b_polygon_incompatible_spatial_change_rolls_back` | set_window reject identity | A-24 regrade; enumerated from code | gap recorded | unaudited under D-39; **discharge:** D-40 entry-path error-identity unification (do not write `match=` against the current split) | D-40 | 3f |
 | OP-18 | Restated I10 under D-15: translation invariance holds exactly (bit-identical); invariance under a genuine change of units requires σ, spatial cutoff, and background normalization to transform together and carries a Jacobian from domain-area rescaling — that form is **not derived**; do not write it as a test until derived | open | process / future test design (no production code site yet) | n/a | WP1.4c three-transform table + archive I10 supersession (D-15 §5.9–5.10); live pins `test_spatial_similarity_covariance`, `test_spatial_kernel_family_is_real_unit_not_internal` | gap recorded | derivation open under D-39 | keep as OP | 3f |
-| Suite invocation (enforcement) | Default pytest collection = `tests/` via `pyproject.toml` `testpaths` | **enforced** WP1.4c (register declaration deferred to A-25 / C3 per D-35) | `pyproject.toml` `[tool.pytest.ini_options]` | bare `pytest` | collect-only 582→560 (Δ22 = `refactor-patches/`); bare suite EXIT:0 | verified | short window: register still says “Full suite”, config says `tests` — safe direction | keep | 3f |
-| Gate profile (IV/DOC) | Full profile when gate-read files change (`pyproject.toml` is gate-read); DOC-only only when no gate-read files touch | active process | A-24 DOC-only amendment; WP1.4c uses **full** profile | pins + suites + ruff | this commit | process | — | keep | 3f |
+| Suite invocation (enforcement + declaration) | Default pytest collection = `tests/` via `pyproject.toml` `testpaths`; the register's gate profile names `pytest tests/` | **enforced** WP1.4c (`82e9c09`); **declared** A-25, which supersedes A-22's “Full suite” | `pyproject.toml` `[tool.pytest.ini_options]`; A-22 gate-profile paragraph | bare `pytest`; `pytest tests/` | collect-only **567→560** at `82e9c09^`→`82e9c09` (**Δ7** = `refactor-patches/phase0/test_identities.py` alone); re-measured from a clean worktree, `results/_wp14c_collect_{before,after,archive}.txt`, `results/_a25_collect_*.txt` | **verified** (clean tree; `git status --porcelain` empty in every capture) | closed — enforcement and declaration now agree | keep | — |
+| Gate profile (IV/DOC) | Full profile when gate-read files change (`pyproject.toml` is gate-read); DOC-only only when no gate-read file is touched; **every captured gate run records `git status --porcelain` alongside its result** | active process | A-24 DOC-only amendment; A-25 invocation supersession + provenance requirement (both amend the A-22 gate-profile paragraph) | pins + suites + ruff; provenance capture on all of them | WP1.4c used the **full** profile; A-25 / C3 is the first commit under the DOC-only profile with the provenance requirement in force | process | — | keep | 3f |
 | I1 | Sim/lik mass atoms | active | lik + _sim_cox | bg | seasonal_integral | direct | none | keep | — |
 | I3/I4 | Pair window contract | active | utils, lik, sim | pairs | identities | direct | none | keep | — |
 | I5 | Single factor site | active | inference_functions | model | test_smoke | direct | none | keep | — |
