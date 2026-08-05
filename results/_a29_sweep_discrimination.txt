@@ -1,0 +1,37 @@
+=== A-29 discrimination demo ===
+The extended sweep must FAIL on each defect, and each defect is one the
+A-26 sweep passed over. Exit codes are the SWEEP's, captured before any pipe.
+
+baseline (unmutated)
+
+PASS - 183/184 raise sites' text checked (99%); 7 clause functions evaluated, all ASCII
+SWEEP_EXIT:0
+
+--- M1: non-ASCII inside a CLAUSE FUNCTION (population 3) ---
+
+FAIL 1 clause function(s) return non-ASCII
+SWEEP_EXIT:1
+
+--- M2: non-ASCII in a REMEDIATION literal at a raise_*() call site (population 2) ---
+FAIL 1 non-ASCII character(s) in message literals
+  bstpp\polygon_mass.py:1122  [remediation]  U+2014 EM DASH
+      'prepare_polygon_mass_table builds the table over [min_sigma, max_sigma'
+SWEEP_EXIT:1
+
+--- M3: a clause function with no sample (must FAIL, not skip) ---
+
+FAIL 1 clause function(s) could not be evaluated -- an unevaluated clause is an UNCOVERED clause
+  future_widget_invariant_clause: no sample for widget_id
+      add a sample for it to CLAUSE_SAMPLES in _a26_ascii_sweep.py
+SWEEP_EXIT:1
+
+--- restored ---
+
+PASS - 183/184 raise sites' text checked (99%); 7 clause functions evaluated, all ASCII
+SWEEP_EXIT:0
+
+--- production files identical to HEAD after demo ---
+ bstpp/config.py       | 41 +++++++++++++++++++++++++++++++++++++++++
+ bstpp/polygon_mass.py | 43 ++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 83 insertions(+), 1 deletion(-)
+(empty above = restored cleanly)

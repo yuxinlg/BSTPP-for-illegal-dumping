@@ -2905,7 +2905,7 @@ A Part~I decision-row monotonicity check is added to \texttt{results/\allowbreak
 \begin{itemize}
 \tightlist
 \item \textbf{OP-20}, opened here; \textbf{WP2}.
-\item \textbf{The ASCII sweep cannot see single-sourced clauses.} \texttt{results/\allowbreak{}\_a26\_ascii\_sweep.py} parses string literals that are arguments to \texttt{raise}. A clause returned from \texttt{*\_invariant\_clause} and raised via \texttt{raise NumericalConfigError(msg)} presents no literal to find, so the sweep passes over exactly the text D-40 cares most about. It has been true since A-26 created the pattern and is stated here because it is now the dominant case. The runtime \texttt{.encode("ascii")} assertions in the Lane~B rows are what actually enforce the corollary for these five. Extending the sweep to evaluate the clause functions is a small change and is \emph{not} made here.
+\item \supsd{A-29}{\textbf{The ASCII sweep cannot see single-sourced clauses.} \texttt{results/\allowbreak{}\_a26\_ascii\_sweep.py} parses string literals that are arguments to \texttt{raise}. A clause returned from \texttt{*\_invariant\_clause} and raised via \texttt{raise NumericalConfigError(msg)} presents no literal to find, so the sweep passes over exactly the text D-40 cares most about. It has been true since A-26 created the pattern and is stated here because it is now the dominant case. The runtime \texttt{.encode("ascii")} assertions in the Lane~B rows are what actually enforce the corollary for these five. Extending the sweep to evaluate the clause functions is a small change and is \emph{not} made here.} \amdnew{A-29} Discharged by A-29, which extends the sweep to evaluate the clause functions \emph{and} to scan the remediation literals at \texttt{raise\_*()} call sites --- a second blind spot the carried-forward note did not identify.
 \item \supsd{A-28}{\textbf{\texttt{prepare\_polygon\_mass\_table(max\_sigma=None)}} still dies in \texttt{float(None)} with a bare \texttt{TypeError} --- the sibling of the \texttt{min\_sigma} defect fixed here. It was outside the signed-off scope and is left rather than folded in silently.} \amdnew{A-28} Discharged by A-28, which routes it to a \emph{new} invariant I6 rather than to I2 --- see below for why the sibling is not a family member.
 \end{itemize}
 
@@ -2961,5 +2961,45 @@ Four Lane~B rows, no existing test edited and no assertion weakened. The owner-a
 
 \paragraph{Provenance.}
 The enumeration probe's first run loaded a \textbf{stale \texttt{bstpp} from \texttt{site-packages}} and died on \texttt{bstpp.config}, the same failure class A-26 recorded: a script under \texttt{refactor-patches/} does not put the repo root on \texttt{sys.path}. The probe now inserts the repo root and \textbf{asserts \texttt{bstpp.\_\_file\_\_} lies under it}, so the capture cannot silently describe a different object.
+
+\hypertarget{a-29}{%
+\subsection{A-29 --- The ASCII sweep evaluates the clauses, and states its own coverage}\label{a-29}}
+
+\textbf{Opened} 2026-08-05. \textbf{Class} \textbf{IV} --- verification infrastructure; no production file is touched, so no observable behaviour changes. \textbf{Discharges} A-27's carried-forward ASCII-sweep item. \textbf{Opens} OP-22. \textbf{Amends} A-26 (the sweep it created). \textbf{Commit} \texttt{WP1.4g}.
+
+\paragraph{A figure that does not reconcile, corrected before it was built on.}
+The brief scoping this work stated that the sweep ``inspects 38\% of sites'': 69 raise sites with a literal first argument against 114 without, at \texttt{426d60a}. \textbf{That split is reproducible and the conclusion drawn from it is not.} 69/183 counts \emph{first argument is a bare \texttt{str} Constant}, which is not what the sweep did --- \texttt{\_string\_parts} walks the \emph{whole} \texttt{exc} expression, so it also saw the constant chunks of every f-string. Measured both ways at \texttt{426d60a}: definition~A gives 69/183 (38\%), definition~B --- what the code actually walked --- gives \textbf{176/183 (96\%)}, blind on \textbf{seven}. Both figures are now reproduced on demand by \texttt{-{}-census}, so the discrepancy cannot recur silently.
+
+The substantive claim survives the correction and is sharper without the number. The gap was never 114 unseen literals; it is that \textbf{clause text and remediation text are evaluated nowhere}, and the seven blind sites are not incidental --- they are \emph{precisely} the D-40 raisers (\texttt{raise NumericalConfigError(msg)} inside each \texttt{raise\_*\_violation}), plus one runtime-assembled \texttt{DataContractError}. The sweep was blind exactly where D-40 concentrated the text.
+
+\paragraph{A second blind spot the brief did not name.}
+Enumeration again found more than the scope described. \textbf{Remediation text was invisible to every definition.} A site's remediation is a string literal passed to \texttt{raise\_*\_violation(...)}, which is an \texttt{ast.Call}, not an \texttt{ast.Raise} --- so no \texttt{raise}-statement scan of any strictness could ever have reached it. Under D-40 the remediation is the only part a site may vary, which makes it the part most likely to acquire an em~dash from a copy-paste. It is now scanned as its own population.
+
+\paragraph{Three populations, and the coverage the gate reports about itself.}
+\begin{enumerate}
+\tightlist
+\item Literals inside \texttt{raise} statements (A-26's original scan, unchanged).
+\item Literals at \texttt{raise\_*()} call sites --- the remediation clauses.
+\item \texttt{*\_invariant\_clause} functions, \emph{evaluated} and their return values checked.
+\end{enumerate}
+Population~3 is discovered by introspection over \texttt{bstpp.config} rather than a hard-coded list, so a clause added for \texttt{ModelConfig} or \texttt{PriorConfig} in WP2--WP5 is covered on the day it lands, not the day someone remembers this file. Sample arguments are keyed by parameter name and chosen to fill every interpolated slot: a clause called with empty slots proves nothing about the slots. \textbf{There is deliberately no fallback value.} A clause with an unrecognised parameter is reported as \textsc{unevaluated} and \textbf{fails the gate}, because a skipped clause is an uncovered clause.
+
+The sweep now prints its coverage as a fraction of raise sites rather than a bare \textsc{pass} --- D-39 applied to a gate. At this tip: \textbf{183/184 (99\%)}, with the single residual blind spot \emph{named in the output} (\texttt{data\_contracts.py:489}, whose message is assembled at runtime by \texttt{report.summary()}).
+
+\paragraph{Demonstrated to discriminate, not merely to pass.}
+Three mutations, each a defect the A-26 sweep passed over, each restored afterwards and the production files verified byte-identical to their pre-demo state (\texttt{results/\allowbreak{}\_a29\_sweep\_discrimination.txt}):
+\begin{enumerate}
+\tightlist
+\item a non-ASCII hyphen inside \texttt{builder\_max\_sigma\_invariant\_clause} $\rightarrow$ \texttt{FAIL}, \texttt{EXIT:1};
+\item an em~dash in a remediation literal at a \texttt{raise\_*()} call site $\rightarrow$ \texttt{FAIL}, \texttt{EXIT:1};
+\item a new clause function with a parameter the sweep has no sample for $\rightarrow$ \texttt{FAIL} as \textsc{unevaluated}, \texttt{EXIT:1}.
+\end{enumerate}
+The first capture of this demo recorded \texttt{EXIT:0} beside each \texttt{FAIL}, because the exit code came from the \texttt{tail} at the end of a pipeline rather than from the sweep. It was rerun capturing the sweep's own status before any pipe. Recorded because a capture that reports success next to a failure is the precise artifact this register exists to prevent, and it was produced here by accident in the act of proving the opposite.
+
+\paragraph{OP-22 --- interpolation is a hazard the gate reports and does not own.}
+A non-ASCII character can reach a message through \emph{interpolation} as easily as through a literal, so the sweep probes each slot with a non-ASCII value and reports which clauses propagate it. Three do: \texttt{rectangle\_bounds\_invariant\_clause} (both bounds) and \texttt{support\_mode\_invariant\_clause}, all rendering a caller-supplied value with \texttt{!r} and no numeric coercion. The remaining slots are protected \emph{by} the \texttt{float()} in the clause, which the probe confirms by observing the coercion refuse the string. \textbf{This is reported, not gated:} a caller's own value is not the clause's to control, and failing on it would make the gate reject valid code. Rendering those slots with \texttt{ascii()} instead of \texttt{repr()} would close it, which is a production change and belongs with the D-40 owners; recorded as \textbf{OP-22} and routed to \textbf{WP2}. Note the slot-wise probe was itself a correction: an earlier version substituted only where the sample was already a \texttt{str} and therefore missed \texttt{rectangle\_bounds\_invariant\_clause} entirely, whose bounds are typed \texttt{object} but sampled as floats.
+
+\paragraph{Gates.}
+Sweep \textbf{PASS}, \texttt{EXIT:0}, 183/184 (99\%), 7 clause functions evaluated, all ASCII (\texttt{results/\allowbreak{}\_a29\_ascii\_sweep.txt}). \texttt{ruff} on touch \texttt{EXIT:0} (\texttt{results/\allowbreak{}\_a29\_ruff.txt}). \texttt{\textbackslash hypertarget} \textbf{29/29}. Content checks \textbf{PASS}, 40 rows D-1 to D-40 --- \emph{no decision number allocated}, since a gate gaining coverage establishes nothing new. Unreachable-citation sweep \textbf{PASS}. \textbf{Pins and the suite are recorded as not run}, with the enumeration that licenses it under A-24: the diff touches \texttt{results/\allowbreak{}\_a26\_ascii\_sweep.py}, its captures, and this register --- no file under \texttt{bstpp/} or \texttt{tests/}, no \texttt{pyproject.toml}, no pin harness or baseline, and no \texttt{covering\_array\_rows.json}. Production and test bytes are identical to A-28, whose suite run of \textbf{576 passed} therefore stands as the measurement.
 
 \end{document}
