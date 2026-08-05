@@ -121,6 +121,7 @@ def _conservation_diffs(
     return diffs, counts
 
 
+@pytest.mark.slow  # R=40 Monte Carlo; 544 s, 32% of the full suite
 @pytest.mark.parametrize(
     "label,min_sigma,max_sigma,sigmax_2,panel_h_m,seed",
     [

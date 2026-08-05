@@ -1,0 +1,43 @@
+### git status
+ M AGENTS.md
+ M phase3_record.tex
+ M refactor-patches/pre-3f-stabilization/traceability_matrix.md
+ M tests/test_caller_state_ownership.py
+ M tests/test_packaging_runtime_metadata.py
+ M tests/test_pairs.py
+ M tests/test_phase3d_excitation_support.py
+ M tests/test_polygon_i11_conservation.py
+### ASCII sweep
+scanned 17 modules under bstpp/
+
+COVERAGE (D-39: a gate states its own coverage)
+  direct raise sites                    : 184
+    literal text scanned                : 176  (96%)
+    no literal, text from a clause fn   : 7  (covered below by evaluation)
+    no literal, text built at runtime   : 1  (NOT covered -- listed below)
+  delegated raise_*() call sites        : 20  (remediation literals scanned)
+  *_invariant_clause functions          : 7 evaluated, 0 unevaluated
+  => raise sites whose text is checked  : 183/184  (99%)
+
+RESIDUAL BLIND SPOTS (text assembled at runtime; stated, not hidden)
+  bstpp\data_contracts.py:489
+
+CLAUSE EVALUATION (population 3)
+  ASCII      builder_max_sigma_invariant_clause
+  ASCII      min_sigma_positive_invariant_clause
+  ASCII      panel_ratio_invariant_clause
+  ASCII      polygon_min_sigma_invariant_clause
+  ASCII      rectangle_bounds_invariant_clause
+  ASCII      sigma_order_invariant_clause
+  ASCII      support_mode_invariant_clause
+
+INTERPOLATION HAZARD (informational, not a failure)
+  These clauses render a caller-supplied value without numeric
+  coercion, so a non-ASCII argument reaches the message. Not the
+  clause's fault and not gated here; see OP-22.
+    rectangle_bounds_invariant_clause(min_sigma=)
+    rectangle_bounds_invariant_clause(max_sigma=)
+    support_mode_invariant_clause(support_mode=)
+
+PASS - 183/184 raise sites' text checked (99%); 7 clause functions evaluated, all ASCII
+EXIT:0

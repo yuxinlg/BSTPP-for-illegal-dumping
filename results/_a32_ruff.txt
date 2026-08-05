@@ -1,0 +1,140 @@
+### git status
+ M AGENTS.md
+ M phase3_record.tex
+ M refactor-patches/pre-3f-stabilization/traceability_matrix.md
+ M tests/test_caller_state_ownership.py
+ M tests/test_packaging_runtime_metadata.py
+ M tests/test_pairs.py
+ M tests/test_phase3d_excitation_support.py
+ M tests/test_polygon_i11_conservation.py
+### ruff on touch
+E402 Module level import not at top of file
+  --> tests\test_pairs.py:19:1
+   |
+17 | warnings.filterwarnings("ignore")
+18 |
+19 | import time
+   | ^^^^^^^^^^^
+20 | import numpy as np
+21 | import pandas as pd
+   |
+
+E402 Module level import not at top of file
+  --> tests\test_pairs.py:20:1
+   |
+19 | import time
+20 | import numpy as np
+   | ^^^^^^^^^^^^^^^^^^
+21 | import pandas as pd
+22 | import jax
+   |
+
+E402 Module level import not at top of file
+  --> tests\test_pairs.py:21:1
+   |
+19 | import time
+20 | import numpy as np
+21 | import pandas as pd
+   | ^^^^^^^^^^^^^^^^^^^
+22 | import jax
+23 | import jax.numpy as jnp
+   |
+
+E402 Module level import not at top of file
+  --> tests\test_pairs.py:22:1
+   |
+20 | import numpy as np
+21 | import pandas as pd
+22 | import jax
+   | ^^^^^^^^^^
+23 | import jax.numpy as jnp
+24 | import numpyro.distributions as dist
+   |
+
+E402 Module level import not at top of file
+  --> tests\test_pairs.py:23:1
+   |
+21 | import pandas as pd
+22 | import jax
+23 | import jax.numpy as jnp
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+24 | import numpyro.distributions as dist
+25 | from numpyro import handlers
+   |
+
+E402 Module level import not at top of file
+  --> tests\test_pairs.py:24:1
+   |
+22 | import jax
+23 | import jax.numpy as jnp
+24 | import numpyro.distributions as dist
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+25 | from numpyro import handlers
+26 | import pytest
+   |
+
+E402 Module level import not at top of file
+  --> tests\test_pairs.py:25:1
+   |
+23 | import jax.numpy as jnp
+24 | import numpyro.distributions as dist
+25 | from numpyro import handlers
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+26 | import pytest
+   |
+
+E402 Module level import not at top of file
+  --> tests\test_pairs.py:26:1
+   |
+24 | import numpyro.distributions as dist
+25 | from numpyro import handlers
+26 | import pytest
+   | ^^^^^^^^^^^^^
+27 |
+28 | from bstpp.utils import aligned_difference_pairs
+   |
+
+E402 Module level import not at top of file
+  --> tests\test_pairs.py:28:1
+   |
+26 | import pytest
+27 |
+28 | from bstpp.utils import aligned_difference_pairs
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+29 | from bstpp.main import Hawkes_Model
+   |
+
+E402 Module level import not at top of file
+  --> tests\test_pairs.py:29:1
+   |
+28 | from bstpp.utils import aligned_difference_pairs
+29 | from bstpp.main import Hawkes_Model
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+E702 Multiple statements on one line (semicolon)
+   --> tests\test_pairs.py:118:20
+    |
+116 | def test_tie_rule_excludes_equal_times():
+117 |     t = np.array([0.0, 1.0, 1.0, 2.0])
+118 |     x = np.zeros(4); y = np.zeros(4)
+    |                    ^
+119 |     coords, tv, _, _ = aligned_difference_pairs(t, x, y, window=5.0)
+120 |     coords = np.asarray(coords)
+    |
+
+F401 [*] `jax.numpy` imported but unused
+  --> tests\test_phase3d_excitation_support.py:14:21
+   |
+12 | import geopandas as gpd
+13 | import jax
+14 | import jax.numpy as jnp
+   |                     ^^^
+15 | import numpy as np
+16 | import numpyro.distributions as dist
+   |
+help: Remove unused import: `jax.numpy`
+
+Found 12 errors.
+[*] 1 fixable with the `--fix` option.
+EXIT:1

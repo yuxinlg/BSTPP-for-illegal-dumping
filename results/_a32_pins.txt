@@ -1,0 +1,22 @@
+=== A-32 four-config pins (IV) ===
+expectation: the diff contains NO file under bstpp/ -- only test decorators,
+AGENTS.md, the register and captures. A pin move would mean a decorator had
+changed traced behaviour. Expected is not measured; this run is the measurement.
+--- git status --porcelain (tracked) ---
+ M AGENTS.md
+ M phase3_record.tex
+ M refactor-patches/pre-3f-stabilization/traceability_matrix.md
+ M tests/test_caller_state_ownership.py
+ M tests/test_packaging_runtime_metadata.py
+ M tests/test_pairs.py
+ M tests/test_phase3d_excitation_support.py
+ M tests/test_polygon_i11_conservation.py
+--- end ---
+PIN_GEN_EXIT:0
+cox_hawkes: MATCH
+hawkes: MATCH
+hawkes_nonsquare_4to1: MATCH
+lgcp: MATCH
+
+PIN_DIFFS 0 MATCH
+PIN_COMPARE_EXIT:0

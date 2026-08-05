@@ -266,6 +266,7 @@ def test_simulate_with_generator_does_not_touch_np_random():
 
 
 # --------------------------------------------------------------- run_svi --
+@pytest.mark.slow  # runs SVI twice; 43 s
 def test_run_svi_accepts_and_honors_rng_key():
     sig = inspect.signature(Hawkes_Model.run_svi)
     assert "rng_key" in sig.parameters, (

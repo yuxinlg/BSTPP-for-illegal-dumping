@@ -1,0 +1,10 @@
+### slow lane: pytest tests/ -m slow
+ M AGENTS.md
+ M tests/test_caller_state_ownership.py
+ M tests/test_packaging_runtime_metadata.py
+ M tests/test_pairs.py
+ M tests/test_phase3d_excitation_support.py
+ M tests/test_polygon_i11_conservation.py
+..s.........                                                             [100%]
+11 passed, 1 skipped, 567 deselected in 686.15s (0:11:26)
+EXIT:0

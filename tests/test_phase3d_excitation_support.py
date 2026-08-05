@@ -313,6 +313,7 @@ def test_polygon_mode_accepts_exact_builtin_gaussian():
 
 
 # --------------------- post-hoc regression for 0eeaebd (float64 snapshot) --
+@pytest.mark.slow  # 72 s
 def test_xy_events_real_preserves_float64_against_float32_axis_scales():
     """Post-hoc regression for ``0eeaebd`` (parent ``ce5508f`` fails).
 

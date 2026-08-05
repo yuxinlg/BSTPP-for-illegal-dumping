@@ -1,0 +1,39 @@
+### git status
+ M AGENTS.md
+ M phase3_record.tex
+ M refactor-patches/pre-3f-stabilization/traceability_matrix.md
+ M tests/test_caller_state_ownership.py
+ M tests/test_packaging_runtime_metadata.py
+ M tests/test_pairs.py
+ M tests/test_phase3d_excitation_support.py
+ M tests/test_polygon_i11_conservation.py
+### citation sweep
+--- refactor-patches/pre-3f-stabilization/findings_ledger.md
+    18 path citations, 15 tracked, 3 not tracked
+    ALLOWED   refactor-patches/sbc1/test_sbc_smoke.py
+              reason: A-25 / ledger: named precisely BECAUSE it is untracked — it is the contamination that produced the wrong 582.
+    ALLOWED   refactor-patches/sbc2/test_sbc_smoke_v2.py
+              reason: as above.
+    ALLOWED   refactor-patches/test_sbc_smoke_v3.py
+              reason: as above.
+
+--- refactor-patches/pre-3f-stabilization/traceability_matrix.md
+    24 path citations, 24 tracked, 0 not tracked
+
+--- phase3_record.tex (Part II)
+    71 path citations, 65 tracked, 6 not tracked
+    ALLOWED   baselines-2026-07/pins.json
+              reason: A-24 shorthand inside a sentence that names the refactor-patches/ prefix; the full path is cited too.
+    ALLOWED   docs/phase3_baseline_and_decisions.tex
+              reason: A-21: historical snapshot removed from the tree; git history preserves it. Labelled in place.
+    ALLOWED   refactor-patches/sbc1/test_sbc_smoke.py
+              reason: A-25 / ledger: named precisely BECAUSE it is untracked — it is the contamination that produced the wrong 582.
+    ALLOWED   refactor-patches/sbc2/test_sbc_smoke_v2.py
+              reason: as above.
+    ALLOWED   refactor-patches/test_sbc_smoke_v3.py
+              reason: as above.
+    ALLOWED   tests/test_config_matrix.py
+              reason: A-24: the closeout's proposed deliverable, explicitly recorded as NOT implemented.
+
+PASS — every path citation is either tracked or an explicitly recorded exemption.
+EXIT:0

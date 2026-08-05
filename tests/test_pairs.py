@@ -81,6 +81,7 @@ def _assert_same(a, b):
     assert np.allclose(ya, yb, atol=1e-5)
 
 
+@pytest.mark.slow  # O(n^2) dense cross-check; 59 s
 def test_equivalence_vs_dense():
     rng = np.random.RandomState(7)
     cases = []

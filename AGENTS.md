@@ -4,18 +4,47 @@ This file provides guidance to coding agents when working with code in this repo
 
 ## What this is
 
-Fork of [imanring/BSTPP](https://github.com/imanring/BSTPP.git) — Bayesian spatiotemporal point processes (LGCP, Hawkes, Cox-Hawkes, with optional spatial covariates) on numpyro/JAX — adapted for Philadelphia illegal-dumping analysis. Original model math is in the README; API doc in `docs/bstpp_API_doc.pdf`; the frozen Phase 3 contracts and acceptance matrix are in `phase3_record.tex`. Work happens on branch `refactor` with small, atomic commits. Bug fixes follow the test-first sequence required below: commit the failing regression test before the implementation commit. Commit bodies explain the bug, the change, and the verification (read `git log` for precedent before committing).
+Fork of [imanring/BSTPP](https://github.com/imanring/BSTPP.git) — Bayesian spatiotemporal point processes (LGCP, Hawkes, Cox-Hawkes, with optional spatial covariates) on numpyro/JAX — adapted for Philadelphia illegal-dumping analysis. Original model math is in the README; API doc in `docs/bstpp_API_doc.pdf`; the frozen Phase 3 contracts and acceptance matrix are in `phase3_record.tex`. Work happens on branch `refactor` with small, atomic commits. Bug fixes are RED-first under **D-41**: demonstrate the new row failing against the pre-change state, **commit the capture as evidence alongside the fix** — a separate test-only commit is not required and is not what recent series do. Commit bodies explain the bug, the change, and the verification, and **carry a change class** (BP behaviour-preserving / CF contract fix / SC semantic change / IV verification infrastructure / DOC), which the register's amendments key off (read `git log` for precedent before committing).
 
 ## Environment and commands
 
 The system Python has none of the dependencies. Use the conda env `illegal-dumping`:
 
 ```bash
-PY="C:/Users/Terhi/miniconda3/envs/illegal-dumping/python.exe"   # numpyro 0.15.0, jax/jaxlib 0.4.23 (CPU), geopandas 1.x, pytest
-JAX_PLATFORM_NAME=cpu "$PY" -m pytest tests/ -q                  # full suite (~1 min)
+PY="C:/Users/Terhi/miniconda3/envs/illegal-dumping/python.exe"   # numpyro 0.15.0, jax/jaxlib 0.4.23 (CPU), geopandas 1.1.3, numpy 1.26.4, scipy 1.11.4, shapely 2.1.2, pytest
+JAX_PLATFORM_NAME=cpu "$PY" -m pytest tests/ -q -m "not slow"    # FAST LANE, per-commit gate (~3m45s, 567 tests)
+JAX_PLATFORM_NAME=cpu "$PY" -m pytest tests/ -q                  # FULL suite, series boundaries (~28 min, 579 tests)
+JAX_PLATFORM_NAME=cpu "$PY" -m pytest tests/ -q -m slow          # the 12 slow tests alone (~11m30s)
 JAX_PLATFORM_NAME=cpu "$PY" -m pytest tests/test_smoke.py::test_hawkes_traces -v   # single test
 JAX_PLATFORM_NAME=cpu MPLBACKEND=Agg "$PY" scripts/recover_test.py                 # simulate-and-recover harness (SVI; --nuts for reference)
 ```
+
+**Two-lane suite (measured 2026-08-05, `29058dc`).** The suite is ~28 min because
+it *contains* slow tests, not because the machine is degraded: ten tests are 65%
+of the runtime and the other 569 average 1.05 s. Twelve tests carry
+`@pytest.mark.slow` — the two `test_polygon_i11_conservation` parametrisations
+(R=40 Monte Carlo, 544 s, 32% of the suite on their own), the wheel/venv
+packaging test (181 s), five SBC/NUTS smoke tests, and three others above ~40 s.
+
+- **Per-commit gate: `-m "not slow"`** — 3m43s, 567 tests.
+- **Series boundaries, and any commit touching the slow tests' subject matter
+  (polygon mass/conservation, packaging metadata, SBC, the pair builder, SVI/NUTS
+  entry): the FULL suite.** State which lane ran in the commit body; a fast-lane
+  figure reported as if it were the full suite is a false gate record.
+
+`pytest tests/` with no `-m` still runs **everything**. The default is
+deliberately the complete suite: a default that silently skipped tests would be
+the same silent-failure class this codebase keeps fixing. The fast lane is
+opt-in, and its deselection count (`12 deselected`) is visible in its own output.
+
+**Running the two lanes separately is cheaper than one full run, by a lot.**
+Measured: fast 223.76 s + slow 686.15 s = **909.91 s**, against **1694.40 s** for
+the same 579 tests in one process — the single process costs **86% more**, a
+13-minute excess and 4× the observed run-to-run spread. So a boundary check is
+better done as two invocations than one. The excess is superlinear in a single
+process (accumulated JAX compilation caches, fixtures and arrays pushing a
+15.4 GB box into paging), which is the grain of truth in the memory-pressure
+story — it is real for the heavy tail, it is just not why the suite is 28 minutes.
 
 (The `bstpp` conda env also has the stack but lacks pytest.)
 
@@ -30,6 +59,7 @@ Gotchas: `run_svi(num_steps, lr, ...)` — `lr` is a required positional; pass `
 - `bstpp/preparation.py` + `bstpp/spatial_grid_helpers.py` — the three Phase 3b data-bearing objects (`ModelData`, `PreparedDomain`, `PreparedPartitions`) and the pure preparation steps for grids, clipped support, covariate refinement, membership, areas, and `season_overlap`. `ModelDomain`, `ReportingRegions`, and `ComputationPartition` remain deferred contracts, not classes.
 - `bstpp/decode_fields.py` + `bstpp/likelihood.py` — shared field decoding and likelihood atoms used by the numpyro models, simulation checks, and diagnostics.
 - `bstpp/excitation_support.py` + `bstpp/polygon_mass.py` — explicit rectangle/polygon excitation-support policy, sigma bounds/prior truncation, and the polygon Gaussian Hermite mass-table backend; public `prepare_polygon_mass_table` (NumPy/SciPy float64) with hard-require install at polygon construction.
+- `bstpp/config.py` — Phase 3f frozen configuration objects behind the `args` adapter. Holds `NumericalConfig` (mass-table builder settings, measured-budget policy, package cutoff tolerance defaults, resolved σ bounds) and `NumericalConfigError`. Also the **single source for canonical error clauses** under D-40: one `*_invariant_clause` / `raise_*_violation` pair per invariant, rendered byte-for-byte wherever the violation is detected. `polygon_mass` reaches them by deferred import (config imports polygon_mass for its constants). Frozen dataclasses, validation in `__post_init__`, one factory (`create`) per object, no Pydantic.
 - `bstpp/cutoffs.py` — Phase 3e real-day temporal conversion, computational cutoff resolution, omitted-mass calculations, and cutoff provenance.
 - `bstpp/inference_functions.py` — the numpyro model functions: `spatiotemporal_hawkes_model` (branches on `args['model']` = `'hawkes'` vs `'cox_hawkes'`) and `spatiotemporal_LGCP_model`. Likelihood = event term − compensator, emitted as one `loglik_factor` factor site plus `loglik`/`Itot_*` deterministics.
 - `bstpp/trigger.py` — pluggable excitation kernels (`Temporal_Exponential` and `Temporal_Power_Law` sample `beta`; `Spatial_Symmetric_Gaussian` samples `sigmax_2`). A trigger is usable only on paths that can evaluate both its event term and its matching compensator.
@@ -49,7 +79,11 @@ Gotchas: `run_svi(num_steps, lr, ...)` — `lr` is a required positional; pass `
 
 **Diagnostics vs likelihood.** `season_idx_of_t` (midpoint seasonal index), `rate_time`, `rate_t/Itot_t`, `rate_a/Itot_a` are marginal diagnostics only — the likelihood does not use them, `Itot_t·Itot_a·Itot_xy ≠ Itot_txy` by design, and `rate_xy` excludes the covariate term `b_0`.
 
-**Phase 3 audit status (pre-3f audited tip** `e0d7e437`**; living record `phase3_record.tex`).** The prepared-data, event-indexed-state, polygon-support, and cutoff contracts below are enforced at tip. A-21 records the freeze tip `938e32b`, the first follow-up series (`df06e55`--`04799d9`), the continuation on `04799d9` (one-sided TruncatedNormal intersection, rejection of truncated non-Normal bases, rectangle computational-grid simulate dedup, production slope-doc correction), and the local correctness/API series on `e0d7e437` (`af7c934`--`c501283`: kernel capability gates, untouched-axis provenance, LGCP `set_window` rejection, panel/`min_sigma` guard, grid/kernel/MCMC helpers, runtime packaging metadata, stale-doc retargets; deferred membership consolidation and extreme float32 TLN notes). Acceptance evidence lives in `refactor-patches/phase3{a,c,d,e}/rebaseline_record.md`, `refactor-patches/phase3_tip_verification_2026-07-24.md`, `refactor-patches/confirmation_8580364.md`, and `refactor-patches/pre3f_audit_e0d7e43.md`. The living Phase 3 contract/decision record is the repository-root `phase3_record.tex` (Part I frozen + Part II append-only amendments through A-21). Phase 3f architectural refactor is not started; pre-3f correctness/API fixes and decision freeze are required first. Add a regression test that fails for any newly identified defect before changing production code.
+**Phase 3 audit status (pre-3f audited tip** `e0d7e437`**; living record `phase3_record.tex`).** The prepared-data, event-indexed-state, polygon-support, and cutoff contracts below are enforced at tip. A-21 records the freeze tip `938e32b`, the first follow-up series (`df06e55`--`04799d9`), the continuation on `04799d9` (one-sided TruncatedNormal intersection, rejection of truncated non-Normal bases, rectangle computational-grid simulate dedup, production slope-doc correction), and the local correctness/API series on `e0d7e437` (`af7c934`--`c501283`: kernel capability gates, untouched-axis provenance, LGCP `set_window` rejection, panel/`min_sigma` guard, grid/kernel/MCMC helpers, runtime packaging metadata, stale-doc retargets; deferred membership consolidation and extreme float32 TLN notes). Acceptance evidence lives in `refactor-patches/phase3{a,c,d,e}/rebaseline_record.md`, `refactor-patches/phase3_tip_verification_2026-07-24.md`, `refactor-patches/confirmation_8580364.md`, and `refactor-patches/pre3f_audit_e0d7e43.md`. The living Phase 3 contract/decision record is the repository-root `phase3_record.tex` (Part I frozen + Part II append-only amendments **through A-31 / D-41**). Add a regression test that fails for any newly identified defect before changing production code.
+
+**Phase 3f status (current).** WP1 is landed: `NumericalConfig` exists behind the `args` adapter (A-22/A-23/D-35), and the error-identity work is complete through A-31 — D-40 (one invariant, one identity, one canonical clause, owners assigned by which *quantity* the invariant attaches to), D-41 (the evidence-and-provenance standard). **WP2 (`ModelConfig`, `PriorConfig`) is enumerated but not started**; an OP-20 argument-type series lands first. Open items: OP-18 (I10 restatement), OP-19 + OP-21 → WP5, OP-20 + OP-22 → WP2, OP-23 (the ownerless cutoff cluster) → WP5.
+
+**Two `I`-numberings exist and they collide — read this before citing one.** `I1`–`I12` are the Phase-3 **model identities** (mass atoms, pair window, derived seasonal coordinate, conservation, …) and are cited in the guide, the phase0 archive and `test_polygon_i11_conservation.py`. The **config invariants** under D-40 were briefly numbered `I1`–`I6` and were renumbered `CI-1`…`CI-6` at A-30: `CI-1` rectangle both-or-neither, `CI-2` polygon requires `min_sigma`, `CI-3` `min_sigma` finite and positive, `CI-4` `min_sigma < max_sigma`, `CI-5` support-mode validity, `CI-6` builder requires `max_sigma`. **`CI-n` is one sequence across all five config objects, extended as each lands its own — never restarted per object.** Next free is `CI-7`.
 
 **Prepared-data contract.** `T_max` / `horizon_days` must be finite and positive. A GeoDataFrame domain must have polygonal, finite, positive-area support. Domain-row overlap uses the explicit union policy on `PreparedDomain.union_geometry` / `area_ratio` — never mix summed row areas with a different geometric support. If the domain declares a CRS, covariates must declare the same CRS: GeoDataFrame covariates are self-describing; CSV/plain-DataFrame covariates with a CRS-bearing domain require public `spatial_cov_crs` (`CRS.from_user_input`), assigned before `validate_covariates`, never inferred by copying the domain CRS. Invalid inputs are rejected before partition construction.
 
@@ -70,9 +104,24 @@ Gotchas: `run_svi(num_steps, lr, ...)` — `lr` is a required positional; pass `
 
 ## General testing conventions
 
-Tests are mostly regression pins: they typically map to a specific audit fix (see the docstring headers and matching commits). The standard pattern is to trace the model directly — `handlers.trace(handlers.seed(model.model, PRNGKey(0))).get_trace(model.args)`, with `handlers.substitute` for fixed-parameter comparisons — rather than running inference. When adding a fix + test, verify the test actually FAILS on the pre-fix code (temporarily revert, run, restore) before committing; state that in the commit body.
+Tests are mostly regression pins: they typically map to a specific audit fix (see the docstring headers and matching commits). The standard pattern is to trace the model directly — `handlers.trace(handlers.seed(model.model, PRNGKey(0))).get_trace(model.args)`, with `handlers.substitute` for fixed-parameter comparisons — rather than running inference.
 
-A green full suite alone is not a Phase 3 acceptance record. For each checkpoint or semantic correction, preserve the targeted RED/GREEN evidence, run the full suite, run all four configurations in the machine-local golden-pin harness `refactor-patches/pin_check_v2.py`, and run `ruff`; record the exact commands, outputs, and change classification in the checkpoint acceptance/rebaseline document. Phase 3d/3e acceptance records are backfilled post-hoc where contemporaneous records were missing — label that honesty explicitly and never claim a historical RED run that was not observed.
+**D-41 governs evidence and provenance. Read it in `phase3_record.tex` (A-31) before the first commit of any series; this is a pointer, not a restatement.** Its clauses:
+
+- Every enforcement row is demonstrated RED against the pre-change state before it is claimed to enforce anything, and the capture is committed.
+- **The revert is minimal** — revert only what the row is meant to detect. Reverting shared API alongside it yields an `ImportError` at collection, a red that proves nothing.
+- Rows that pass on both sides are recorded as **non-discriminating by construction** and never offered as evidence.
+- Every capture records **the checked process's own exit status**, not a pipeline's (`$?` after a `| tail` is `tail`'s). A capture showing success beside a failure is worse than no capture.
+- **Post-commit verification:** after committing, `git status --porcelain` is empty *and* `git show --stat HEAD` is compared against the file list stated *before* committing. A commit whose contents were not compared to a pre-stated list is ungated regardless of what the gates said. Gates run on a worktree; a commit is a claim about a subset of it.
+- **Never route stderr to `/dev/null` on a git command.** One bad pathspec aborts the whole `git add`; with stderr discarded it aborts silently, and ` M` in `git status` is *unstaged*, not staged.
+- Relabeling in place is permitted where no assertion changes and the head note carries the full old→new mapping; anything that changes an assertion uses `\supsd` per occurrence.
+- Claims of different strength are checked at their own strength (production AST-identical; test files string-blanked structural match).
+
+**Validation that never runs is not validation, and an unreached guard is indistinguishable from an absent one.** Show every new guard firing on at least one public path; a guard that cannot is a finding, not a footnote. A-27 found all six of `NumericalConfig`'s σ/mode branches dead on every public path because the resolver ran first.
+
+A green suite alone is not a Phase 3 acceptance record. For each checkpoint or semantic correction, preserve the targeted RED/GREEN evidence; run the suite (**state which lane** — see the two-lane note above); run all four configurations in the machine-local golden-pin harness `refactor-patches/pin_check_v2.py`; run `ruff` on touched files, recording inherited findings by name rather than fixing them silently; and run the register gates — the ASCII sweep (`results/_a26_ascii_sweep.py`, which evaluates the clause functions and **states its own coverage as a fraction of raise sites**), the content/decision-monotonicity checks (`results/_a25_content_checks.py`), the `\hypertarget` structural check, and the unreachable-citation sweep. Record the exact commands, outputs, and change classification in the rebaseline document. Capture `git status --porcelain` with every run and `bstpp.__file__` with every ad-hoc probe — a stale `bstpp` in `site-packages` shadows the repo for scripts run from a subdirectory, and the capture then describes a different object.
+
+Phase 3d/3e acceptance records are backfilled post-hoc where contemporaneous records were missing — label that honesty explicitly and never claim a historical RED run that was not observed.
 
 ## Refactoring principles for BSTPP
 
@@ -97,7 +146,10 @@ pass" or "this is equivalent." Show me the diff and the test output.
 
 - Use `pytest`, functions over classes, fixtures for expensive/shared objects
 (e.g. a sampled posterior, a simulated event set). Enforce RED → GREEN →
-Refactor: write the failing test first, commit it before implementation.
+Refactor: write the test first and observe it fail against the pre-change
+state, with the **minimal** revert (D-41) — reverting shared API alongside the
+defect yields an `ImportError` at collection, which is a red that proves
+nothing. Commit the RED capture with the fix.
 - FORBIDDEN: editing a test just to make it pass. Test changes must reflect a
 real requirement change or a genuine bug in the test — flag these explicitly.
 - FORBIDDEN: simplifying the problem, mocking away the real implementation, or
@@ -215,8 +267,13 @@ params, returns, raises. Keep them describing the *interface*, not internals.
 
 ### How to work with me (agentic workflow hygiene)
 
-- **Reread this file and PLANNING.md / TASKS.md / SCRATCHPAD.md at the start of
-each session** and after any context clear/compact.
+- **Reread this file at the start of each session** and after any context
+clear/compact, then read Part II of `phase3_record.tex` from the most recent
+amendment backwards far enough to cover the work in hand — that is the governing
+record, and this file is a summary of it. (`PLANNING.md`, `TASKS.md` and
+`SCRATCHPAD.md` were named here historically and **do not exist**; the register
+plus `refactor-patches/pre-3f-stabilization/traceability_matrix.md` replaced
+them.)
 - Work in **small, focused steps** on a dedicated git branch. Keep commits
 granular so any step can be reverted.
 - Use **commit → clear-context → reload** at each natural breakpoint. Show me
@@ -243,8 +300,17 @@ machines here, but that is an observation, not a guarantee.)
 - `GeoSeries.sample_points` internals are geopandas-version-sensitive; the
 geometry stack (geopandas / shapely / GEOS) belongs alongside the jax /
 numpy pins whenever cross-session simulation reproducibility matters.
-- Dev tooling: `ruff` (linter/formatter) is installed with
-`pip install --no-deps ruff`; it is not part of the runtime pins.
+- Dev tooling: `ruff` (0.15.21, linter/formatter) is installed with
+`pip install --no-deps ruff`; it is not part of the runtime pins. **It is not on
+PATH — invoke it as `"$PY" -m ruff check <paths>`**; bare `ruff` is
+`command not found`. Lint only what you touched, and record inherited findings
+by name and count rather than fixing them silently (D-41): demonstrate them
+against `git show HEAD:<file>` so "pre-existing" is measured, not asserted.
+- Suite runtime is dominated by twelve `slow`-marked tests, not by machine
+health — see the two-lane note above. Before attributing a slow gate to the
+environment, run `--durations=10` and check *where* the time goes; a stale
+"~1 min" figure in this file previously supported an unsupported
+memory-pressure diagnosis for months.
 - Boundary / bounding-box / window semantics across model cases are
 inventoried in `docs/boundary_and_window_semantics.md` (Phase 3 inputs).
 

@@ -1,0 +1,47 @@
+### fast lane: pytest tests/ -m 'not slow'
+29058dc docs(3f): the evidence-and-provenance standard (A-31 / D-41) (DOC)
+ M tests/test_caller_state_ownership.py
+ M tests/test_packaging_runtime_metadata.py
+ M tests/test_pairs.py
+ M tests/test_phase3d_excitation_support.py
+ M tests/test_polygon_i11_conservation.py
+........................................................................ [ 12%]
+........................................................................ [ 25%]
+..............................................................x......... [ 38%]
+........................................................................ [ 50%]
+........................................................................ [ 63%]
+........................................................................ [ 76%]
+........................................................................ [ 88%]
+..........................................s....................          [100%]
+============================== warnings summary ===============================
+tests/test_caller_state_ownership.py::test_run_mcmc_with_key_does_not_touch_np_random
+  C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\main.py:667: UserWarning: Skipping MCMC print_summary: retained per-chain sample count (2) is below NumPyro's diagnostic minimum of 4 (split Gelman-Rubin). Samples are preserved; increase num_samples or decrease thinning for a summary.
+    self.mcmc = run_mcmc(rng_key_post, self.model, self.args)
+
+tests/test_heldout_polygon_mass.py::test_heldout_cov_ind_length_validated
+  C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\main.py:2015: UserWarning: BSTPP data-contract violations detected (report mode; these are rejected under the default data_contracts='reject'):
+  BSTPP data-contract report: 1 violation check(s), 0 diagnostic(s) over 4 events (mode=report).
+    VIOLATION covariate_gap: the covariate layer leaves 50.0000% of the model domain A uncovered (legacy behavior: silent zero-valued covariate region); geometry exported
+    super().__init__(name, data, A, T, **kwargs)
+
+tests/test_ingestion_contract.py::test_geographic_crs_contract_warning_is_nonvacuous
+  C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\preparation.py:332: UserWarning: Geometry is in a geographic CRS. Results from 'area' are likely incorrect. Use 'GeoSeries.to_crs()' to re-project geometries to a projected CRS before this operation.
+  
+    clipped['area'] = clipped.area / rect_area
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+============================ slowest 12 durations =============================
+17.07s call     tests/test_clipped_support.py::test_sim_cox_count_rate_matches_clipped_compensator
+16.23s call     tests/test_caller_state_ownership.py::test_run_mcmc_with_key_does_not_touch_np_random
+15.11s call     tests/test_identities.py::test_simulated_count_matches_compensator
+10.45s call     tests/test_identities.py::test_simulated_count_matches_compensator_finite_spatial_window
+8.95s call     tests/test_data_contracts.py::test_default_mode_reject_heldout_path
+8.08s call     tests/test_membership_d22.py::test_heldout_covariate_tie_no_silent_misalignment
+5.89s call     tests/test_clipped_support.py::test_sim_cox_background_supported_on_A
+4.04s call     tests/test_short_mcmc_summary.py::test_run_mcmc_sufficient_samples_still_prints_summary
+4.00s call     tests/test_short_mcmc_summary.py::test_run_mcmc_num_samples_2_returns_samples_without_summary_failure
+3.50s call     tests/test_polygon_mass_wide_range.py::test_wide_range_hybrid_table_confirmation[uncut]
+3.23s call     tests/test_packaging_runtime_metadata.py::test_wheel_requires_dist_contains_critical_runtime_pins
+3.22s call     tests/test_data_contracts.py::test_heldout_inf_rejected_in_all_modes[report--inf]
+565 passed, 1 skipped, 12 deselected, 1 xfailed, 3 warnings in 223.76s (0:03:43)
+EXIT:0

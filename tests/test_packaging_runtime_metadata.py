@@ -94,6 +94,7 @@ def test_wheel_requires_dist_contains_critical_runtime_pins():
                 f"want {pin!r}; got {reqs}")
 
 
+@pytest.mark.slow  # builds a wheel and creates a venv; 181 s
 def test_disposable_venv_can_import_bstpp_from_wheel():
     """Install the built wheel into a disposable venv; never touch conda env.
 

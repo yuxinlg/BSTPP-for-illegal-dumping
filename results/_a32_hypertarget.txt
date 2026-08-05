@@ -1,0 +1,44 @@
+### git status
+ M AGENTS.md
+ M phase3_record.tex
+ M refactor-patches/pre-3f-stabilization/traceability_matrix.md
+ M tests/test_caller_state_ownership.py
+ M tests/test_packaging_runtime_metadata.py
+ M tests/test_pairs.py
+ M tests/test_phase3d_excitation_support.py
+ M tests/test_polygon_i11_conservation.py
+### hypertarget
+SUBSECTIONS 32 OK 32 MISSING 0
+OK a-1
+OK a-2
+OK a-3
+OK a-4
+OK a-5
+OK a-6
+OK a-7
+OK a-8
+OK a-9
+OK a-10
+OK a-11
+OK a-12
+OK a-13
+OK a-14
+OK a-15
+OK a-16
+OK a-17
+OK a-18
+OK a-19
+OK a-20
+OK a-21
+OK a-22
+OK a-23
+OK a-24
+OK a-25
+OK a-26
+OK a-27
+OK a-28
+OK a-29
+OK a-30
+OK a-31
+OK a-32
+EXIT:0
