@@ -1,0 +1,45 @@
+=== A-26 / WP1.4e-1 RED demonstration ===
+date: 2026-08-05T03:20:40Z
+bstpp/main.py and bstpp/polygon_mass.py reverted to e9c605a (the WP1.4b
+call-site guard restored, R2/R3 restating their own messages). config.py
+keeps panel_ratio_invariant_clause only so the test can import it.
+--- git status --porcelain (tracked) ---
+ M bstpp/config.py
+ M bstpp/preparation.py
+ M tests/test_lane_b_config_matrix.py
+ M tests/test_numerical_config.py
+ M tests/test_panel_min_sigma_guard.py
+ M tests/test_polygon_mass_table_install.py
+--- end ---
+
+                f"model min_sigma must be finite and > 0 for the mass-table "
+                f"accuracy budget; got {sigma_min!r}")
+        try:
+            gl = int(table.gl_order)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"supplied mass table gl_order must be an integer; "
+                f"got {table.gl_order!r}") from exc
+        if gl < 1:
+            raise ValueError(
+                f"supplied mass table gl_order must be >= 1; got {gl}")
+        ratio = h / s
+        if ratio > ratio_ceil:
+>           raise ValueError(
+                "supplied mass table is too coarse for model min_sigma under the "
+                f"panel-resolution prefilter (PRODUCTION_TAU_ABS={tau_abs} "
+                "is enforced by measured residual at install): "
+                f"table h_panel={h}, gl_order={gl}, min_sigma={s}, "
+                f"panel/min_sigma ratio={ratio} exceeds "
+                f"MAX_PANEL_TO_MIN_SIGMA_RATIO={ratio_ceil}. "
+                "Rebuild with prepare_polygon_mass_table(..., panel_h_m=...) so "
+                "effective_panel_h / min_sigma <= "
+                f"{ratio_ceil}."
+            )
+E           ValueError: supplied mass table is too coarse for model min_sigma under the panel-resolution prefilter (PRODUCTION_TAU_ABS=1e-05 is enforced by measured residual at install): table h_panel=400.0, gl_order=16, min_sigma=5.0, panel/min_sigma ratio=80.0 exceeds MAX_PANEL_TO_MIN_SIGMA_RATIO=8.0. Rebuild with prepare_polygon_mass_table(..., panel_h_m=...) so effective_panel_h / min_sigma <= 8.0.
+
+bstpp\polygon_mass.py:622: ValueError
+=========================== short test summary info ===========================
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_panel_ratio_error_identity_is_entry_path_invariant
+1 failed in 17.90s
+EXIT:1

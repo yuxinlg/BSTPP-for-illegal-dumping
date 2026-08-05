@@ -46,7 +46,7 @@ from .excitation_support import (
     resolve_sigma_bounds,
     truncate_sigmax_2_prior,
 )
-from .polygon_mass import assert_polygon_mass_table_budget, warn_if_sigma_near_bound
+from .polygon_mass import warn_if_sigma_near_bound
 from .cutoffs import (
     CutoffProvenance,
     SpatialCutoffRecord,
@@ -2294,15 +2294,12 @@ class Hawkes_Model(Point_Process_Model):
                 crs=self.prepared_domain.crs,
             )
             prev_cfg = self.args["numerical_config"]
-            # Panel-ratio prefilter before rebuilding NumericalConfig so a
-            # too-coarse supplied table still raises
-            # assert_polygon_mass_table_budget's message before
-            # NumericalConfigError (set_window error-precedence CF).
-            assert_polygon_mass_table_budget(
-                table_arg,
-                sigma_min=lo_cfg,
-                numerical_config=prev_cfg,
-            )
+            # A-26 / D-40: the WP1.4b panel-ratio prefilter that stood here
+            # existed only to make assert_polygon_mass_table_budget's message
+            # win over NumericalConfigError. With one identity and one
+            # canonical clause per invariant it has no reason to exist, and
+            # removing it restores D-35's single-source claim: the config
+            # below is the only site that decides this for set_window.
             new_numerical_config = NumericalConfig.create(
                 panel_h_m=table_arg.h_panel,
                 gl_order=table_arg.gl_order,

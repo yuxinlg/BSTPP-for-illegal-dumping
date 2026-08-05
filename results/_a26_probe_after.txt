@@ -1,0 +1,96 @@
+=== A-26 probe: entry-path error identity, AFTER unification ===
+commit: e9c605a1435544c277d3de24cfcc7a9ba6150270 + working tree (WP1.4e-1)
+date:   2026-08-05T03:36:20Z
+--- git status --porcelain (tracked) ---
+ M bstpp/config.py
+ M bstpp/main.py
+ M bstpp/polygon_mass.py
+ M bstpp/preparation.py
+ M phase3_record.tex
+ M tests/test_lane_b_config_matrix.py
+ M tests/test_numerical_config.py
+ M tests/test_panel_min_sigma_guard.py
+ M tests/test_polygon_mass_table_install.py
+--- end ---
+
+bstpp.__file__: C:\Users\Terhi\Box\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+
+==============================================================================
+INVARIANT 1 -- panel_h_m / min_sigma <= max_panel_to_min_sigma_ratio
+==============================================================================
+[constructor]  Hawkes_Model(..., mass_table=coarse)
+    type:  bstpp.config.NumericalConfigError
+    mro:   ['NumericalConfigError', 'ValueError', 'Exception', 'BaseException']
+    msg:   panel_h_m / min_sigma exceeds max_panel_to_min_sigma_ratio: panel_h_m=200.0, min_sigma=5.0, ratio=40.0, max_panel_to_min_sigma_ratio=8.0. This resolution prefilter is necessary but not sufficient for PRODUCTION_TAU_ABS=1e-05, which is enforced by a measured residual at mass-table install.
+[set_window]   m.set_window(mass_table=coarse)
+    type:  bstpp.config.NumericalConfigError
+    mro:   ['NumericalConfigError', 'ValueError', 'Exception', 'BaseException']
+    msg:   panel_h_m / min_sigma exceeds max_panel_to_min_sigma_ratio: panel_h_m=200.0, min_sigma=5.0, ratio=40.0, max_panel_to_min_sigma_ratio=8.0. This resolution prefilter is necessary but not sufficient for PRODUCTION_TAU_ABS=1e-05, which is enforced by a measured residual at mass-table install.
+[log_expected_likelihood]  m.log_expected_likelihood(test, mass_table=coarse)
+    type:  bstpp.config.NumericalConfigError
+    mro:   ['NumericalConfigError', 'ValueError', 'Exception', 'BaseException']
+    msg:   panel_h_m / min_sigma exceeds max_panel_to_min_sigma_ratio: panel_h_m=200.0, min_sigma=5.0, ratio=40.0, max_panel_to_min_sigma_ratio=8.0. This resolution prefilter is necessary but not sufficient for PRODUCTION_TAU_ABS=1e-05, which is enforced by a measured residual at mass-table install. The supplied table records h_panel=200.0, gl_order=16; it is too coarse for this model's min_sigma. Rebuild with prepare_polygon_mass_table(..., panel_h_m=...) so effective_panel_h / min_sigma <= 8.0.
+[prepare_polygon_mass_table]  panel_h_m=200, min_sigma=5
+    type:  bstpp.config.NumericalConfigError
+    mro:   ['NumericalConfigError', 'ValueError', 'Exception', 'BaseException']
+    msg:   panel_h_m / min_sigma exceeds max_panel_to_min_sigma_ratio: panel_h_m=200.0, min_sigma=5.0, ratio=40.0, max_panel_to_min_sigma_ratio=8.0. This resolution prefilter is necessary but not sufficient for PRODUCTION_TAU_ABS=1e-05, which is enforced by a measured residual at mass-table install. Refusing to build this table. Pass a smaller explicit panel_h_m so effective_panel_h / min_sigma <= 8.0; panel_h_m is metres under a projected CRS and domain-coordinate units otherwise (here effective_panel_h=200.0).
+
+    entry path                    type                     message id
+    constructor                   NumericalConfigError     'panel_h_m / min_sigma exceeds max_'
+    set_window                    NumericalConfigError     'panel_h_m / min_sigma exceeds max_'
+    log_expected_likelihood       NumericalConfigError     'panel_h_m / min_sigma exceeds max_'
+    prepare_polygon_mass_table    NumericalConfigError     'panel_h_m / min_sigma exceeds max_'
+
+    DISTINCT TYPES:    1  ['NumericalConfigError']
+    DISTINCT MESSAGES: 3
+    SAME TYPE ctor vs set_window?    True
+    SAME MESSAGE ctor vs set_window? True
+
+==============================================================================
+INVARIANT 2 -- sigma-bound coherence (min_sigma < max_sigma)
+==============================================================================
+[constructor]  min_sigma=40, max_sigma=5
+    type:  builtins.ValueError
+    mro:   ['ValueError', 'Exception', 'BaseException', 'object']
+    msg:   require min_sigma < max_sigma; got min_sigma=40.0, max_sigma=5.0
+[NumericalConfig.create] same violation, config's own branch
+    type:  bstpp.config.NumericalConfigError
+    mro:   ['NumericalConfigError', 'ValueError', 'Exception', 'BaseException']
+    msg:   sigma-bound coherence requires min_sigma < max_sigma; got min_sigma=40.0, max_sigma=5.0
+
+==============================================================================
+INVARIANT 3 -- support-mode validity
+==============================================================================
+[build_excitation_support] mode='banana'
+    type:  builtins.ValueError
+    mro:   ['ValueError', 'Exception', 'BaseException', 'object']
+    msg:   excitation_support must be 'rectangle' or 'polygon', got 'banana'
+[NumericalConfig.create] support_mode='banana'
+    type:  bstpp.config.NumericalConfigError
+    mro:   ['NumericalConfigError', 'ValueError', 'Exception', 'BaseException']
+    msg:   support_mode must be 'rectangle' or 'polygon'; got 'banana'
+
+==============================================================================
+INVARIANT 4 -- polygon requires min_sigma
+==============================================================================
+[constructor]  polygon, min_sigma=None
+    type:  builtins.ValueError
+    mro:   ['ValueError', 'Exception', 'BaseException', 'object']
+    msg:   Polygon excitation_support requires an explicit finite positive min_sigma in domain-coordinate units (no default).
+[NumericalConfig.create] polygon, min_sigma=None
+    type:  bstpp.config.NumericalConfigError
+    mro:   ['NumericalConfigError', 'ValueError', 'Exception', 'BaseException']
+    msg:   support-mode compatibility (polygon): min_sigma is required (finite, positive; no default)
+
+==============================================================================
+INVARIANT 5 -- rectangle: both bounds or neither
+==============================================================================
+[constructor]  rectangle, min_sigma only
+    type:  builtins.ValueError
+    mro:   ['ValueError', 'Exception', 'BaseException', 'object']
+    msg:   In rectangle mode, min_sigma and max_sigma must both be supplied or both omitted (omitted leaves the sigmax_2 prior unchanged).
+[NumericalConfig.create] rectangle, min_sigma only
+    type:  bstpp.config.NumericalConfigError
+    mro:   ['NumericalConfigError', 'ValueError', 'Exception', 'BaseException']
+    msg:   support-mode compatibility (rectangle): min_sigma and max_sigma must both be supplied or both omitted
+EXIT:0

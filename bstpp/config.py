@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Literal, NoReturn, Optional
 
 from .cutoffs import DEFAULT_SPATIAL_TOL, DEFAULT_TEMPORAL_TOL
 from .polygon_mass import (
@@ -25,7 +25,65 @@ ExcitationSupportMode = Literal["rectangle", "polygon"]
 
 
 class NumericalConfigError(ValueError):
-    """Named error identifying a violated ``NumericalConfig`` constraint."""
+    """Named error identifying a violated ``NumericalConfig`` constraint.
+
+    Subclasses ``ValueError``, so callers catching ``ValueError`` are
+    unaffected by an invariant migrating to this identity (D-40).
+    """
+
+
+# --------------------------------------------------- D-40 single sourcing --
+# One invariant, one error identity, one canonical clause, independent of entry
+# path. A site may append its own remediation clause; it may not restate the
+# invariant. Raised message text is ASCII (D-40): a non-ASCII character can
+# raise UnicodeEncodeError while the traceback carrying it is printed to a
+# cp1252 console, i.e. an error path that fails while failing.
+
+def panel_ratio_invariant_clause(
+    *,
+    panel_h_m: float,
+    min_sigma: float,
+    ratio_ceil: float,
+    tau_abs: float,
+) -> str:
+    """Render the canonical panel/``min_sigma`` invariant clause (D-40).
+
+    Every site enforcing ``panel_h_m / min_sigma <= ratio_ceil`` renders this
+    exact text for a given violation, byte for byte, whichever entry path
+    reached it. This is the string tests match on.
+    """
+    h = float(panel_h_m)
+    s = float(min_sigma)
+    return (
+        "panel_h_m / min_sigma exceeds max_panel_to_min_sigma_ratio: "
+        f"panel_h_m={h}, min_sigma={s}, ratio={h / s}, "
+        f"max_panel_to_min_sigma_ratio={float(ratio_ceil)}. This resolution "
+        "prefilter is necessary but not sufficient for "
+        f"PRODUCTION_TAU_ABS={float(tau_abs)}, which is enforced by a measured "
+        "residual at mass-table install."
+    )
+
+
+def raise_panel_ratio_violation(
+    *,
+    panel_h_m: float,
+    min_sigma: float,
+    ratio_ceil: float,
+    tau_abs: float,
+    remediation: str = "",
+) -> NoReturn:
+    """Raise the single error identity for the panel/``min_sigma`` invariant.
+
+    ``remediation`` is appended after the canonical clause and is the only
+    part a call site may vary — build time and install time are different
+    situations with different useful advice (D-40).
+    """
+    msg = panel_ratio_invariant_clause(
+        panel_h_m=panel_h_m, min_sigma=min_sigma,
+        ratio_ceil=ratio_ceil, tau_abs=tau_abs)
+    if remediation:
+        msg = f"{msg} {remediation}"
+    raise NumericalConfigError(msg)
 
 
 def _require_int(name: str, value: object) -> int:
@@ -158,16 +216,13 @@ class NumericalConfig:
                 self._validate_sigma_pair(
                     lo_f, _require_real("max_sigma", hi))
             # Panel/min_sigma prefilter (necessary but not sufficient for tau).
-            ratio = h / lo_f
-            if ratio > ratio_ceil:
-                raise NumericalConfigError(
-                    "panel_h_m / min_sigma exceeds "
-                    f"max_panel_to_min_sigma_ratio={ratio_ceil}: "
-                    f"panel_h_m={h}, min_sigma={lo_f}, ratio={ratio}. "
-                    "PRODUCTION_TAU_ABS measured residual is enforced at "
-                    "mass-table install against "
-                    f"BUDGET_REFERENCE_GL_ORDER={ref_gl}."
-                )
+            # D-40: the clause is rendered by panel_ratio_invariant_clause, not
+            # restated here, so the constructor and set_window paths cannot
+            # drift apart again.
+            if h / lo_f > ratio_ceil:
+                raise_panel_ratio_violation(
+                    panel_h_m=h, min_sigma=lo_f,
+                    ratio_ceil=ratio_ceil, tau_abs=tau)
 
     @staticmethod
     def _validate_sigma_pair(lo: float, hi: float) -> None:
@@ -176,7 +231,7 @@ class NumericalConfig:
                 f"min_sigma must be finite and positive; got {lo}")
         if not (math.isfinite(hi) and hi > lo):
             raise NumericalConfigError(
-                f"σ-bound coherence requires min_sigma < max_sigma; "
+                f"sigma-bound coherence requires min_sigma < max_sigma; "
                 f"got min_sigma={lo}, max_sigma={hi}")
 
     @classmethod

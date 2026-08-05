@@ -1,0 +1,16 @@
+=== A-26 / WP1.4e-1 ruff (on touch) ===
+date: 2026-08-05T03:25:54Z
+--- git status --porcelain (tracked) ---
+ M bstpp/config.py
+ M bstpp/main.py
+ M bstpp/polygon_mass.py
+ M bstpp/preparation.py
+ M tests/test_lane_b_config_matrix.py
+ M tests/test_numerical_config.py
+ M tests/test_panel_min_sigma_guard.py
+ M tests/test_polygon_mass_table_install.py
+--- end ---
+
+$ python -m ruff check <touched files>
+All checks passed!
+EXIT:0

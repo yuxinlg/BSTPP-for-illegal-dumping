@@ -619,16 +619,17 @@ def assert_polygon_mass_table_budget(
             f"supplied mass table gl_order must be >= 1; got {gl}")
     ratio = h / s
     if ratio > ratio_ceil:
-        raise ValueError(
-            "supplied mass table is too coarse for model min_sigma under the "
-            f"panel-resolution prefilter (PRODUCTION_TAU_ABS={tau_abs} "
-            "is enforced by measured residual at install): "
-            f"table h_panel={h}, gl_order={gl}, min_sigma={s}, "
-            f"panel/min_sigma ratio={ratio} exceeds "
-            f"MAX_PANEL_TO_MIN_SIGMA_RATIO={ratio_ceil}. "
-            "Rebuild with prepare_polygon_mass_table(..., panel_h_m=...) so "
-            "effective_panel_h / min_sigma <= "
-            f"{ratio_ceil}."
+        # D-40: one error identity and one canonical clause for this invariant,
+        # produced by config; only the remediation below is site-specific.
+        # Deferred import - config imports this module for its constants.
+        from .config import raise_panel_ratio_violation
+        raise_panel_ratio_violation(
+            panel_h_m=h, min_sigma=s, ratio_ceil=ratio_ceil, tau_abs=tau_abs,
+            remediation=(
+                f"The supplied table records h_panel={h}, gl_order={gl}; it is "
+                "too coarse for this model's min_sigma. Rebuild with "
+                "prepare_polygon_mass_table(..., panel_h_m=...) so "
+                f"effective_panel_h / min_sigma <= {ratio_ceil}."),
         )
     return float(ratio)
 
@@ -1047,16 +1048,21 @@ def prepare_polygon_mass_table(
         raise ValueError(
             f"effective panel height must be finite and > 0; got {h_panel!r} "
             f"(from panel_h_m={panel_h_m!r})")
-    ratio = h_panel / min_s
-    if ratio > MAX_PANEL_TO_MIN_SIGMA_RATIO:
-        raise ValueError(
-            "Polygon mass panel is too coarse relative to min_sigma: "
-            f"effective_panel_h={h_panel} (domain-coordinate units), "
-            f"min_sigma={min_s}, ratio={ratio} exceeds allowed "
-            f"MAX_PANEL_TO_MIN_SIGMA_RATIO={MAX_PANEL_TO_MIN_SIGMA_RATIO}. "
-            "Pass a smaller explicit panel_h_m so "
-            "effective_panel_h / min_sigma <= "
-            f"{MAX_PANEL_TO_MIN_SIGMA_RATIO}.")
+    if h_panel / min_s > MAX_PANEL_TO_MIN_SIGMA_RATIO:
+        # D-40: same invariant, same identity and canonical clause as install;
+        # build time is a different situation, so the remediation differs.
+        from .config import raise_panel_ratio_violation
+        raise_panel_ratio_violation(
+            panel_h_m=h_panel, min_sigma=min_s,
+            ratio_ceil=MAX_PANEL_TO_MIN_SIGMA_RATIO,
+            tau_abs=PRODUCTION_TAU_ABS,
+            remediation=(
+                "Refusing to build this table. Pass a smaller explicit "
+                "panel_h_m so effective_panel_h / min_sigma <= "
+                f"{MAX_PANEL_TO_MIN_SIGMA_RATIO}; panel_h_m is metres under a "
+                "projected CRS and domain-coordinate units otherwise "
+                f"(here effective_panel_h={h_panel})."),
+        )
 
     return build_quad_table(
         domain_geom,

@@ -36,12 +36,14 @@ import pytest
 from shapely.geometry import box
 
 import bstpp
+from bstpp.config import NumericalConfigError, panel_ratio_invariant_clause
 from bstpp.main import Hawkes_Model, LGCP_Model, _UNSET
 from bstpp.polygon_mass import (
     DEFAULT_GL_ORDER,
     DEFAULT_PANEL_H_M,
     MAX_PANEL_TO_MIN_SIGMA_RATIO,
     PRODUCTION_TAU_ABS,
+    build_quad_table,
     prepare_polygon_mass_table,
 )
 from bstpp.trigger import Temporal_Exponential, Temporal_Power_Law, Trigger
@@ -489,19 +491,26 @@ def test_lane_b_set_window_explicit_none_clears_spatial():
 
 
 @pytest.mark.parametrize(
-    "bad_call",
+    ("bad_call", "match"),
     [
-        {"window": -1.0},
-        {"window": float("nan"), "spatial_window": 0.2},
-        {"spatial_window": 0.0},
+        ({"window": -1.0}, r"window must be finite and > 0; got -1\.0"),
+        ({"window": float("nan"), "spatial_window": 0.2},
+         r"window must be finite and > 0; got nan"),
+        ({"spatial_window": 0.0},
+         r"spatial_window must be finite and > 0; got 0\.0"),
     ],
 )
-def test_lane_b_rejected_set_window_rolls_back_whole_state(bad_call):
+def test_lane_b_rejected_set_window_rolls_back_whole_state(bad_call, match):
+    # OP-17 / A-26: closeout P1 requires error type AND a message substring at
+    # every matrix rejection. This was one of the two bare pytest.raises sites;
+    # a bare ValueError here could not tell a window-validation rejection from
+    # any other ValueError raised anywhere in set_window, which is how the
+    # WP1.4b entry-path asymmetry passed through the matrix unseen.
     m = Hawkes_Model(
         _data(), A_RECT, T_DAYS, cox_background=False,
         window=25.0, spatial_window=0.4, **PRIORS)
     before = _observable_window_state(m)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=match):
         m.set_window(**bad_call)
     _assert_window_state_unchanged(before, m)
 
@@ -524,8 +533,89 @@ def test_lane_b_polygon_incompatible_spatial_change_rolls_back():
     # Table metadata for old window cannot install under a new window.
     stale = prepare_table_for_model(
         data, A_METERS, min_sigma=5.0, max_sigma=40.0, spatial_window=50.0)
-    with pytest.raises(ValueError):
+    # OP-17 / A-26: the second bare pytest.raises site. The table is stale on
+    # its spatial_window, and the assertion now says so rather than accepting
+    # any ValueError from anywhere in the install path.
+    with pytest.raises(
+        ValueError,
+        match=r"spatial_window=50\.0 does not match model spatial_window=40\.0",
+    ):
         m.set_window(spatial_window=40.0, mass_table=stale)
+    _assert_window_state_unchanged(before, m)
+
+
+# ------------------------------------------- entry-path error identity --
+# A-26 / D-40, Lane B `entry_path` axis. The defect this row exists to catch:
+# WP1.4b made the SAME violation raise two different errors depending on
+# whether it arrived through the constructor or through set_window, and the
+# matrix could not see it because NumericalConfigError subclasses ValueError
+# and every rejection was pinned with a bare pytest.raises(ValueError).
+#
+# The obligation is entry-path invariance, so the assertion compares the two
+# paths to EACH OTHER, not each to a literal. A future divergence fails here
+# whatever the wording, and this row is what stops WP2-WP5 reintroducing the
+# split once four more configs multiply the entry paths.
+
+def _coarse_table_for(data, A, *, min_sigma, max_sigma, spatial_window=None):
+    """A table below the panel/min_sigma floor, built past prepare's guard."""
+    from bstpp.preparation import prepare_domain
+    dom = prepare_domain(A)
+    # Same geometry resolution as prepare_table_for_model: an array domain has
+    # no union_geometry, so the model validates against the bounds box.
+    if dom.is_polygon:
+        geom = dom.union_geometry
+    else:
+        b = dom.bounds
+        geom = box(b[0, 0], b[1, 0], b[0, 1], b[1, 1])
+    return build_quad_table(
+        geom,
+        data["X"].to_numpy(dtype=np.float64),
+        data["Y"].to_numpy(dtype=np.float64),
+        float(min_sigma), float(max_sigma),
+        ws=None if spatial_window is None else float(spatial_window),
+        h_panel=float(MAX_PANEL_TO_MIN_SIGMA_RATIO * min_sigma * 10.0),
+        gl_order=int(DEFAULT_GL_ORDER),
+    )
+
+
+def test_lane_b_panel_ratio_error_identity_is_entry_path_invariant():
+    data = _data(A=A_METERS, seed=12)
+    min_sigma, max_sigma, sw = 5.0, 40.0, 50.0
+    coarse = _coarse_table_for(
+        data, A_METERS, min_sigma=min_sigma, max_sigma=max_sigma,
+        spatial_window=sw)
+
+    # entry path 1: constructor
+    with pytest.raises(NumericalConfigError) as ctor:
+        Hawkes_Model(
+            data, A_METERS, T_DAYS, cox_background=False,
+            excitation_support="polygon",
+            min_sigma=min_sigma, max_sigma=max_sigma, spatial_window=sw,
+            mass_table=coarse, **PRIORS)
+
+    # entry path 2: set_window on a model built from a table that passes
+    good = prepare_table_for_model(
+        data, A_METERS, min_sigma=min_sigma, max_sigma=max_sigma,
+        spatial_window=sw)
+    m = Hawkes_Model(
+        data, A_METERS, T_DAYS, cox_background=False,
+        excitation_support="polygon",
+        min_sigma=min_sigma, max_sigma=max_sigma, spatial_window=sw,
+        mass_table=good, **PRIORS)
+    before = _observable_window_state(m)
+    with pytest.raises(NumericalConfigError) as setw:
+        m.set_window(spatial_window=sw, mass_table=coarse)
+
+    assert type(ctor.value) is type(setw.value)
+    assert str(ctor.value) == str(setw.value), (
+        "the same violation must produce the same message from every entry "
+        "path (D-40); a divergence here is the WP1.4b defect returning")
+    # ...and the shared text is the single-sourced clause, not a coincidence.
+    assert str(ctor.value) == panel_ratio_invariant_clause(
+        panel_h_m=float(coarse.h_panel), min_sigma=min_sigma,
+        ratio_ceil=MAX_PANEL_TO_MIN_SIGMA_RATIO, tau_abs=PRODUCTION_TAU_ABS)
+    str(ctor.value).encode("ascii")  # D-40: raised messages are ASCII
+    # A rejected set_window is still transactional (P4 / D-33).
     _assert_window_state_unchanged(before, m)
 
 

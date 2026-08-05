@@ -24,6 +24,7 @@ import pytest
 from shapely.geometry import box
 
 from bstpp import polygon_mass as pm
+from bstpp.config import NumericalConfigError, panel_ratio_invariant_clause
 from bstpp.main import Hawkes_Model
 from bstpp.polygon_mass import (
     DEFAULT_GL_ORDER,
@@ -113,7 +114,8 @@ def _hawkes_polygon(data, table, *, A=None, min_sigma=None, max_sigma=None):
 def test_crsless_guided_panel_installs_after_ratio_guard():
     data = _events_unit()
     geom = _unit_gdf().geometry.union_all()
-    with pytest.raises(ValueError, match="panel|min_sigma|ratio|panel_h_m"):
+    # A-26 / D-40: one identity for this invariant, at build time too.
+    with pytest.raises(NumericalConfigError) as ei:
         prepare_polygon_mass_table(
             geom,
             data["X"].to_numpy(dtype=float),
@@ -122,6 +124,9 @@ def test_crsless_guided_panel_installs_after_ratio_guard():
             max_sigma=MAX_SIGMA_SMALL,
             # defaults: panel_h_m=20
         )
+    assert str(ei.value).startswith(panel_ratio_invariant_clause(
+        panel_h_m=DEFAULT_PANEL_H_M, min_sigma=MIN_SIGMA_SMALL,
+        ratio_ceil=MAX_PANEL_TO_MIN_SIGMA_RATIO, tau_abs=PRODUCTION_TAU_ABS))
     table = _prepare_guided(data)
     assert float(table.h_panel) == pytest.approx(PANEL_GUIDED)
     # Must construct. Today: h_panel mismatch vs build setting 20.0.
@@ -178,11 +183,17 @@ def test_table_too_coarse_for_model_min_sigma_rejected():
         gl_order=DEFAULT_GL_ORDER,
     )
     assert float(coarse.h_panel) / MIN_SIGMA_SMALL > MAX_PANEL_TO_MIN_SIGMA_RATIO
-    with pytest.raises(ValueError, match="PRODUCTION_TAU_ABS|tau_abs|budget|coarse|panel") as ei:
+    # A-26 / D-40: the constructor raises the canonical clause verbatim, and
+    # the identity is NumericalConfigError -- the old bare ValueError could not
+    # distinguish this from the install-site error it was supposed to pin.
+    with pytest.raises(NumericalConfigError) as ei:
         _hawkes_polygon(data, coarse)
     msg = str(ei.value)
-    assert "PRODUCTION_TAU_ABS" in msg or str(PRODUCTION_TAU_ABS) in msg
-    assert str(MIN_SIGMA_SMALL) in msg or "min_sigma" in msg.lower()
+    assert msg == panel_ratio_invariant_clause(
+        panel_h_m=DEFAULT_PANEL_H_M, min_sigma=MIN_SIGMA_SMALL,
+        ratio_ceil=MAX_PANEL_TO_MIN_SIGMA_RATIO, tau_abs=PRODUCTION_TAU_ABS)
+    assert "PRODUCTION_TAU_ABS" in msg
+    assert str(MIN_SIGMA_SMALL) in msg
 
 
 # ---------------------------------------------------------------------------
@@ -271,8 +282,15 @@ def test_heldout_coarse_table_rejected():
         min_sigma=MIN_SIGMA_DEFAULT, max_sigma=MAX_SIGMA_DEFAULT)
     import dataclasses
     coarse = dataclasses.replace(good, h_panel=float(good.h_panel) * 100.0)
-    with pytest.raises(ValueError, match="PRODUCTION_TAU_ABS|tau_abs|budget|coarse|panel"):
+    # A-26 / D-40: held-out scoring is a third entry path for the same
+    # invariant and now carries the same identity and canonical clause.
+    # It still validates against module defaults, not the model's
+    # NumericalConfig -- OP-19, routed to WP5 with the ExcitationSupport seam.
+    with pytest.raises(NumericalConfigError) as ei:
         m.log_expected_likelihood(test, mass_table=coarse)
+    assert str(ei.value).startswith(panel_ratio_invariant_clause(
+        panel_h_m=float(coarse.h_panel), min_sigma=MIN_SIGMA_DEFAULT,
+        ratio_ceil=MAX_PANEL_TO_MIN_SIGMA_RATIO, tau_abs=PRODUCTION_TAU_ABS))
 
 
 def test_set_window_accepts_guided_replacement_table():
@@ -312,8 +330,15 @@ def test_rejected_table_does_not_construct_or_rebuild():
         h_panel=DEFAULT_PANEL_H_M,
         gl_order=DEFAULT_GL_ORDER,
     )
-    with pytest.raises(ValueError):
+    # A-26 / OP-17 generalized: this rejection is the panel-ratio invariant,
+    # so it is pinned by identity and by the canonical clause, not by a bare
+    # ValueError that any failure in the install path would have satisfied.
+    ratio_clause = panel_ratio_invariant_clause(
+        panel_h_m=DEFAULT_PANEL_H_M, min_sigma=MIN_SIGMA_SMALL,
+        ratio_ceil=MAX_PANEL_TO_MIN_SIGMA_RATIO, tau_abs=PRODUCTION_TAU_ABS)
+    with pytest.raises(NumericalConfigError) as ei:
         _hawkes_polygon(data, coarse)
+    assert str(ei.value) == ratio_clause
     # No constructed model exists to inspect; ensure prepare is not invoked
     # as a silent fallback by patching it to explode if called during ctor.
     calls = {"n": 0}
@@ -325,8 +350,9 @@ def test_rejected_table_does_not_construct_or_rebuild():
 
     pm.prepare_polygon_mass_table = _boom  # type: ignore[assignment]
     try:
-        with pytest.raises(ValueError):
+        with pytest.raises(NumericalConfigError) as ei:
             _hawkes_polygon(data, coarse)
+        assert str(ei.value) == ratio_clause
         assert calls["n"] == 0
     finally:
         pm.prepare_polygon_mass_table = real_prepare  # type: ignore[assignment]

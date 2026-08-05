@@ -435,7 +435,7 @@ def attach_covariate_partitions(partitions: PreparedPartitions,
     if isinstance(standardize_cov, bool):
         raise ValueError(
             "standardize_cov no longer accepts booleans; pass None (off, "
-            "default) or 'domain_area' (area-weighted over |C_c ∩ A|). "
+            "default) or 'domain_area' (area-weighted over |C_c intersect A|). "
             f"Got {standardize_cov!r}.")
     if standardize_cov is None:
         partitions.cov_values = X_s
@@ -446,7 +446,7 @@ def attach_covariate_partitions(partitions: PreparedPartitions,
         if standardize_cov != 'domain_area':
             raise ValueError(
                 "standardize_cov must be None (off) or 'domain_area' "
-                f"(area-weighted over |C_c ∩ A|); got {standardize_cov!r}")
+                f"(area-weighted over |C_c intersect A|); got {standardize_cov!r}")
         if w_area.sum() <= 0.0:
             raise ValueError(
                 "standardize_cov='domain_area': the covariate layer has "

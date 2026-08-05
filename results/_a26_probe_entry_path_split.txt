@@ -1,0 +1,85 @@
+=== A-26 Step 1 probe: entry-path error split (read-only) ===
+commit: e9c605a1435544c277d3de24cfcc7a9ba6150270
+date:   2026-08-05T02:52:12Z
+--- git status --porcelain (tracked) ---
+--- end (empty above = clean tracked tree) ---
+
+==============================================================================
+INVARIANT 1 -- panel_h_m / min_sigma <= max_panel_to_min_sigma_ratio
+==============================================================================
+[constructor]  Hawkes_Model(..., mass_table=coarse)
+    type:  bstpp.config.NumericalConfigError
+    mro:   ['NumericalConfigError', 'ValueError', 'Exception', 'BaseException']
+    msg:   panel_h_m / min_sigma exceeds max_panel_to_min_sigma_ratio=8.0: panel_h_m=200.0, min_sigma=5.0, ratio=40.0. PRODUCTION_TAU_ABS measured residual is enforced at mass-table install against BUDGET_REFERENCE_GL_ORDER=32.
+[set_window]   m.set_window(mass_table=coarse)
+    type:  builtins.ValueError
+    mro:   ['ValueError', 'Exception', 'BaseException', 'object']
+    msg:   supplied mass table is too coarse for model min_sigma under the panel-resolution prefilter (PRODUCTION_TAU_ABS=1e-05 is enforced by measured residual at install): table h_panel=200.0, gl_order=16, min_sigma=5.0, panel/min_sigma ratio=40.0 exceeds MAX_PANEL_TO_MIN_SIGMA_RATIO=8.0. Rebuild with prepare_polygon_mass_table(..., panel_h_m=...) so effective_panel_h / min_sigma <= 8.0.
+[log_expected_likelihood]  m.log_expected_likelihood(test, mass_table=coarse)
+    type:  builtins.ValueError
+    mro:   ['ValueError', 'Exception', 'BaseException', 'object']
+    msg:   supplied mass table is too coarse for model min_sigma under the panel-resolution prefilter (PRODUCTION_TAU_ABS=1e-05 is enforced by measured residual at install): table h_panel=200.0, gl_order=16, min_sigma=5.0, panel/min_sigma ratio=40.0 exceeds MAX_PANEL_TO_MIN_SIGMA_RATIO=8.0. Rebuild with prepare_polygon_mass_table(..., panel_h_m=...) so effective_panel_h / min_sigma <= 8.0.
+[prepare_polygon_mass_table]  panel_h_m=200, min_sigma=5
+    type:  builtins.ValueError
+    mro:   ['ValueError', 'Exception', 'BaseException', 'object']
+    msg:   Polygon mass panel is too coarse relative to min_sigma: effective_panel_h=200.0 (domain-coordinate units), min_sigma=5.0, ratio=40.0 exceeds allowed MAX_PANEL_TO_MIN_SIGMA_RATIO=8.0. Pass a smaller explicit panel_h_m so effective_panel_h / min_sigma <= 8.0.
+
+    entry path                    type                     message id
+    constructor                   NumericalConfigError     'panel_h_m / min_sigma exceeds max_'
+    set_window                    ValueError               'supplied mass table is too coarse '
+    log_expected_likelihood       ValueError               'supplied mass table is too coarse '
+    prepare_polygon_mass_table    ValueError               'Polygon mass panel is too coarse r'
+
+    DISTINCT TYPES:    2  ['NumericalConfigError', 'ValueError']
+    DISTINCT MESSAGES: 3
+    SAME TYPE ctor vs set_window?    False
+    SAME MESSAGE ctor vs set_window? False
+
+==============================================================================
+INVARIANT 2 -- sigma-bound coherence (min_sigma < max_sigma)
+==============================================================================
+[constructor]  min_sigma=40, max_sigma=5
+    type:  builtins.ValueError
+    mro:   ['ValueError', 'Exception', 'BaseException', 'object']
+    msg:   require min_sigma < max_sigma; got min_sigma=40.0, max_sigma=5.0
+[NumericalConfig.create] same violation, config's own branch
+    type:  bstpp.config.NumericalConfigError
+    mro:   ['NumericalConfigError', 'ValueError', 'Exception', 'BaseException']
+    msg:   \u03c3-bound coherence requires min_sigma < max_sigma; got min_sigma=40.0, max_sigma=5.0
+
+==============================================================================
+INVARIANT 3 -- support-mode validity
+==============================================================================
+[build_excitation_support] mode='banana'
+    type:  builtins.ValueError
+    mro:   ['ValueError', 'Exception', 'BaseException', 'object']
+    msg:   excitation_support must be 'rectangle' or 'polygon', got 'banana'
+[NumericalConfig.create] support_mode='banana'
+    type:  bstpp.config.NumericalConfigError
+    mro:   ['NumericalConfigError', 'ValueError', 'Exception', 'BaseException']
+    msg:   support_mode must be 'rectangle' or 'polygon'; got 'banana'
+
+==============================================================================
+INVARIANT 4 -- polygon requires min_sigma
+==============================================================================
+[constructor]  polygon, min_sigma=None
+    type:  builtins.ValueError
+    mro:   ['ValueError', 'Exception', 'BaseException', 'object']
+    msg:   Polygon excitation_support requires an explicit finite positive min_sigma in domain-coordinate units (no default).
+[NumericalConfig.create] polygon, min_sigma=None
+    type:  bstpp.config.NumericalConfigError
+    mro:   ['NumericalConfigError', 'ValueError', 'Exception', 'BaseException']
+    msg:   support-mode compatibility (polygon): min_sigma is required (finite, positive; no default)
+
+==============================================================================
+INVARIANT 5 -- rectangle: both bounds or neither
+==============================================================================
+[constructor]  rectangle, min_sigma only
+    type:  builtins.ValueError
+    mro:   ['ValueError', 'Exception', 'BaseException', 'object']
+    msg:   In rectangle mode, min_sigma and max_sigma must both be supplied or both omitted (omitted leaves the sigmax_2 prior unchanged).
+[NumericalConfig.create] rectangle, min_sigma only
+    type:  bstpp.config.NumericalConfigError
+    mro:   ['NumericalConfigError', 'ValueError', 'Exception', 'BaseException']
+    msg:   support-mode compatibility (rectangle): min_sigma and max_sigma must both be supplied or both omitted
+EXIT:0

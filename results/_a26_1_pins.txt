@@ -1,0 +1,23 @@
+=== A-26 / WP1.4e-1 four-config pins (SC rebaseline record) ===
+date: 2026-08-05T03:26:35Z
+baseline: refactor-patches/baselines-2026-07/pins.json
+expectation: error paths are not traced, so pins must MATCH. Expected is
+not measured; this run is the measurement, and a diff would stop the phase.
+--- git status --porcelain (tracked) ---
+ M bstpp/config.py
+ M bstpp/main.py
+ M bstpp/polygon_mass.py
+ M bstpp/preparation.py
+ M tests/test_lane_b_config_matrix.py
+ M tests/test_numerical_config.py
+ M tests/test_panel_min_sigma_guard.py
+ M tests/test_polygon_mass_table_install.py
+--- end ---
+
+PIN_GEN_EXIT:0
+cox_hawkes: MATCH
+hawkes: MATCH
+hawkes_nonsquare_4to1: MATCH
+lgcp: MATCH
+
+PIN_DIFFS 0 MATCH

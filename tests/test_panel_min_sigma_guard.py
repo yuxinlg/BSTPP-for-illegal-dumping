@@ -23,6 +23,7 @@ import pytest
 from shapely.geometry import Polygon
 
 from bstpp import polygon_mass as pm
+from bstpp.config import NumericalConfigError, panel_ratio_invariant_clause
 
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO not in sys.path:
@@ -48,16 +49,32 @@ def test_crsless_default_panel_rejected_for_small_min_sigma():
     y = np.array([0.5, 0.55])
     # Default panel_h_m=20 on CRS-less domain => effective_panel=20,
     # ratio = 20/0.02 = 1000 >> 8.
-    with pytest.raises(ValueError, match="panel|min_sigma|ratio|panel_h_m") as ei:
+    #
+    # A-26 / D-40: one error identity per invariant. The build-time refusal
+    # carries the same NumericalConfigError and the same canonical clause as
+    # the install-time one; only the trailing remediation differs, because
+    # "I will not build this" and "this table does not match this model" are
+    # different situations. The alternation this test used to match on could
+    # not tell the two identities apart.
+    with pytest.raises(NumericalConfigError) as ei:
         pm.prepare_polygon_mass_table(
             poly, x, y,
             min_sigma=MIN_SIGMA,
             max_sigma=MAX_SIGMA,
         )
     msg = str(ei.value)
-    assert "20" in msg or "panel" in msg.lower()
-    assert "0.02" in msg or "min_sigma" in msg.lower()
-    assert str(pm.MAX_PANEL_TO_MIN_SIGMA_RATIO) in msg or "8" in msg
+    clause = panel_ratio_invariant_clause(
+        panel_h_m=20.0, min_sigma=MIN_SIGMA,
+        ratio_ceil=pm.MAX_PANEL_TO_MIN_SIGMA_RATIO,
+        tau_abs=pm.PRODUCTION_TAU_ABS)
+    assert msg.startswith(clause), (
+        "the canonical invariant clause must lead the message verbatim")
+    assert "20" in msg and "0.02" in msg
+    assert str(pm.MAX_PANEL_TO_MIN_SIGMA_RATIO) in msg
+    # Build time keeps its own actionable advice after the shared clause.
+    assert "Refusing to build" in msg
+    assert "panel_h_m" in msg[len(clause):]
+    msg.encode("ascii")  # D-40: raised messages are ASCII
 
 
 def test_crsless_valid_small_panel_meets_production_tau_abs():

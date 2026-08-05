@@ -7,9 +7,15 @@ NumericalConfig.create (A-23 / D-35).
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
-from bstpp.config import NumericalConfig, NumericalConfigError
+from bstpp.config import (
+    NumericalConfig,
+    NumericalConfigError,
+    panel_ratio_invariant_clause,
+)
 from bstpp.cutoffs import DEFAULT_SPATIAL_TOL, DEFAULT_TEMPORAL_TOL
 from bstpp.polygon_mass import (
     BUDGET_REFERENCE_GL_ORDER,
@@ -56,8 +62,12 @@ def test_valid_polygon_guided_panel_constructs():
 
 
 def test_immutable_after_construction():
+    # A-26 / OP-17 generalized: no bare pytest.raises in this file. A frozen
+    # dataclass rejects assignment with FrozenInstanceError specifically;
+    # raises(Exception) would also have passed on an AttributeError from a
+    # typo in the attribute name.
     cfg = NumericalConfig.create(support_mode="rectangle")
-    with pytest.raises(Exception):
+    with pytest.raises(dataclasses.FrozenInstanceError, match="panel_h_m"):
         cfg.panel_h_m = 1.0  # type: ignore[misc]
 
 
@@ -90,7 +100,9 @@ def test_immutable_after_construction():
         ),
         (
             {"support_mode": "rectangle", "min_sigma": 5.0, "max_sigma": 1.0},
-            "min_sigma < max_sigma|σ-bound",
+            # A-26 / D-40: raised messages are ASCII; the former alternative
+            # spelled the sigma-bound clause with a literal U+03C3.
+            "min_sigma < max_sigma|sigma-bound",
         ),
         (
             {"support_mode": "polygon"},
@@ -115,6 +127,23 @@ def test_immutable_after_construction():
 def test_invalid_configs_raise_named_error(kwargs, match):
     with pytest.raises(NumericalConfigError, match=match):
         NumericalConfig.create(**kwargs)
+
+
+def test_panel_ratio_clause_is_ascii_and_single_sourced():
+    """A-26 / D-40: the config renders the canonical clause, it does not restate it."""
+    ratio_ceil = MAX_PANEL_TO_MIN_SIGMA_RATIO
+    clause = panel_ratio_invariant_clause(
+        panel_h_m=20.0, min_sigma=0.05, ratio_ceil=ratio_ceil,
+        tau_abs=PRODUCTION_TAU_ABS)
+    clause.encode("ascii")  # raises UnicodeEncodeError if D-40's ASCII rule broke
+
+    with pytest.raises(NumericalConfigError) as ei:
+        NumericalConfig.create(
+            support_mode="polygon", min_sigma=0.05, max_sigma=5.0,
+            panel_h_m=20.0)
+    assert str(ei.value) == clause, (
+        "the config must raise the canonical clause verbatim, with no "
+        "site-specific text of its own")
 
 
 def test_factory_rejects_silent_coercion():
