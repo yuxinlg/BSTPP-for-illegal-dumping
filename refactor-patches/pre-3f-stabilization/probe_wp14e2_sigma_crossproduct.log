@@ -1,0 +1,330 @@
+bstpp.__file__ = C:\Users\Terhi\Box\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+
+====================================================================================================
+TABLE 1 - resolve_sigma_bounds vs NumericalConfig.create (same user args)
+====================================================================================================
+
+[R both omitted]  mode='rectangle' min=None max=None crs=yes
+    resolve : ACCEPT                         (None, None)  @
+    cfg(usr): ACCEPT                         (None, None)  @
+    cfg(res): ACCEPT                         (None, None)  @
+
+[R min only]  mode='rectangle' min=0.05 max=None crs=yes
+    resolve : REJECT  ValueError             In rectangle mode, min_sigma and max_sigma must both be supplied or both omitted (omitted leaves the sigmax_2   @excitation_support.py:119
+    cfg(usr): REJECT  NumericalConfigError   support-mode compatibility (rectangle): min_sigma and max_sigma must both be supplied or both omitted  @config.py:196
+    cfg(res): n/a                            resolve rejected first  @
+
+[R max only]  mode='rectangle' min=None max=0.5 crs=yes
+    resolve : REJECT  ValueError             In rectangle mode, min_sigma and max_sigma must both be supplied or both omitted (omitted leaves the sigmax_2   @excitation_support.py:119
+    cfg(usr): REJECT  NumericalConfigError   support-mode compatibility (rectangle): min_sigma and max_sigma must both be supplied or both omitted  @config.py:196
+    cfg(res): n/a                            resolve rejected first  @
+
+[R valid pair]  mode='rectangle' min=0.05 max=0.5 crs=yes
+    resolve : ACCEPT                         (0.05, 0.5)  @
+    cfg(usr): ACCEPT                         (0.05, 0.5)  @
+    cfg(res): ACCEPT                         (0.05, 0.5)  @
+
+[R lo == hi]  mode='rectangle' min=0.5 max=0.5 crs=yes
+    resolve : REJECT  ValueError             require min_sigma < max_sigma; got min_sigma=0.5, max_sigma=0.5  @excitation_support.py:154
+    cfg(usr): REJECT  NumericalConfigError   sigma-bound coherence requires min_sigma < max_sigma; got min_sigma=0.5, max_sigma=0.5  @config.py:233
+    cfg(res): n/a                            resolve rejected first  @
+
+[R lo > hi]  mode='rectangle' min=0.9 max=0.5 crs=yes
+    resolve : REJECT  ValueError             require min_sigma < max_sigma; got min_sigma=0.9, max_sigma=0.5  @excitation_support.py:154
+    cfg(usr): REJECT  NumericalConfigError   sigma-bound coherence requires min_sigma < max_sigma; got min_sigma=0.9, max_sigma=0.5  @config.py:233
+    cfg(res): n/a                            resolve rejected first  @
+
+[R lo = 0]  mode='rectangle' min=0.0 max=0.5 crs=yes
+    resolve : REJECT  ValueError             min_sigma must be finite and positive; got 0.0  @excitation_support.py:151
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be finite and positive; got 0.0  @config.py:230
+    cfg(res): n/a                            resolve rejected first  @
+
+[R lo < 0]  mode='rectangle' min=-0.1 max=0.5 crs=yes
+    resolve : REJECT  ValueError             min_sigma must be finite and positive; got -0.1  @excitation_support.py:151
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be finite and positive; got -0.1  @config.py:230
+    cfg(res): n/a                            resolve rejected first  @
+
+[R lo = nan]  mode='rectangle' min=nan max=0.5 crs=yes
+    resolve : REJECT  ValueError             min_sigma must be finite and positive; got nan  @excitation_support.py:151
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be finite and positive; got nan  @config.py:230
+    cfg(res): n/a                            resolve rejected first  @
+
+[R lo = inf]  mode='rectangle' min=inf max=0.5 crs=yes
+    resolve : REJECT  ValueError             min_sigma must be finite and positive; got inf  @excitation_support.py:151
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be finite and positive; got inf  @config.py:230
+    cfg(res): n/a                            resolve rejected first  @
+
+[R hi = inf]  mode='rectangle' min=0.05 max=inf crs=yes
+    resolve : REJECT  ValueError             require min_sigma < max_sigma; got min_sigma=0.05, max_sigma=inf  @excitation_support.py:154
+    cfg(usr): REJECT  NumericalConfigError   sigma-bound coherence requires min_sigma < max_sigma; got min_sigma=0.05, max_sigma=inf  @config.py:233
+    cfg(res): n/a                            resolve rejected first  @
+
+[R hi = nan]  mode='rectangle' min=0.05 max=nan crs=yes
+    resolve : REJECT  ValueError             require min_sigma < max_sigma; got min_sigma=0.05, max_sigma=nan  @excitation_support.py:154
+    cfg(usr): REJECT  NumericalConfigError   sigma-bound coherence requires min_sigma < max_sigma; got min_sigma=0.05, max_sigma=nan  @config.py:233
+    cfg(res): n/a                            resolve rejected first  @
+
+[R str lo]  mode='rectangle' min='0.05' max=0.5 crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (0.05, 0.5)  @
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be a real number (int or float; bool and str rejected); got '0.05' (str)  @config.py:101
+    cfg(res): ACCEPT                         (0.05, 0.5)  @
+
+[R str hi]  mode='rectangle' min=0.05 max='0.5' crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (0.05, 0.5)  @
+    cfg(usr): REJECT  NumericalConfigError   max_sigma must be a real number (int or float; bool and str rejected); got '0.5' (str)  @config.py:101
+    cfg(res): ACCEPT                         (0.05, 0.5)  @
+
+[R str both]  mode='rectangle' min='0.05' max='0.5' crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (0.05, 0.5)  @
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be a real number (int or float; bool and str rejected); got '0.05' (str)  @config.py:101
+    cfg(res): ACCEPT                         (0.05, 0.5)  @
+
+[R bool lo True]  mode='rectangle' min=True max=2.0 crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (1.0, 2.0)  @
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be a real number (int or float; bool and str rejected); got True (bool)  @config.py:101
+    cfg(res): ACCEPT                         (1.0, 2.0)  @
+
+[R bool lo False]  mode='rectangle' min=False max=2.0 crs=yes
+    resolve : REJECT  ValueError             min_sigma must be finite and positive; got 0.0  @excitation_support.py:151
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be a real number (int or float; bool and str rejected); got False (bool)  @config.py:101
+    cfg(res): n/a                            resolve rejected first  @
+
+[R np.float64]  mode='rectangle' min=0.05 max=0.5 crs=yes
+    resolve : ACCEPT                         (0.05, 0.5)  @
+    cfg(usr): ACCEPT                         (0.05, 0.5)  @
+    cfg(res): ACCEPT                         (0.05, 0.5)  @
+
+[R np.float32]  mode='rectangle' min=0.05 max=0.5 crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (0.05000000074505806, 0.5)  @
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be a real number (int or float; bool and str rejected); got 0.05 (float32)  @config.py:101
+    cfg(res): ACCEPT                         (0.05000000074505806, 0.5)  @
+
+[R np.int64]  mode='rectangle' min=1 max=2 crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (1.0, 2.0)  @
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be a real number (int or float; bool and str rejected); got 1 (int64)  @config.py:101
+    cfg(res): ACCEPT                         (1.0, 2.0)  @
+
+[R 0-d array]  mode='rectangle' min=array(0.05) max=array(0.5) crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (0.05, 0.5)  @
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be a real number (int or float; bool and str rejected); got array(0.05) (ndarray)  @config.py:101
+    cfg(res): ACCEPT                         (0.05, 0.5)  @
+
+[R Decimal]  mode='rectangle' min=Decimal('0.05') max=Decimal('0.5') crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (0.05, 0.5)  @
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be a real number (int or float; bool and str rejected); got Decimal('0.05') (Decimal)  @config.py:101
+    cfg(res): ACCEPT                         (0.05, 0.5)  @
+
+[R __float__ obj]  mode='rectangle' min=_Floaty() max=0.5 crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (0.05, 0.5)  @
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be a real number (int or float; bool and str rejected); got _Floaty() (_Floaty)  @config.py:101
+    cfg(res): ACCEPT                         (0.05, 0.5)  @
+
+[R int pair]  mode='rectangle' min=1 max=2 crs=yes
+    resolve : ACCEPT                         (1.0, 2.0)  @
+    cfg(usr): ACCEPT                         (1, 2)  @
+    cfg(res): ACCEPT                         (1.0, 2.0)  @
+
+[P min omitted]  mode='polygon' min=None max=None crs=yes
+    resolve : REJECT  ValueError             Polygon excitation_support requires an explicit finite positive min_sigma in domain-coordinate units (no defau  @excitation_support.py:131
+    cfg(usr): REJECT  NumericalConfigError   support-mode compatibility (polygon): min_sigma is required (finite, positive; no default)  @config.py:207
+    cfg(res): n/a                            resolve rejected first  @
+
+[P min omitted, max given]  mode='polygon' min=None max=0.5 crs=yes
+    resolve : REJECT  ValueError             Polygon excitation_support requires an explicit finite positive min_sigma in domain-coordinate units (no defau  @excitation_support.py:131
+    cfg(usr): REJECT  NumericalConfigError   support-mode compatibility (polygon): min_sigma is required (finite, positive; no default)  @config.py:207
+    cfg(res): n/a                            resolve rejected first  @
+
+[P max omitted (default)]  mode='polygon' min=0.05 max=None crs=yes
+    resolve : ACCEPT                         (0.05, 5000.0)  @
+    cfg(usr): ACCEPT                         (0.05, None)  @
+    cfg(res): ACCEPT                         (0.05, 5000.0)  @
+
+[P valid pair]  mode='polygon' min=0.05 max=0.5 crs=yes
+    resolve : ACCEPT                         (0.05, 0.5)  @
+    cfg(usr): ACCEPT                         (0.05, 0.5)  @
+    cfg(res): ACCEPT                         (0.05, 0.5)  @
+
+[P lo == hi]  mode='polygon' min=0.5 max=0.5 crs=yes
+    resolve : REJECT  ValueError             require min_sigma < max_sigma; got min_sigma=0.5, max_sigma=0.5  @excitation_support.py:154
+    cfg(usr): REJECT  NumericalConfigError   sigma-bound coherence requires min_sigma < max_sigma; got min_sigma=0.5, max_sigma=0.5  @config.py:233
+    cfg(res): n/a                            resolve rejected first  @
+
+[P lo > hi]  mode='polygon' min=0.9 max=0.5 crs=yes
+    resolve : REJECT  ValueError             require min_sigma < max_sigma; got min_sigma=0.9, max_sigma=0.5  @excitation_support.py:154
+    cfg(usr): REJECT  NumericalConfigError   sigma-bound coherence requires min_sigma < max_sigma; got min_sigma=0.9, max_sigma=0.5  @config.py:233
+    cfg(res): n/a                            resolve rejected first  @
+
+[P lo = 0]  mode='polygon' min=0.0 max=0.5 crs=yes
+    resolve : REJECT  ValueError             min_sigma must be finite and positive; got 0.0  @excitation_support.py:151
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be finite and positive; got 0.0  @config.py:230
+    cfg(res): n/a                            resolve rejected first  @
+
+[P lo < 0]  mode='polygon' min=-0.1 max=0.5 crs=yes
+    resolve : REJECT  ValueError             min_sigma must be finite and positive; got -0.1  @excitation_support.py:151
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be finite and positive; got -0.1  @config.py:230
+    cfg(res): n/a                            resolve rejected first  @
+
+[P lo = 0, max omitted]  mode='polygon' min=0.0 max=None crs=yes
+    resolve : REJECT  ValueError             min_sigma must be finite and positive; got 0.0  @excitation_support.py:151
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be finite and positive; got 0.0  @config.py:213
+    cfg(res): n/a                            resolve rejected first  @
+
+[P lo = nan, max omitted]  mode='polygon' min=nan max=None crs=yes
+    resolve : REJECT  ValueError             min_sigma must be finite and positive; got nan  @excitation_support.py:151
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be finite and positive; got nan  @config.py:213
+    cfg(res): n/a                            resolve rejected first  @
+
+[P lo = inf, max omitted]  mode='polygon' min=inf max=None crs=yes
+    resolve : REJECT  ValueError             min_sigma must be finite and positive; got inf  @excitation_support.py:151
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be finite and positive; got inf  @config.py:213
+    cfg(res): n/a                            resolve rejected first  @
+
+[P str lo]  mode='polygon' min='0.05' max=0.5 crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (0.05, 0.5)  @
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be a real number (int or float; bool and str rejected); got '0.05' (str)  @config.py:101
+    cfg(res): ACCEPT                         (0.05, 0.5)  @
+
+[P str lo, max omitted]  mode='polygon' min='0.05' max=None crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (0.05, 5000.0)  @
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be a real number (int or float; bool and str rejected); got '0.05' (str)  @config.py:101
+    cfg(res): ACCEPT                         (0.05, 5000.0)  @
+
+[P str hi]  mode='polygon' min=0.05 max='0.5' crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (0.05, 0.5)  @
+    cfg(usr): REJECT  NumericalConfigError   max_sigma must be a real number (int or float; bool and str rejected); got '0.5' (str)  @config.py:101
+    cfg(res): ACCEPT                         (0.05, 0.5)  @
+
+[P bool lo True]  mode='polygon' min=True max=2.0 crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (1.0, 2.0)  @
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be a real number (int or float; bool and str rejected); got True (bool)  @config.py:101
+    cfg(res): ACCEPT                         (1.0, 2.0)  @
+
+[P np.float32]  mode='polygon' min=0.05 max=0.5 crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (0.05000000074505806, 0.5)  @
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be a real number (int or float; bool and str rejected); got 0.05 (float32)  @config.py:101
+    cfg(res): ACCEPT                         (0.05000000074505806, 0.5)  @
+
+[P np.float64]  mode='polygon' min=0.05 max=0.5 crs=yes
+    resolve : ACCEPT                         (0.05, 0.5)  @
+    cfg(usr): ACCEPT                         (0.05, 0.5)  @
+    cfg(res): ACCEPT                         (0.05, 0.5)  @
+
+[P np.int64]  mode='polygon' min=1 max=2 crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (1.0, 2.0)  @
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be a real number (int or float; bool and str rejected); got 1 (int64)  @config.py:101
+    cfg(res): ACCEPT                         (1.0, 2.0)  @
+
+[P Decimal]  mode='polygon' min=Decimal('0.05') max=Decimal('0.5') crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (0.05, 0.5)  @
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be a real number (int or float; bool and str rejected); got Decimal('0.05') (Decimal)  @config.py:101
+    cfg(res): ACCEPT                         (0.05, 0.5)  @
+
+[P __float__ obj]  mode='polygon' min=_Floaty() max=0.5 crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (0.05, 0.5)  @
+    cfg(usr): REJECT  NumericalConfigError   min_sigma must be a real number (int or float; bool and str rejected); got _Floaty() (_Floaty)  @config.py:101
+    cfg(res): ACCEPT                         (0.05, 0.5)  @
+
+[P crs=None, max omitted]  mode='polygon' min=0.05 max=None crs=None  <<< DIVERGENCE
+    resolve : REJECT  ValueError             Cannot convert metres to CRS units without a CRS; pass an explicit length in domain-coordinate units instead.  @excitation_support.py:56
+    cfg(usr): ACCEPT                         (0.05, None)  @
+    cfg(res): n/a                            resolve rejected first  @
+
+[P crs=None, max given]  mode='polygon' min=0.05 max=0.5 crs=None
+    resolve : ACCEPT                         (0.05, 0.5)  @
+    cfg(usr): ACCEPT                         (0.05, 0.5)  @
+    cfg(res): ACCEPT                         (0.05, 0.5)  @
+
+[M bad mode 'triangle']  mode='triangle' min=0.05 max=0.5 crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (0.05, 0.5)  @
+    cfg(usr): REJECT  NumericalConfigError   support_mode must be 'rectangle' or 'polygon'; got 'triangle'  @config.py:133
+    cfg(res): REJECT  NumericalConfigError   support_mode must be 'rectangle' or 'polygon'; got 'triangle'  @config.py:133
+
+[M bad mode 'Rectangle']  mode='Rectangle' min=0.05 max=0.5 crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (0.05, 0.5)  @
+    cfg(usr): REJECT  NumericalConfigError   support_mode must be 'rectangle' or 'polygon'; got 'Rectangle'  @config.py:133
+    cfg(res): REJECT  NumericalConfigError   support_mode must be 'rectangle' or 'polygon'; got 'Rectangle'  @config.py:133
+
+[M bad mode None]  mode=None min=0.05 max=0.5 crs=yes  <<< DIVERGENCE
+    resolve : ACCEPT                         (0.05, 0.5)  @
+    cfg(usr): REJECT  NumericalConfigError   support_mode must be 'rectangle' or 'polygon'; got None  @config.py:133
+    cfg(res): REJECT  NumericalConfigError   support_mode must be 'rectangle' or 'polygon'; got None  @config.py:133
+
+[M bad mode, both omitted]  mode='triangle' min=None max=None crs=yes
+    resolve : REJECT  ValueError             Polygon excitation_support requires an explicit finite positive min_sigma in domain-coordinate units (no defau  @excitation_support.py:131
+    cfg(usr): REJECT  NumericalConfigError   support_mode must be 'rectangle' or 'polygon'; got 'triangle'  @config.py:133
+    cfg(res): n/a                            resolve rejected first  @
+
+====================================================================================================
+DIVERGENCES (resolve vs config on the SAME user-supplied args): 21
+====================================================================================================
+  accept -> reject   | R str lo                   mode='rectangle' min='0.05' max=0.5
+      resolve : ACCEPT  (0.05, 0.5)
+      config  : REJECT NumericalConfigError min_sigma must be a real number (int or float; bool and str rejected); got '0.05' (str)
+  accept -> reject   | R str hi                   mode='rectangle' min=0.05 max='0.5'
+      resolve : ACCEPT  (0.05, 0.5)
+      config  : REJECT NumericalConfigError max_sigma must be a real number (int or float; bool and str rejected); got '0.5' (str)
+  accept -> reject   | R str both                 mode='rectangle' min='0.05' max='0.5'
+      resolve : ACCEPT  (0.05, 0.5)
+      config  : REJECT NumericalConfigError min_sigma must be a real number (int or float; bool and str rejected); got '0.05' (str)
+  accept -> reject   | R bool lo True             mode='rectangle' min=True max=2.0
+      resolve : ACCEPT  (1.0, 2.0)
+      config  : REJECT NumericalConfigError min_sigma must be a real number (int or float; bool and str rejected); got True (bool)
+  accept -> reject   | R np.float32               mode='rectangle' min=0.05 max=0.5
+      resolve : ACCEPT  (0.05000000074505806, 0.5)
+      config  : REJECT NumericalConfigError min_sigma must be a real number (int or float; bool and str rejected); got 0.05 (float32)
+  accept -> reject   | R np.int64                 mode='rectangle' min=1 max=2
+      resolve : ACCEPT  (1.0, 2.0)
+      config  : REJECT NumericalConfigError min_sigma must be a real number (int or float; bool and str rejected); got 1 (int64)
+  accept -> reject   | R 0-d array                mode='rectangle' min=array(0.05) max=array(0.5)
+      resolve : ACCEPT  (0.05, 0.5)
+      config  : REJECT NumericalConfigError min_sigma must be a real number (int or float; bool and str rejected); got array(0.05) (ndarray)
+  accept -> reject   | R Decimal                  mode='rectangle' min=Decimal('0.05') max=Decimal('0.5')
+      resolve : ACCEPT  (0.05, 0.5)
+      config  : REJECT NumericalConfigError min_sigma must be a real number (int or float; bool and str rejected); got Decimal('0.05') (Decimal)
+  accept -> reject   | R __float__ obj            mode='rectangle' min=_Floaty() max=0.5
+      resolve : ACCEPT  (0.05, 0.5)
+      config  : REJECT NumericalConfigError min_sigma must be a real number (int or float; bool and str rejected); got _Floaty() (_Floaty)
+  accept -> reject   | P str lo                   mode='polygon' min='0.05' max=0.5
+      resolve : ACCEPT  (0.05, 0.5)
+      config  : REJECT NumericalConfigError min_sigma must be a real number (int or float; bool and str rejected); got '0.05' (str)
+  accept -> reject   | P str lo, max omitted      mode='polygon' min='0.05' max=None
+      resolve : ACCEPT  (0.05, 5000.0)
+      config  : REJECT NumericalConfigError min_sigma must be a real number (int or float; bool and str rejected); got '0.05' (str)
+  accept -> reject   | P str hi                   mode='polygon' min=0.05 max='0.5'
+      resolve : ACCEPT  (0.05, 0.5)
+      config  : REJECT NumericalConfigError max_sigma must be a real number (int or float; bool and str rejected); got '0.5' (str)
+  accept -> reject   | P bool lo True             mode='polygon' min=True max=2.0
+      resolve : ACCEPT  (1.0, 2.0)
+      config  : REJECT NumericalConfigError min_sigma must be a real number (int or float; bool and str rejected); got True (bool)
+  accept -> reject   | P np.float32               mode='polygon' min=0.05 max=0.5
+      resolve : ACCEPT  (0.05000000074505806, 0.5)
+      config  : REJECT NumericalConfigError min_sigma must be a real number (int or float; bool and str rejected); got 0.05 (float32)
+  accept -> reject   | P np.int64                 mode='polygon' min=1 max=2
+      resolve : ACCEPT  (1.0, 2.0)
+      config  : REJECT NumericalConfigError min_sigma must be a real number (int or float; bool and str rejected); got 1 (int64)
+  accept -> reject   | P Decimal                  mode='polygon' min=Decimal('0.05') max=Decimal('0.5')
+      resolve : ACCEPT  (0.05, 0.5)
+      config  : REJECT NumericalConfigError min_sigma must be a real number (int or float; bool and str rejected); got Decimal('0.05') (Decimal)
+  accept -> reject   | P __float__ obj            mode='polygon' min=_Floaty() max=0.5
+      resolve : ACCEPT  (0.05, 0.5)
+      config  : REJECT NumericalConfigError min_sigma must be a real number (int or float; bool and str rejected); got _Floaty() (_Floaty)
+  reject -> accept   | P crs=None, max omitted    mode='polygon' min=0.05 max=None
+      resolve : REJECT ValueError Cannot convert metres to CRS units without a CRS; pass an explicit length in domain-coordinate units
+      config  : ACCEPT  (0.05, None)
+  accept -> reject   | M bad mode 'triangle'      mode='triangle' min=0.05 max=0.5
+      resolve : ACCEPT  (0.05, 0.5)
+      config  : REJECT NumericalConfigError support_mode must be 'rectangle' or 'polygon'; got 'triangle'
+  accept -> reject   | M bad mode 'Rectangle'     mode='Rectangle' min=0.05 max=0.5
+      resolve : ACCEPT  (0.05, 0.5)
+      config  : REJECT NumericalConfigError support_mode must be 'rectangle' or 'polygon'; got 'Rectangle'
+  accept -> reject   | M bad mode None            mode=None min=0.05 max=0.5
+      resolve : ACCEPT  (0.05, 0.5)
+      config  : REJECT NumericalConfigError support_mode must be 'rectangle' or 'polygon'; got None
+
+====================================================================================================
+REACHABILITY: does the config ever REJECT what resolve ACCEPTED?
+(this is the only way a config sigma branch fires on a public path today)
+====================================================================================================
+  M bad mode 'triangle': resolve->(0.05, 0.5)  config->NumericalConfigError: support_mode must be 'rectangle' or 'polygon'; got 'triangle'
+  M bad mode 'Rectangle': resolve->(0.05, 0.5)  config->NumericalConfigError: support_mode must be 'rectangle' or 'polygon'; got 'Rectangle'
+  M bad mode None: resolve->(0.05, 0.5)  config->NumericalConfigError: support_mode must be 'rectangle' or 'polygon'; got None

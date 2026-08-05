@@ -26,7 +26,13 @@ from shapely.geometry import Point
 from shapely.geometry import box as shapely_box
 from shapely.ops import unary_union
 
-from .config import NumericalConfig
+from .config import (
+    NumericalConfig,
+    raise_polygon_min_sigma_violation,
+    raise_rectangle_bounds_violation,
+    raise_support_mode_violation,
+    validate_sigma_pair,
+)
 from .polygon_mass import (
     BUDGET_REFERENCE_GL_ORDER,
     BUDGET_REFERENCE_ORACLE_BOUND,
@@ -79,9 +85,11 @@ def resolve_excitation_support_mode(
     """OP-2: nonrectangular domains require an explicit mode choice."""
     if excitation_support is not None:
         if excitation_support not in ("rectangle", "polygon"):
-            raise ValueError(
-                "excitation_support must be 'rectangle' or 'polygon', "
-                f"got {excitation_support!r}")
+            raise_support_mode_violation(
+                support_mode=excitation_support,
+                remediation=(
+                    "Pass excitation_support='rectangle' or "
+                    "excitation_support='polygon'."))
         return excitation_support  # type: ignore[return-value]
     if is_polygon_domain:
         raise ValueError(
@@ -104,6 +112,12 @@ def resolve_sigma_bounds(
     Polygon mode: min_sigma required (explicit, finite, positive, domain
     units); max_sigma defaults to 5 km via projected CRS conversion when
     omitted.
+
+    This function owns the two ARGUMENT invariants (rectangle both-or-neither,
+    polygon-requires-``min_sigma``): it is the last place that still knows
+    which argument the caller omitted. It renders the canonical clauses from
+    ``config`` rather than restating them, and delegates the resolved-bound
+    invariants to ``config.validate_sigma_pair`` (D-40 σ/mode families).
     """
     meta: dict[str, Any] = {
         "min_sigma_user": min_sigma,
@@ -111,26 +125,30 @@ def resolve_sigma_bounds(
         "max_sigma_default_km": DEFAULT_MAX_SIGMA_KM,
     }
 
+    # Mode is validated here rather than assumed. The `else` below is the
+    # polygon branch: without this, an invalid mode was silently treated as
+    # polygon and resolution proceeded. Unreachable from the model paths,
+    # which gate on resolve_excitation_support_mode first; direct callers of
+    # this function had no such gate.
+    if mode not in ("rectangle", "polygon"):
+        raise_support_mode_violation(support_mode=mode)
+
     if mode == "rectangle":
         if min_sigma is None and max_sigma is None:
             meta["bounds_active"] = False
             return None, None, meta
         if min_sigma is None or max_sigma is None:
-            raise ValueError(
-                "In rectangle mode, min_sigma and max_sigma must both be "
-                "supplied or both omitted (omitted leaves the sigmax_2 "
-                "prior unchanged).")
+            raise_rectangle_bounds_violation(
+                min_sigma=min_sigma, max_sigma=max_sigma)
         lo, hi = float(min_sigma), float(max_sigma)
-        _validate_sigma_pair(lo, hi)
+        validate_sigma_pair(lo, hi)
         meta.update(bounds_active=True, min_sigma=lo, max_sigma_real=hi,
                     max_sigma_units="domain", max_sigma_source="user")
         return lo, hi, meta
 
     # polygon mode
     if min_sigma is None:
-        raise ValueError(
-            "Polygon excitation_support requires an explicit finite positive "
-            "min_sigma in domain-coordinate units (no default).")
+        raise_polygon_min_sigma_violation()
     lo = float(min_sigma)
     if max_sigma is None:
         hi = metres_to_crs_units(DEFAULT_MAX_SIGMA_KM * 1000.0, crs)
@@ -141,18 +159,9 @@ def resolve_sigma_bounds(
         hi = float(max_sigma)
         meta["max_sigma_source"] = "user"
         meta["max_sigma_units"] = "domain"
-    _validate_sigma_pair(lo, hi)
+    validate_sigma_pair(lo, hi)
     meta.update(bounds_active=True, min_sigma=lo, max_sigma_real=hi)
     return lo, hi, meta
-
-
-def _validate_sigma_pair(lo: float, hi: float) -> None:
-    if not (np.isfinite(lo) and lo > 0):
-        raise ValueError(
-            f"min_sigma must be finite and positive; got {lo}")
-    if not (np.isfinite(hi) and hi > lo):
-        raise ValueError(
-            f"require min_sigma < max_sigma; got min_sigma={lo}, max_sigma={hi}")
 
 
 # ------------------------------------------------------------------ priors --
@@ -372,8 +381,7 @@ def build_excitation_support(
     ``gl_order`` parameters.
     """
     if mode not in ("rectangle", "polygon"):
-        raise ValueError(
-            f"excitation_support must be 'rectangle' or 'polygon', got {mode!r}")
+        raise_support_mode_violation(support_mode=mode)
 
     lo, hi, bound_meta = resolve_sigma_bounds(
         mode=mode, min_sigma=min_sigma, max_sigma=max_sigma, crs=crs)

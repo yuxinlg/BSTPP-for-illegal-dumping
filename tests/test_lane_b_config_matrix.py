@@ -36,13 +36,28 @@ import pytest
 from shapely.geometry import box
 
 import bstpp
-from bstpp.config import NumericalConfigError, panel_ratio_invariant_clause
+from bstpp.config import (
+    NumericalConfig,
+    NumericalConfigError,
+    min_sigma_positive_invariant_clause,
+    panel_ratio_invariant_clause,
+    polygon_min_sigma_invariant_clause,
+    rectangle_bounds_invariant_clause,
+    sigma_order_invariant_clause,
+    support_mode_invariant_clause,
+)
+from bstpp.excitation_support import (
+    build_excitation_support,
+    resolve_excitation_support_mode,
+    resolve_sigma_bounds,
+)
 from bstpp.main import Hawkes_Model, LGCP_Model, _UNSET
 from bstpp.polygon_mass import (
     DEFAULT_GL_ORDER,
     DEFAULT_PANEL_H_M,
     MAX_PANEL_TO_MIN_SIGMA_RATIO,
     PRODUCTION_TAU_ABS,
+    assert_polygon_mass_table_budget,
     build_quad_table,
     prepare_polygon_mass_table,
 )
@@ -617,6 +632,282 @@ def test_lane_b_panel_ratio_error_identity_is_entry_path_invariant():
     str(ctor.value).encode("ascii")  # D-40: raised messages are ASCII
     # A rejected set_window is still transactional (P4 / D-33).
     _assert_window_state_unchanged(before, m)
+
+
+# ------------------------------------ sigma/mode entry-path identity --
+# A-27 / D-40 (sigma-mode refinement), Lane B `entry_path` axis. The defect
+# these rows exist to catch: each of the five sigma/mode invariants had two to
+# six implementations across excitation_support, config and polygon_mass,
+# raising two error types and up to five different messages for one violation.
+# The config's own branches were dead on every public path because
+# resolve_sigma_bounds ran first, so the bare ValueError always won.
+#
+# The obligation is that ONE invariant has ONE identity whatever detects it, so
+# each row collects every owner of that invariant and compares them TO EACH
+# OTHER before pinning the shared text to the single-sourced clause. A site may
+# append remediation, so the shared part is asserted as a common prefix and at
+# least one owner must render the clause exactly.
+
+def _raised(fn):
+    """Return the exception fn raises, or fail if it does not raise."""
+    with pytest.raises(BaseException) as ei:  # noqa: PT011 - identity is asserted below
+        fn()
+    return ei.value
+
+
+_CRS_M = "EPSG:32618"  # projected, metre axis units
+
+
+_SIGMA_MODE_TABLE: list = []
+_SIGMA_MODE_BUDGET_TABLE: list = []
+
+
+def _sigma_mode_budget_table():
+    """A minimal valid table for calling assert_polygon_mass_table_budget
+    directly. Built lazily so collection stays cheap."""
+    if not _SIGMA_MODE_BUDGET_TABLE:
+        _SIGMA_MODE_BUDGET_TABLE.append(build_quad_table(
+            box(0.0, 0.0, 200.0, 200.0),
+            np.array([10.0, 20.0]), np.array([10.0, 20.0]),
+            5.0, 40.0, ws=None, h_panel=1.0,
+            gl_order=int(DEFAULT_GL_ORDER)))
+    return _SIGMA_MODE_BUDGET_TABLE[0]
+
+
+def _sigma_mode_table(data):
+    """A valid table, built once and lazily: main.py:1983 rejects a polygon
+    constructor with no table BEFORE resolve_sigma_bounds runs, so the σ rows
+    must get past it to reach the invariant under test."""
+    if not _SIGMA_MODE_TABLE:
+        _SIGMA_MODE_TABLE.append(prepare_table_for_model(
+            data, A_METERS, min_sigma=5.0, max_sigma=40.0))
+    return _SIGMA_MODE_TABLE[0]
+
+
+def _sigma_mode_owners():
+    """(invariant, canonical clause, [(owner name, callable), ...])."""
+    data = _data(A=A_METERS, seed=31)
+
+    def ctor(**kw):
+        base = dict(
+            cox_background=False, excitation_support="polygon",
+            min_sigma=5.0, max_sigma=40.0, **PRIORS)
+        base.update(kw)
+        return lambda: Hawkes_Model(
+            data, A_METERS, T_DAYS,
+            mass_table=_sigma_mode_table(data), **base)
+
+    def rect_ctor(**kw):
+        base = dict(cox_background=False, excitation_support="rectangle",
+                    **PRIORS)
+        base.update(kw)
+        return lambda: Hawkes_Model(data, A_METERS, T_DAYS, **base)
+
+    return [
+        (
+            "I1 rectangle both-or-neither",
+            rectangle_bounds_invariant_clause(min_sigma=5.0, max_sigma=None),
+            [
+                ("model constructor", rect_ctor(min_sigma=5.0)),
+                ("resolve_sigma_bounds", lambda: resolve_sigma_bounds(
+                    mode="rectangle", min_sigma=5.0, max_sigma=None,
+                    crs=None)),
+                ("NumericalConfig.create", lambda: NumericalConfig.create(
+                    support_mode="rectangle", min_sigma=5.0, max_sigma=None)),
+            ],
+        ),
+        (
+            "I2 polygon requires min_sigma",
+            polygon_min_sigma_invariant_clause(),
+            [
+                ("model constructor", ctor(min_sigma=None)),
+                ("resolve_sigma_bounds", lambda: resolve_sigma_bounds(
+                    mode="polygon", min_sigma=None, max_sigma=None, crs=None)),
+                ("NumericalConfig.create", lambda: NumericalConfig.create(
+                    support_mode="polygon", min_sigma=None, max_sigma=None)),
+                ("prepare_polygon_mass_table",
+                 lambda: prepare_polygon_mass_table(
+                     box(0.0, 0.0, 200.0, 200.0),
+                     np.array([10.0, 20.0]), np.array([10.0, 20.0]),
+                     min_sigma=None, max_sigma=40.0)),
+            ],
+        ),
+        (
+            "I3 min_sigma finite and positive",
+            min_sigma_positive_invariant_clause(min_sigma=0.0),
+            [
+                ("model constructor", ctor(min_sigma=0.0)),
+                ("resolve_sigma_bounds", lambda: resolve_sigma_bounds(
+                    mode="polygon", min_sigma=0.0, max_sigma=40.0, crs=None)),
+                ("NumericalConfig.create", lambda: NumericalConfig.create(
+                    support_mode="polygon", min_sigma=0.0, max_sigma=40.0)),
+                ("prepare_polygon_mass_table",
+                 lambda: prepare_polygon_mass_table(
+                     box(0.0, 0.0, 200.0, 200.0),
+                     np.array([10.0, 20.0]), np.array([10.0, 20.0]),
+                     min_sigma=0.0, max_sigma=40.0)),
+                ("build_quad_table", lambda: build_quad_table(
+                    box(0.0, 0.0, 200.0, 200.0),
+                    np.array([10.0, 20.0]), np.array([10.0, 20.0]),
+                    0.0, 40.0, ws=None, h_panel=1.0,
+                    gl_order=int(DEFAULT_GL_ORDER))),
+                # Unreachable through every public MODEL path -- resolve_sigma_bounds
+                # rejects a non-positive min_sigma first, and validate_polygon_mass_table
+                # additionally requires table.sigma_min == sigma_min, which
+                # build_quad_table now refuses to build. Reachable only by calling
+                # this public module function directly, which is what this owner does.
+                ("assert_polygon_mass_table_budget",
+                 lambda: assert_polygon_mass_table_budget(
+                     _sigma_mode_budget_table(), sigma_min=0.0)),
+            ],
+        ),
+        (
+            "I4 min_sigma < max_sigma",
+            sigma_order_invariant_clause(min_sigma=40.0, max_sigma=5.0),
+            [
+                ("model constructor", ctor(min_sigma=40.0, max_sigma=5.0)),
+                ("resolve_sigma_bounds", lambda: resolve_sigma_bounds(
+                    mode="polygon", min_sigma=40.0, max_sigma=5.0, crs=None)),
+                ("NumericalConfig.create", lambda: NumericalConfig.create(
+                    support_mode="polygon", min_sigma=40.0, max_sigma=5.0,
+                    panel_h_m=1.0)),
+                ("build_quad_table", lambda: build_quad_table(
+                    box(0.0, 0.0, 200.0, 200.0),
+                    np.array([10.0, 20.0]), np.array([10.0, 20.0]),
+                    40.0, 5.0, ws=None, h_panel=1.0,
+                    gl_order=int(DEFAULT_GL_ORDER))),
+            ],
+        ),
+        (
+            "I5 support-mode validity",
+            support_mode_invariant_clause(support_mode="triangle"),
+            [
+                ("model constructor", rect_ctor(excitation_support="triangle")),
+                ("resolve_excitation_support_mode",
+                 lambda: resolve_excitation_support_mode(
+                     is_polygon_domain=False, excitation_support="triangle")),
+                ("resolve_sigma_bounds", lambda: resolve_sigma_bounds(
+                    mode="triangle", min_sigma=5.0, max_sigma=40.0, crs=None)),
+                ("build_excitation_support", lambda: build_excitation_support(
+                    mode="triangle", bounds=A_METERS, domain_gdf=None,
+                    is_polygon_domain=False, crs=None, spatial_window=None,
+                    min_sigma=5.0, max_sigma=40.0,
+                    event_x_real=np.array([10.0]),
+                    event_y_real=np.array([10.0]))),
+                ("NumericalConfig.create", lambda: NumericalConfig.create(
+                    support_mode="triangle")),
+            ],
+        ),
+    ]
+
+
+@pytest.mark.parametrize(
+    "invariant,clause,owners",
+    _sigma_mode_owners(),
+    ids=lambda v: v if isinstance(v, str) else "",
+)
+def test_lane_b_sigma_mode_error_identity_is_owner_invariant(
+        invariant, clause, owners):
+    raised = [(name, _raised(fn)) for name, fn in owners]
+
+    # 1. One identity. Compared across owners, not each to a literal, so a
+    #    future divergence fails here whatever the wording.
+    types = {name: type(exc) for name, exc in raised}
+    detail = "\n".join(
+        f"    {name}: {type(exc).__name__}: {exc}" for name, exc in raised)
+    assert len(set(types.values())) == 1, (
+        f"{invariant}: one invariant must have one error identity from every "
+        f"owner (D-40); got\n{detail}")
+    assert set(types.values()) == {NumericalConfigError}, (
+        f"{invariant}: the identity must be NumericalConfigError, not a bare "
+        f"ValueError; got\n{detail}")
+
+    # 2. One canonical clause. Sites may append remediation, so the invariant
+    #    text is the shared prefix -- it may not be restated differently.
+    for name, exc in raised:
+        assert str(exc).startswith(clause), (
+            f"{invariant}: {name} restates the invariant instead of rendering "
+            f"the canonical clause.\n  expected prefix: {clause!r}\n"
+            f"  got:             {str(exc)!r}")
+
+    # 3. Agreement is not coincidence: at least one owner renders the clause
+    #    exactly, with nothing appended.
+    assert any(str(exc) == clause for _, exc in raised), (
+        f"{invariant}: no owner renders the canonical clause exactly")
+
+    # 4. D-40: raised messages are ASCII.
+    for _, exc in raised:
+        str(exc).encode("ascii")
+
+
+def test_lane_b_polygon_default_max_sigma_without_crs_is_rejected():
+    """A-27: the resolver rejects; the config would accept. Frozen as is.
+
+    Polygon mode with ``max_sigma`` omitted must default it from
+    DEFAULT_MAX_SIGMA_KM, which needs a projected CRS. Without one, the
+    resolver refuses. ``NumericalConfig`` accepts the same situation because
+    it never sees it -- it is handed an already-resolved pair, and a resolved
+    polygon ``max_sigma`` is never None.
+
+    This row exists because the obvious future refactor -- making the config
+    the front gate for user-supplied bounds -- turns this rejection into a
+    silent accept, and a silent accept would pass every other gate in the
+    suite. Both halves are pinned so the asymmetry cannot move unnoticed.
+    """
+    from bstpp.excitation_support import DEFAULT_MAX_SIGMA_KM
+
+    with pytest.raises(ValueError, match="Cannot convert metres to CRS units"):
+        resolve_sigma_bounds(
+            mode="polygon", min_sigma=0.05, max_sigma=None, crs=None)
+
+    # The same arguments through the config: accepted, max_sigma stays None.
+    cfg = NumericalConfig.create(
+        support_mode="polygon", min_sigma=0.05, max_sigma=None,
+        panel_h_m=MAX_PANEL_TO_MIN_SIGMA_RATIO * 0.05)
+    assert cfg.max_sigma is None
+
+    # With a CRS the resolver defaults, and THAT is what the config stores.
+    lo, hi, meta = resolve_sigma_bounds(
+        mode="polygon", min_sigma=1000.0, max_sigma=None,
+        crs=gpd.GeoSeries([box(0.0, 0.0, 1.0, 1.0)], crs=_CRS_M).crs)
+    assert lo == 1000.0
+    assert hi == pytest.approx(DEFAULT_MAX_SIGMA_KM * 1000.0)
+    assert meta["max_sigma_source"] == "default_5km"
+    resolved_cfg = NumericalConfig.create(
+        support_mode="polygon", min_sigma=lo, max_sigma=hi, panel_h_m=20.0)
+    assert resolved_cfg.max_sigma == pytest.approx(5000.0)
+
+
+def test_lane_b_prepare_polygon_mass_table_rejects_none_min_sigma_by_name():
+    """A-27: float(None) used to surface as an unnamed TypeError here.
+
+    Lane B admissibility requires a named error identifying the offending
+    combination. This is the polygon-requires-min_sigma invariant at the
+    builder; the type change from TypeError to NumericalConfigError is
+    declared, and NumericalConfigError is NOT a TypeError subclass.
+    """
+    with pytest.raises(NumericalConfigError) as ei:
+        prepare_polygon_mass_table(
+            box(0.0, 0.0, 200.0, 200.0),
+            np.array([10.0, 20.0]), np.array([10.0, 20.0]),
+            min_sigma=None, max_sigma=40.0)
+    assert str(ei.value).startswith(polygon_min_sigma_invariant_clause())
+    assert not isinstance(ei.value, TypeError)
+
+
+def test_lane_b_resolve_sigma_bounds_validates_mode():
+    """A-27: an invalid mode was silently treated as polygon and resolved.
+
+    The `else` branch was the polygon branch, so resolve_sigma_bounds returned
+    a resolved pair for mode='triangle' instead of rejecting. Unreachable from
+    the model paths, which gate on resolve_excitation_support_mode first;
+    direct callers had no such gate.
+    """
+    with pytest.raises(NumericalConfigError) as ei:
+        resolve_sigma_bounds(
+            mode="triangle", min_sigma=5.0, max_sigma=40.0, crs=None)
+    assert str(ei.value) == support_mode_invariant_clause(
+        support_mode="triangle")
 
 
 # ----------------------------------------------------- numerical budget --

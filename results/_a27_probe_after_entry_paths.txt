@@ -1,0 +1,203 @@
+bstpp.__file__ = C:\Users\Terhi\Box\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+SIGMA_PROBE_STATE = after
+
+============================================================================================================
+TABLE 2 - entry-path reachability: which site raises, and which config branch executed
+============================================================================================================
+
+[I1 rectangle both-or-neither | E1 Hawkes rectangle ctor (min only)]
+    outcome : REJECT NumericalConfigError
+    raised@ : config.py:129
+    message : support-mode compatibility (rectangle): min_sigma and max_sigma must both be supplied or both omitted; got min_sigma=0.05, max_sigma=None. Omitting bo
+    invariant lines executed:
+        excitation_support.py:141  I1 rectangle both-or-neither        (resolve_sigma_bounds)
+
+[I1 rectangle both-or-neither | E1 Hawkes rectangle ctor (max only)]
+    outcome : REJECT NumericalConfigError
+    raised@ : config.py:129
+    message : support-mode compatibility (rectangle): min_sigma and max_sigma must both be supplied or both omitted; got min_sigma=None, max_sigma=0.5. Omitting bot
+    invariant lines executed:
+        excitation_support.py:141  I1 rectangle both-or-neither        (resolve_sigma_bounds)
+
+[I1 rectangle both-or-neither | E6 LGCP ctor (no sigma args exist)]
+    outcome : ACCEPT 
+    invariant lines executed: NONE
+
+[I2 polygon requires min_sigma | E2 Hawkes polygon ctor]
+    outcome : REJECT NumericalConfigError
+    raised@ : config.py:145
+    message : support-mode compatibility (polygon): min_sigma is required and has no default; supply an explicit finite positive min_sigma in domain-coordinate unit
+    invariant lines executed:
+        excitation_support.py:151  I2 polygon requires min_sigma       (resolve_sigma_bounds)
+
+[I2 polygon requires min_sigma | E7 prepare_polygon_mass_table]
+    outcome : REJECT NumericalConfigError
+    raised@ : config.py:145
+    message : support-mode compatibility (polygon): min_sigma is required and has no default; supply an explicit finite positive min_sigma in domain-coordinate unit
+    invariant lines executed:
+        polygon_mass.py:1057  I2 polygon requires min_sigma      (prepare_polygon_mass_table)
+
+[I3 min_sigma finite/positive | E2 Hawkes polygon ctor (0.0)]
+    outcome : REJECT NumericalConfigError
+    raised@ : config.py:159
+    message : min_sigma must be finite and positive; got 0.0
+    invariant lines executed:
+        config.py:205  I3 min_sigma finite/positive        (config, validate_sigma_pair)
+
+[I3 min_sigma finite/positive | E2 Hawkes polygon ctor (-1.0)]
+    outcome : REJECT NumericalConfigError
+    raised@ : config.py:159
+    message : min_sigma must be finite and positive; got -1.0
+    invariant lines executed:
+        config.py:205  I3 min_sigma finite/positive        (config, validate_sigma_pair)
+
+[I3 min_sigma finite/positive | E2 Hawkes polygon ctor (nan)]
+    outcome : REJECT NumericalConfigError
+    raised@ : config.py:159
+    message : min_sigma must be finite and positive; got nan
+    invariant lines executed:
+        config.py:205  I3 min_sigma finite/positive        (config, validate_sigma_pair)
+
+[I3 min_sigma finite/positive | E2 Hawkes polygon ctor (inf)]
+    outcome : REJECT NumericalConfigError
+    raised@ : config.py:159
+    message : min_sigma must be finite and positive; got inf
+    invariant lines executed:
+        config.py:205  I3 min_sigma finite/positive        (config, validate_sigma_pair)
+
+[I3 min_sigma finite/positive | E1 Hawkes rectangle ctor (0.0)]
+    outcome : REJECT NumericalConfigError
+    raised@ : config.py:159
+    message : min_sigma must be finite and positive; got 0.0
+    invariant lines executed:
+        config.py:205  I3 min_sigma finite/positive        (config, validate_sigma_pair)
+
+[I3 min_sigma finite/positive | E7 prepare_polygon_mass_table (0.0)]
+    outcome : REJECT NumericalConfigError
+    raised@ : config.py:159
+    message : min_sigma must be finite and positive; got 0.0 Refusing to build a table over this sigma range.
+    invariant lines executed:
+        polygon_mass.py:1064  I3 min_sigma finite/positive       (prepare_polygon_mass_table)
+
+[I4 min_sigma < max_sigma | E1 Hawkes rectangle ctor (lo>hi)]
+    outcome : REJECT NumericalConfigError
+    raised@ : config.py:177
+    message : sigma-bound coherence requires min_sigma < max_sigma; got min_sigma=0.9, max_sigma=0.5
+    invariant lines executed:
+        config.py:207  I4 min_sigma < max_sigma            (config, validate_sigma_pair)
+
+[I4 min_sigma < max_sigma | E1 Hawkes rectangle ctor (lo==hi)]
+    outcome : REJECT NumericalConfigError
+    raised@ : config.py:177
+    message : sigma-bound coherence requires min_sigma < max_sigma; got min_sigma=0.5, max_sigma=0.5
+    invariant lines executed:
+        config.py:207  I4 min_sigma < max_sigma            (config, validate_sigma_pair)
+
+[I4 min_sigma < max_sigma | E2 Hawkes polygon ctor (lo>hi)]
+    outcome : REJECT NumericalConfigError
+    raised@ : config.py:177
+    message : sigma-bound coherence requires min_sigma < max_sigma; got min_sigma=0.9, max_sigma=0.5
+    invariant lines executed:
+        config.py:207  I4 min_sigma < max_sigma            (config, validate_sigma_pair)
+
+[I5 support_mode validity | E1 Hawkes ctor (excitation_support='triangle')]
+    outcome : REJECT NumericalConfigError
+    raised@ : config.py:193
+    message : excitation support mode must be 'rectangle' or 'polygon'; got 'triangle' Pass excitation_support='rectangle' or excitation_support='polygon'.
+    invariant lines executed:
+        excitation_support.py:88  I5 support_mode validity            (resolve_excitation_support_mode)
+
+[I5 support_mode validity | E1 Hawkes ctor (excitation_support='Rectangle')]
+    outcome : REJECT NumericalConfigError
+    raised@ : config.py:193
+    message : excitation support mode must be 'rectangle' or 'polygon'; got 'Rectangle' Pass excitation_support='rectangle' or excitation_support='polygon'.
+    invariant lines executed:
+        excitation_support.py:88  I5 support_mode validity            (resolve_excitation_support_mode)
+
+[COERCION str min_sigma | E1 Hawkes rectangle ctor ('0.05','0.5')]
+    outcome : ACCEPT 
+    invariant lines executed: NONE
+
+[COERCION str min_sigma | E2 Hawkes polygon ctor ('0.05')]
+    outcome : ACCEPT 
+    invariant lines executed: NONE
+
+[COERCION bool min_sigma | E1 Hawkes rectangle ctor (True, 2.0)]
+    outcome : ACCEPT 
+    invariant lines executed: NONE
+
+[COERCION np.float32 min_sigma | E2 Hawkes polygon ctor]
+    outcome : REJECT ValueError
+    raised@ : polygon_mass.py:811
+    message : supplied mass table sigma range [0.05, 0.5] does not match model [0.05000000074505806, 0.5]
+    invariant lines executed: NONE
+
+[COERCION np.float64 min_sigma | E2 Hawkes polygon ctor]
+    outcome : ACCEPT 
+    invariant lines executed: NONE
+
+[COERCION np.float32 min_sigma | E1 Hawkes rectangle ctor]
+    outcome : ACCEPT 
+    invariant lines executed: NONE
+
+[COERCION Decimal min_sigma | E1 Hawkes rectangle ctor]
+    outcome : ACCEPT 
+    invariant lines executed: NONE
+
+[COERCION str min_sigma | E1 Hawkes rectangle ctor ('0.05','0.5') rerun]
+    outcome : ACCEPT 
+    invariant lines executed: NONE
+
+[DEFAULTING polygon max_sigma=None, crs=None | E2 Hawkes polygon ctor]
+    outcome : REJECT ValueError
+    raised@ : excitation_support.py:62
+    message : Cannot convert metres to CRS units without a CRS; pass an explicit length in domain-coordinate units instead.
+    invariant lines executed: NONE
+
+[BASELINE valid | E2 Hawkes polygon ctor (accepts)]
+    outcome : ACCEPT 
+    invariant lines executed: NONE
+
+[BASELINE valid | E1 Hawkes rectangle ctor, bounds omitted (accepts)]
+    outcome : ACCEPT 
+    invariant lines executed: NONE
+
+[BASELINE valid | E1 Hawkes rectangle ctor, bounds supplied (accepts)]
+    outcome : ACCEPT 
+    invariant lines executed: NONE
+
+[E4 set_window temporal-only on valid polygon model]
+    outcome : ACCEPT 
+    invariant lines executed: NONE
+
+[E3 set_window spatial + mass_table on valid polygon model]
+    outcome : REJECT ValueError
+    raised@ : polygon_mass.py:800
+    message : supplied mass table spatial_window is missing/nonfinite but the model has spatial_window=0.4
+    invariant lines executed: NONE
+
+[E5 log_expected_likelihood held-out (no fit -> may fail elsewhere)]
+    outcome : REJECT AttributeError
+    raised@ : main.py:872
+    message : 'Hawkes_Model' object has no attribute 'samples'
+    invariant lines executed: NONE
+
+============================================================================================================
+CONFIG-BRANCH REACHABILITY SUMMARY
+============================================================================================================
+  config.py:205   I3 min_sigma finite/positive        (config, validate_sigma_pair) REACHED
+  config.py:207   I4 min_sigma < max_sigma            (config, validate_sigma_pair) REACHED
+  config.py:265   I5 support_mode validity            (config)                   NEVER EXECUTED
+  config.py:333   I1 rectangle both-or-neither        (config)                   NEVER EXECUTED
+  config.py:342   I2 polygon requires min_sigma       (config)                   NEVER EXECUTED
+  config.py:349   I3 min_sigma finite/positive        (config, polygon max=None branch) NEVER EXECUTED
+
+  excitation_support.py:88    I5 support_mode validity            (resolve_excitation_support_mode) REACHED
+  excitation_support.py:134   I5 support_mode validity            (resolve_sigma_bounds) never executed
+  excitation_support.py:141   I1 rectangle both-or-neither        (resolve_sigma_bounds) REACHED
+  excitation_support.py:151   I2 polygon requires min_sigma       (resolve_sigma_bounds) REACHED
+  excitation_support.py:384   I5 support_mode validity            (build_excitation_support) never executed
+
+  polygon_mass.py:612   I3 min_sigma finite/positive        (assert_polygon_mass_table_budget) never executed
+  polygon_mass.py:1057  I2 polygon requires min_sigma      (prepare_polygon_mass_table) REACHED
+  polygon_mass.py:1064  I3 min_sigma finite/positive       (prepare_polygon_mass_table) REACHED

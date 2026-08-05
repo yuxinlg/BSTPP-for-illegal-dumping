@@ -1,0 +1,3 @@
+scanned 17 modules under bstpp/
+
+PASS - every raised message string under bstpp/ is ASCII

@@ -86,6 +86,127 @@ def raise_panel_ratio_violation(
     raise NumericalConfigError(msg)
 
 
+# ------------------------------------- D-40 \supsd: the sigma/mode families --
+# D-40 requires one invariant, one identity, one canonical clause. The five
+# sigma/mode invariants have more than one owner, and the reason is that they
+# attach to DIFFERENT QUANTITIES:
+#
+#   * rectangle both-or-neither and polygon-requires-min_sigma are ARGUMENT
+#     invariants -- they test which argument was omitted. Defaulting destroys
+#     that distinction: resolved rectangle bounds are both-None or both-float
+#     by construction, and a resolved polygon min_sigma is never None. Only
+#     resolve_sigma_bounds, which still sees the user's arguments, can express
+#     them. A resolved-bound validator cannot.
+#   * min_sigma positivity and min_sigma < max_sigma are RESOLVED-BOUND
+#     invariants. min_sigma < max_sigma is only meaningful after defaulting:
+#     in polygon mode with max_sigma omitted there is no user-supplied pair to
+#     compare. NumericalConfig owns these and validates the right quantity.
+#   * support-mode validity is a MODE invariant, upstream of both.
+#
+# So there is more than one owner, but exactly one identity and one canonical
+# clause per invariant, produced here and rendered byte for byte wherever the
+# violation is detected. A site may append its own remediation; it may not
+# restate the invariant. All clause text is ASCII (D-40).
+
+def rectangle_bounds_invariant_clause(
+    *, min_sigma: object, max_sigma: object) -> str:
+    """Render the canonical rectangle both-or-neither clause (I1)."""
+    return (
+        "support-mode compatibility (rectangle): min_sigma and max_sigma must "
+        f"both be supplied or both omitted; got min_sigma={min_sigma!r}, "
+        f"max_sigma={max_sigma!r}. Omitting both leaves the sigmax_2 prior "
+        "unchanged.")
+
+
+def raise_rectangle_bounds_violation(
+    *, min_sigma: object, max_sigma: object, remediation: str = "",
+) -> NoReturn:
+    """Raise the single identity for the rectangle both-or-neither invariant."""
+    msg = rectangle_bounds_invariant_clause(
+        min_sigma=min_sigma, max_sigma=max_sigma)
+    if remediation:
+        msg = f"{msg} {remediation}"
+    raise NumericalConfigError(msg)
+
+
+def polygon_min_sigma_invariant_clause() -> str:
+    """Render the canonical polygon-requires-min_sigma clause (I2)."""
+    return (
+        "support-mode compatibility (polygon): min_sigma is required and has "
+        "no default; supply an explicit finite positive min_sigma in "
+        "domain-coordinate units.")
+
+
+def raise_polygon_min_sigma_violation(*, remediation: str = "") -> NoReturn:
+    """Raise the single identity for the polygon-requires-min_sigma invariant."""
+    msg = polygon_min_sigma_invariant_clause()
+    if remediation:
+        msg = f"{msg} {remediation}"
+    raise NumericalConfigError(msg)
+
+
+def min_sigma_positive_invariant_clause(*, min_sigma: float) -> str:
+    """Render the canonical min_sigma positivity clause (I3)."""
+    return f"min_sigma must be finite and positive; got {float(min_sigma)}"
+
+
+def raise_min_sigma_positive_violation(
+    *, min_sigma: float, remediation: str = "") -> NoReturn:
+    """Raise the single identity for the min_sigma positivity invariant."""
+    msg = min_sigma_positive_invariant_clause(min_sigma=min_sigma)
+    if remediation:
+        msg = f"{msg} {remediation}"
+    raise NumericalConfigError(msg)
+
+
+def sigma_order_invariant_clause(
+    *, min_sigma: float, max_sigma: float) -> str:
+    """Render the canonical sigma-bound ordering clause (I4)."""
+    return (
+        "sigma-bound coherence requires min_sigma < max_sigma; got "
+        f"min_sigma={float(min_sigma)}, max_sigma={float(max_sigma)}")
+
+
+def raise_sigma_order_violation(
+    *, min_sigma: float, max_sigma: float, remediation: str = "") -> NoReturn:
+    """Raise the single identity for the sigma-bound ordering invariant."""
+    msg = sigma_order_invariant_clause(
+        min_sigma=min_sigma, max_sigma=max_sigma)
+    if remediation:
+        msg = f"{msg} {remediation}"
+    raise NumericalConfigError(msg)
+
+
+def support_mode_invariant_clause(*, support_mode: object) -> str:
+    """Render the canonical excitation-support-mode clause (I5)."""
+    return (
+        "excitation support mode must be 'rectangle' or 'polygon'; got "
+        f"{support_mode!r}")
+
+
+def raise_support_mode_violation(
+    *, support_mode: object, remediation: str = "") -> NoReturn:
+    """Raise the single identity for the support-mode validity invariant."""
+    msg = support_mode_invariant_clause(support_mode=support_mode)
+    if remediation:
+        msg = f"{msg} {remediation}"
+    raise NumericalConfigError(msg)
+
+
+def validate_sigma_pair(min_sigma: float, max_sigma: float) -> None:
+    """The single implementation of the resolved-bound invariants (I3, I4).
+
+    Every site that checks a resolved sigma pair calls this, so the predicate
+    and the identity have one spelling. Callers that must coerce their inputs
+    do so before calling; this function does not coerce, because argument-type
+    discipline is A-23's invariant and not one of these two (see OP-20).
+    """
+    if not (math.isfinite(min_sigma) and min_sigma > 0.0):
+        raise_min_sigma_positive_violation(min_sigma=min_sigma)
+    if not (math.isfinite(max_sigma) and max_sigma > min_sigma):
+        raise_sigma_order_violation(min_sigma=min_sigma, max_sigma=max_sigma)
+
+
 def _require_int(name: str, value: object) -> int:
     """Reject bool and non-ints; ``bool`` is an ``int`` subclass."""
     if isinstance(value, bool) or not isinstance(value, int):
@@ -112,6 +233,17 @@ class NumericalConfig:
     package cutoff tolerance defaults. Support mode and σ bounds are accepted
     for coherence validation (model commitments remain owned elsewhere).
 
+    ``min_sigma`` / ``max_sigma`` are the **resolved** bounds, not the bounds
+    the user supplied. Every production caller passes the output of
+    ``excitation_support.resolve_sigma_bounds``: in polygon mode with
+    ``max_sigma`` omitted, this object stores the defaulted 5 km value in CRS
+    units, never ``None`` (``main.py`` construction and ``set_window``).
+    The distinction is load-bearing — the argument invariants (rectangle
+    both-or-neither, polygon-requires-``min_sigma``) cannot be evaluated here,
+    because defaulting has already erased which argument was omitted. See the
+    D-40 σ/mode family note above. An earlier version of this docstring claimed
+    these fields were user-supplied; it was false, and A-27 records it.
+
     Immutable after construction. Construct only via :meth:`create`.
     """
 
@@ -130,8 +262,7 @@ class NumericalConfig:
     def __post_init__(self) -> None:
         mode = self.support_mode
         if mode not in ("rectangle", "polygon"):
-            raise NumericalConfigError(
-                f"support_mode must be 'rectangle' or 'polygon'; got {mode!r}")
+            raise_support_mode_violation(support_mode=mode)
 
         # Type discipline before any numeric use (WP1.4a / A-23 reason 3).
         h = _require_real("panel_h_m", self.panel_h_m)
@@ -188,32 +319,36 @@ class NumericalConfig:
                 raise NumericalConfigError(
                     f"{name} must be finite and in (0, 1); got {eps!r}")
 
+        # The argument invariants below are unreachable from every public model
+        # path: resolve_sigma_bounds runs first and rejects the same inputs, so
+        # this object only ever sees a resolved pair. They are retained as the
+        # guard for direct NumericalConfig.create callers, and they render the
+        # same canonical clause the resolver does, so the identity is the same
+        # whichever way the violation arrives (D-40).
         lo, hi = self.min_sigma, self.max_sigma
         if mode == "rectangle":
             if lo is None and hi is None:
                 pass
             elif lo is None or hi is None:
-                raise NumericalConfigError(
-                    "support-mode compatibility (rectangle): min_sigma and "
-                    "max_sigma must both be supplied or both omitted")
+                raise_rectangle_bounds_violation(min_sigma=lo, max_sigma=hi)
             else:
-                self._validate_sigma_pair(
+                validate_sigma_pair(
                     _require_real("min_sigma", lo),
                     _require_real("max_sigma", hi),
                 )
         else:
             # polygon
             if lo is None:
-                raise NumericalConfigError(
-                    "support-mode compatibility (polygon): min_sigma is "
-                    "required (finite, positive; no default)")
+                raise_polygon_min_sigma_violation()
             lo_f = _require_real("min_sigma", lo)
             if hi is None:
+                # Reachable only by direct construction: resolve_sigma_bounds
+                # defaults max_sigma before this object is built, and rejects
+                # when it cannot (no CRS). Behaviour frozen as it stands.
                 if not (math.isfinite(lo_f) and lo_f > 0.0):
-                    raise NumericalConfigError(
-                        f"min_sigma must be finite and positive; got {lo!r}")
+                    raise_min_sigma_positive_violation(min_sigma=lo_f)
             else:
-                self._validate_sigma_pair(
+                validate_sigma_pair(
                     lo_f, _require_real("max_sigma", hi))
             # Panel/min_sigma prefilter (necessary but not sufficient for tau).
             # D-40: the clause is rendered by panel_ratio_invariant_clause, not
@@ -223,16 +358,6 @@ class NumericalConfig:
                 raise_panel_ratio_violation(
                     panel_h_m=h, min_sigma=lo_f,
                     ratio_ceil=ratio_ceil, tau_abs=tau)
-
-    @staticmethod
-    def _validate_sigma_pair(lo: float, hi: float) -> None:
-        if not (math.isfinite(lo) and lo > 0.0):
-            raise NumericalConfigError(
-                f"min_sigma must be finite and positive; got {lo}")
-        if not (math.isfinite(hi) and hi > lo):
-            raise NumericalConfigError(
-                f"sigma-bound coherence requires min_sigma < max_sigma; "
-                f"got min_sigma={lo}, max_sigma={hi}")
 
     @classmethod
     def create(

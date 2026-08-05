@@ -1,0 +1,14 @@
+F401 [*] `jax.numpy` imported but unused
+  --> tests\test_phase3d_excitation_support.py:14:21
+   |
+12 | import geopandas as gpd
+13 | import jax
+14 | import jax.numpy as jnp
+   |                     ^^^
+15 | import numpy as np
+16 | import numpyro.distributions as dist
+   |
+help: Remove unused import: `jax.numpy`
+
+Found 1 error.
+[*] 1 fixable with the `--fix` option.

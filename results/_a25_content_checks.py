@@ -1,6 +1,6 @@
 """A-25 / C3 content checks (documentation-only gate profile).
 
-Two checks the LaTeX build cannot be run to perform on this machine, and that the
+Three checks the LaTeX build cannot be run to perform on this machine, and that the
 structural \\hypertarget check cannot see:
 
 1. §12.2 column-1 phase-name check. The matrix's row axis is Phase; anything else in
@@ -10,6 +10,10 @@ structural \\hypertarget check cannot see:
    (number of p{} column specs) fields, i.e. (ncols - 1) unescaped '&'. A row with the
    wrong count is the failure mode that produced the A-24 transposed row: it can still
    compile, or it can break the build on a machine where the build is not runnable here.
+3. §8 Part I decision-row monotonicity (added A-27). D-40 landed out of numeric order
+   and was caught by reading. A misordered row is structurally perfect, so neither
+   check above can see it; nor can either see a duplicate or a gap. Demonstrated to
+   discriminate by mutating a copy (D-40 moved before D-39) and confirming exit 1.
 """
 from __future__ import annotations
 
@@ -107,6 +111,49 @@ for m in re.finditer(r"\\begin\{longtable\}(.*?)\\end\{longtable\}", text, re.S)
                 failures.append(msg)
     status = "OK" if bad == 0 else f"BAD {bad}"
     print(f"  line {line_no:>5}: {ncols} cols, {rows} body rows -> {status}")
+
+# ---------------------------------------------------------------- check 3
+# A-27: Part I decision-row label monotonicity. D-40 landed out of numeric order
+# and was caught by reading; neither the structural \hypertarget check nor the
+# field-count check above can see ordering, because a misordered row is
+# structurally perfect. A few lines close the class instead of leaving it to
+# attention. Duplicates and gaps are reported too: the same reading pass that
+# would catch a misorder is the only thing that would catch those.
+print()
+print("PART I DECISION-ROW MONOTONICITY")
+dsec = text.find(r"\hypertarget{decision-register-settled}")
+if dsec < 0:
+    failures.append("could not locate the section 8 decision register")
+else:
+    dlt = text.find(r"\begin{longtable}", dsec)
+    dend = text.find(r"\end{longtable}", dlt)
+    dbody = text[dlt:dend].split(r"\endhead", 1)[-1]
+    labels: list[int] = []
+    for raw in dbody.splitlines():
+        line = raw.strip()
+        if not line or "&" not in line:
+            continue
+        m = re.search(r"D-(\d+)", line.split("&", 1)[0])
+        if m:
+            labels.append(int(m.group(1)))
+    print(f"  {len(labels)} decision rows: D-{labels[0]} .. D-{labels[-1]}"
+          if labels else "  no decision rows found")
+    if not labels:
+        failures.append("section 8 decision register has no D-* rows")
+    prev = None
+    for n in labels:
+        if prev is not None and n <= prev:
+            failures.append(
+                f"section 8 decision rows are not strictly increasing: D-{n} follows "
+                f"D-{prev}")
+        prev = n
+    missing = sorted(set(range(1, labels[-1] + 1)) - set(labels)) if labels else []
+    if missing:
+        failures.append(
+            "section 8 decision numbers have gaps: "
+            + ", ".join(f"D-{n}" for n in missing))
+    if labels and not missing and labels == sorted(set(labels)):
+        print("  strictly increasing, no duplicates, no gaps -> OK")
 
 print()
 if known:

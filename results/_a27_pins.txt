@@ -1,0 +1,26 @@
+=== A-27 / WP1.4e-2 four-config pins (SC rebaseline record) ===
+date: 2026-08-05T08:44:27Z
+baseline: refactor-patches/baselines-2026-07/pins.json
+expectation: no returned sigma bound changes and error paths are not
+traced, so pins must MATCH. Expected is not measured; this run is the
+measurement, and a diff would mean the Step 2 scope fence was breached.
+--- git status --porcelain (tracked) ---
+ M bstpp/config.py
+ M bstpp/excitation_support.py
+ M bstpp/polygon_mass.py
+ M phase3_record.tex
+ M refactor-patches/pre-3f-stabilization/traceability_matrix.md
+ M results/_a25_content_checks.py
+ M tests/test_lane_b_config_matrix.py
+ M tests/test_numerical_config.py
+ M tests/test_phase3d_excitation_support.py
+--- end ---
+
+PIN_GEN_EXIT:0
+cox_hawkes: MATCH
+hawkes: MATCH
+hawkes_nonsquare_4to1: MATCH
+lgcp: MATCH
+
+PIN_DIFFS 0 MATCH
+PIN_COMPARE_EXIT:0

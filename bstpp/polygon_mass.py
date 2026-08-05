@@ -605,9 +605,15 @@ def assert_polygon_mass_table_budget(
         raise ValueError(
             f"supplied mass table h_panel must be finite and > 0; got {h!r}")
     if not (math.isfinite(s) and s > 0.0):
-        raise ValueError(
-            f"model min_sigma must be finite and > 0 for the mass-table "
-            f"accuracy budget; got {sigma_min!r}")
+        # D-40: one identity and one canonical clause for min_sigma positivity;
+        # only the remediation is site-specific. Deferred import - config
+        # imports this module for its constants.
+        from .config import raise_min_sigma_positive_violation
+        raise_min_sigma_positive_violation(
+            min_sigma=s,
+            remediation=(
+                "This is the model's min_sigma, required by the mass-table "
+                "accuracy budget."))
     try:
         gl = int(table.gl_order)
     except (TypeError, ValueError) as exc:
@@ -922,12 +928,11 @@ def build_quad_table(
     """
     import time
 
-    if not (np.isfinite(sigma_min) and sigma_min > 0):
-        raise ValueError(f"sigma_min must be finite and positive; got {sigma_min}")
-    if not (np.isfinite(sigma_max) and sigma_max > sigma_min):
-        raise ValueError(
-            f"require finite sigma_max > sigma_min; got "
-            f"sigma_min={sigma_min}, sigma_max={sigma_max}")
+    # D-40: the table's build range is a resolved sigma pair like any other;
+    # it gets the same identity and the same canonical clauses. Deferred
+    # import - config imports this module for its constants.
+    from .config import validate_sigma_pair
+    validate_sigma_pair(float(sigma_min), float(sigma_max))
 
     x = np.asarray(x, dtype=np.float64)
     y = np.asarray(y, dtype=np.float64)
@@ -1040,10 +1045,25 @@ def prepare_polygon_mass_table(
     else:
         h_panel = float(panel_h_m)
 
+    # D-40: one identity per invariant. `min_sigma=None` used to die in
+    # float(None) with a bare TypeError -- an unnamed error, failing Lane B
+    # admissibility. It is the polygon-requires-min_sigma invariant at the
+    # builder and now raises that clause.
+    from .config import (
+        raise_min_sigma_positive_violation,
+        raise_polygon_min_sigma_violation,
+    )
+    if min_sigma is None:
+        raise_polygon_min_sigma_violation(
+            remediation=(
+                "prepare_polygon_mass_table builds the table over "
+                "[min_sigma, max_sigma] and cannot choose the lower bound "
+                "for you."))
     min_s = float(min_sigma)
     if not (math.isfinite(min_s) and min_s > 0):
-        raise ValueError(
-            f"min_sigma must be finite and > 0; got {min_sigma!r}")
+        raise_min_sigma_positive_violation(
+            min_sigma=min_s,
+            remediation="Refusing to build a table over this sigma range.")
     if not (math.isfinite(h_panel) and h_panel > 0):
         raise ValueError(
             f"effective panel height must be finite and > 0; got {h_panel!r} "

@@ -1,0 +1,640 @@
+=== A-27 / WP1.4e-2 RED demonstration ===
+date: 2026-08-05T08:04:44Z
+base commit: f70ac7df2020b7efad6f28c184171d05abce120f
+bstpp/excitation_support.py and bstpp/polygon_mass.py reverted to f70ac7d
+(the duplicate _validate_sigma_pair restored, resolve_sigma_bounds not
+validating mode, prepare_polygon_mass_table dying in float(None)).
+bstpp/config.py keeps ONLY the new canonical-clause functions so the tests can
+import them; its __post_init__ call sites and the _validate_sigma_pair
+staticmethod are reverted to their f70ac7d form.
+This is the pre-change production state for every invariant under test.
+--- git status --porcelain (tracked) ---
+ M bstpp/config.py
+ M tests/test_lane_b_config_matrix.py
+ M tests/test_numerical_config.py
+ M tests/test_phase3d_excitation_support.py
+--- end ---
+
+FFFFF.FFFFF..F....F                                                      [100%]
+================================== FAILURES ===================================
+_ test_lane_b_sigma_mode_error_identity_is_owner_invariant[I1 rectangle both-or-neither-support-mode compatibility (rectangle): min_sigma and max_sigma must both be supplied or both omitted; got min_sigma=5.0, max_sigma=None. Omitting both leaves the sigmax_2 prior unchanged.-] _
+
+invariant = 'I1 rectangle both-or-neither'
+clause = 'support-mode compatibility (rectangle): min_sigma and max_sigma must both be supplied or both omitted; got min_sigma=5.0, max_sigma=None. Omitting both leaves the sigmax_2 prior unchanged.'
+owners = [('model constructor', <function _sigma_mode_owners.<locals>.rect_ctor.<locals>.<lambda> at 0x0000020AF09B51C0>), ('re...x0000020AF09B5260>), ('NumericalConfig.create', <function _sigma_mode_owners.<locals>.<lambda> at 0x0000020AF09B5300>)]
+
+    @pytest.mark.parametrize(
+        "invariant,clause,owners",
+        _sigma_mode_owners(),
+        ids=lambda v: v if isinstance(v, str) else "",
+    )
+    def test_lane_b_sigma_mode_error_identity_is_owner_invariant(
+            invariant, clause, owners):
+        raised = [(name, _raised(fn)) for name, fn in owners]
+    
+        # 1. One identity. Compared across owners, not each to a literal, so a
+        #    future divergence fails here whatever the wording.
+        types = {name: type(exc) for name, exc in raised}
+        detail = "\n".join(
+            f"    {name}: {type(exc).__name__}: {exc}" for name, exc in raised)
+>       assert len(set(types.values())) == 1, (
+            f"{invariant}: one invariant must have one error identity from every "
+            f"owner (D-40); got\n{detail}")
+E       AssertionError: I1 rectangle both-or-neither: one invariant must have one error identity from every owner (D-40); got
+E             model constructor: ValueError: In rectangle mode, min_sigma and max_sigma must both be supplied or both omitted (omitted leaves the sigmax_2 prior unchanged).
+E             resolve_sigma_bounds: ValueError: In rectangle mode, min_sigma and max_sigma must both be supplied or both omitted (omitted leaves the sigmax_2 prior unchanged).
+E             NumericalConfig.create: NumericalConfigError: support-mode compatibility (rectangle): min_sigma and max_sigma must both be supplied or both omitted
+E       assert 2 == 1
+E        +  where 2 = len({<class 'bstpp.config.NumericalConfigError'>, <class 'ValueError'>})
+E        +    where {<class 'bstpp.config.NumericalConfigError'>, <class 'ValueError'>} = set(dict_values([<class 'ValueError'>, <class 'ValueError'>, <class 'bstpp.config.NumericalConfigError'>]))
+E        +      where dict_values([<class 'ValueError'>, <class 'ValueError'>, <class 'bstpp.config.NumericalConfigError'>]) = <built-in method values of dict object at 0x0000020AF0A05580>()
+E        +        where <built-in method values of dict object at 0x0000020AF0A05580> = {'model constructor': <class 'ValueError'>, 'resolve_sigma_bounds': <class 'ValueError'>, 'NumericalConfig.create': <class 'bstpp.config.NumericalConfigError'>}.values
+
+tests\test_lane_b_config_matrix.py:818: AssertionError
+_ test_lane_b_sigma_mode_error_identity_is_owner_invariant[I2 polygon requires min_sigma-support-mode compatibility (polygon): min_sigma is required and has no default; supply an explicit finite positive min_sigma in domain-coordinate units.-] _
+
+invariant = 'I2 polygon requires min_sigma'
+clause = 'support-mode compatibility (polygon): min_sigma is required and has no default; supply an explicit finite positive min_sigma in domain-coordinate units.'
+owners = [('model constructor', <function _sigma_mode_owners.<locals>.ctor.<locals>.<lambda> at 0x0000020AF09B53A0>), ('resolve...0020AF09B54E0>), ('prepare_polygon_mass_table', <function _sigma_mode_owners.<locals>.<lambda> at 0x0000020AF09B5580>)]
+
+    @pytest.mark.parametrize(
+        "invariant,clause,owners",
+        _sigma_mode_owners(),
+        ids=lambda v: v if isinstance(v, str) else "",
+    )
+    def test_lane_b_sigma_mode_error_identity_is_owner_invariant(
+            invariant, clause, owners):
+        raised = [(name, _raised(fn)) for name, fn in owners]
+    
+        # 1. One identity. Compared across owners, not each to a literal, so a
+        #    future divergence fails here whatever the wording.
+        types = {name: type(exc) for name, exc in raised}
+        detail = "\n".join(
+            f"    {name}: {type(exc).__name__}: {exc}" for name, exc in raised)
+>       assert len(set(types.values())) == 1, (
+            f"{invariant}: one invariant must have one error identity from every "
+            f"owner (D-40); got\n{detail}")
+E       AssertionError: I2 polygon requires min_sigma: one invariant must have one error identity from every owner (D-40); got
+E             model constructor: ValueError: Polygon excitation_support requires an explicit finite positive min_sigma in domain-coordinate units (no default).
+E             resolve_sigma_bounds: ValueError: Polygon excitation_support requires an explicit finite positive min_sigma in domain-coordinate units (no default).
+E             NumericalConfig.create: NumericalConfigError: support-mode compatibility (polygon): min_sigma is required (finite, positive; no default)
+E             prepare_polygon_mass_table: TypeError: float() argument must be a string or a real number, not 'NoneType'
+E       assert 3 == 1
+E        +  where 3 = len({<class 'bstpp.config.NumericalConfigError'>, <class 'TypeError'>, <class 'ValueError'>})
+E        +    where {<class 'bstpp.config.NumericalConfigError'>, <class 'TypeError'>, <class 'ValueError'>} = set(dict_values([<class 'ValueError'>, <class 'ValueError'>, <class 'bstpp.config.NumericalConfigError'>, <class 'TypeError'>]))
+E        +      where dict_values([<class 'ValueError'>, <class 'ValueError'>, <class 'bstpp.config.NumericalConfigError'>, <class 'TypeError'>]) = <built-in method values of dict object at 0x0000020AF0B64F00>()
+E        +        where <built-in method values of dict object at 0x0000020AF0B64F00> = {'model constructor': <class 'ValueError'>, 'resolve_sigma_bounds': <class 'ValueError'>, 'NumericalConfig.create': <class 'bstpp.config.NumericalConfigError'>, 'prepare_polygon_mass_table': <class 'TypeError'>}.values
+
+tests\test_lane_b_config_matrix.py:818: AssertionError
+_ test_lane_b_sigma_mode_error_identity_is_owner_invariant[I3 min_sigma finite and positive-min_sigma must be finite and positive; got 0.0-] _
+
+invariant = 'I3 min_sigma finite and positive'
+clause = 'min_sigma must be finite and positive; got 0.0'
+owners = [('model constructor', <function _sigma_mode_owners.<locals>.ctor.<locals>.<lambda> at 0x0000020AF09B5620>), ('resolve...09B58A0>), ('assert_polygon_mass_table_budget', <function _sigma_mode_owners.<locals>.<lambda> at 0x0000020AF09B5940>)]
+
+    @pytest.mark.parametrize(
+        "invariant,clause,owners",
+        _sigma_mode_owners(),
+        ids=lambda v: v if isinstance(v, str) else "",
+    )
+    def test_lane_b_sigma_mode_error_identity_is_owner_invariant(
+            invariant, clause, owners):
+        raised = [(name, _raised(fn)) for name, fn in owners]
+    
+        # 1. One identity. Compared across owners, not each to a literal, so a
+        #    future divergence fails here whatever the wording.
+        types = {name: type(exc) for name, exc in raised}
+        detail = "\n".join(
+            f"    {name}: {type(exc).__name__}: {exc}" for name, exc in raised)
+>       assert len(set(types.values())) == 1, (
+            f"{invariant}: one invariant must have one error identity from every "
+            f"owner (D-40); got\n{detail}")
+E       AssertionError: I3 min_sigma finite and positive: one invariant must have one error identity from every owner (D-40); got
+E             model constructor: ValueError: min_sigma must be finite and positive; got 0.0
+E             resolve_sigma_bounds: ValueError: min_sigma must be finite and positive; got 0.0
+E             NumericalConfig.create: NumericalConfigError: min_sigma must be finite and positive; got 0.0
+E             prepare_polygon_mass_table: ValueError: min_sigma must be finite and > 0; got 0.0
+E             build_quad_table: ValueError: sigma_min must be finite and positive; got 0.0
+E             assert_polygon_mass_table_budget: ValueError: model min_sigma must be finite and > 0 for the mass-table accuracy budget; got 0.0
+E       assert 2 == 1
+E        +  where 2 = len({<class 'bstpp.config.NumericalConfigError'>, <class 'ValueError'>})
+E        +    where {<class 'bstpp.config.NumericalConfigError'>, <class 'ValueError'>} = set(dict_values([<class 'ValueError'>, <class 'ValueError'>, <class 'bstpp.config.NumericalConfigError'>, <class 'ValueError'>, <class 'ValueError'>, <class 'ValueError'>]))
+E        +      where dict_values([<class 'ValueError'>, <class 'ValueError'>, <class 'bstpp.config.NumericalConfigError'>, <class 'ValueError'>, <class 'ValueError'>, <class 'ValueError'>]) = <built-in method values of dict object at 0x0000020AF1C6B8C0>()
+E        +        where <built-in method values of dict object at 0x0000020AF1C6B8C0> = {'model constructor': <class 'ValueError'>, 'resolve_sigma_bounds': <class 'ValueError'>, 'NumericalConfig.create': <class 'bstpp.config.NumericalConfigError'>, 'prepare_polygon_mass_table': <class 'ValueError'>, ...}.values
+
+tests\test_lane_b_config_matrix.py:818: AssertionError
+_ test_lane_b_sigma_mode_error_identity_is_owner_invariant[I4 min_sigma < max_sigma-sigma-bound coherence requires min_sigma < max_sigma; got min_sigma=40.0, max_sigma=5.0-] _
+
+invariant = 'I4 min_sigma < max_sigma'
+clause = 'sigma-bound coherence requires min_sigma < max_sigma; got min_sigma=40.0, max_sigma=5.0'
+owners = [('model constructor', <function _sigma_mode_owners.<locals>.ctor.<locals>.<lambda> at 0x0000020AF09B59E0>), ('resolve...> at 0x0000020AF09B5B20>), ('build_quad_table', <function _sigma_mode_owners.<locals>.<lambda> at 0x0000020AF09B5BC0>)]
+
+    @pytest.mark.parametrize(
+        "invariant,clause,owners",
+        _sigma_mode_owners(),
+        ids=lambda v: v if isinstance(v, str) else "",
+    )
+    def test_lane_b_sigma_mode_error_identity_is_owner_invariant(
+            invariant, clause, owners):
+        raised = [(name, _raised(fn)) for name, fn in owners]
+    
+        # 1. One identity. Compared across owners, not each to a literal, so a
+        #    future divergence fails here whatever the wording.
+        types = {name: type(exc) for name, exc in raised}
+        detail = "\n".join(
+            f"    {name}: {type(exc).__name__}: {exc}" for name, exc in raised)
+>       assert len(set(types.values())) == 1, (
+            f"{invariant}: one invariant must have one error identity from every "
+            f"owner (D-40); got\n{detail}")
+E       AssertionError: I4 min_sigma < max_sigma: one invariant must have one error identity from every owner (D-40); got
+E             model constructor: ValueError: require min_sigma < max_sigma; got min_sigma=40.0, max_sigma=5.0
+E             resolve_sigma_bounds: ValueError: require min_sigma < max_sigma; got min_sigma=40.0, max_sigma=5.0
+E             NumericalConfig.create: NumericalConfigError: sigma-bound coherence requires min_sigma < max_sigma; got min_sigma=40.0, max_sigma=5.0
+E             build_quad_table: ValueError: require finite sigma_max > sigma_min; got sigma_min=40.0, sigma_max=5.0
+E       assert 2 == 1
+E        +  where 2 = len({<class 'bstpp.config.NumericalConfigError'>, <class 'ValueError'>})
+E        +    where {<class 'bstpp.config.NumericalConfigError'>, <class 'ValueError'>} = set(dict_values([<class 'ValueError'>, <class 'ValueError'>, <class 'bstpp.config.NumericalConfigError'>, <class 'ValueError'>]))
+E        +      where dict_values([<class 'ValueError'>, <class 'ValueError'>, <class 'bstpp.config.NumericalConfigError'>, <class 'ValueError'>]) = <built-in method values of dict object at 0x0000020AF1C8D840>()
+E        +        where <built-in method values of dict object at 0x0000020AF1C8D840> = {'model constructor': <class 'ValueError'>, 'resolve_sigma_bounds': <class 'ValueError'>, 'NumericalConfig.create': <class 'bstpp.config.NumericalConfigError'>, 'build_quad_table': <class 'ValueError'>}.values
+
+tests\test_lane_b_config_matrix.py:818: AssertionError
+_ test_lane_b_sigma_mode_error_identity_is_owner_invariant[I5 support-mode validity-excitation support mode must be 'rectangle' or 'polygon'; got 'triangle'-] _
+
+invariant = 'I5 support-mode validity'
+clause = "excitation support mode must be 'rectangle' or 'polygon'; got 'triangle'"
+owners = [('model constructor', <function _sigma_mode_owners.<locals>.rect_ctor.<locals>.<lambda> at 0x0000020AF09B5C60>), ('re...x0000020AF09B5E40>), ('NumericalConfig.create', <function _sigma_mode_owners.<locals>.<lambda> at 0x0000020AF09B5EE0>)]
+
+    @pytest.mark.parametrize(
+        "invariant,clause,owners",
+        _sigma_mode_owners(),
+        ids=lambda v: v if isinstance(v, str) else "",
+    )
+    def test_lane_b_sigma_mode_error_identity_is_owner_invariant(
+            invariant, clause, owners):
+>       raised = [(name, _raised(fn)) for name, fn in owners]
+                         ^^^^^^^^^^^
+
+tests\test_lane_b_config_matrix.py:811: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+fn = <function _sigma_mode_owners.<locals>.<lambda> at 0x0000020AF09B5DA0>
+
+    def _raised(fn):
+        """Return the exception fn raises, or fail if it does not raise."""
+>       with pytest.raises(BaseException) as ei:  # noqa: PT011 - identity is asserted below
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE BaseException
+
+tests\test_lane_b_config_matrix.py:653: Failed
+____ test_lane_b_prepare_polygon_mass_table_rejects_none_min_sigma_by_name ____
+
+    def test_lane_b_prepare_polygon_mass_table_rejects_none_min_sigma_by_name():
+        """A-27: float(None) used to surface as an unnamed TypeError here.
+    
+        Lane B admissibility requires a named error identifying the offending
+        combination. This is the polygon-requires-min_sigma invariant at the
+        builder; the type change from TypeError to NumericalConfigError is
+        declared, and NumericalConfigError is NOT a TypeError subclass.
+        """
+        with pytest.raises(NumericalConfigError) as ei:
+>           prepare_polygon_mass_table(
+                box(0.0, 0.0, 200.0, 200.0),
+                np.array([10.0, 20.0]), np.array([10.0, 20.0]),
+                min_sigma=None, max_sigma=40.0)
+
+tests\test_lane_b_config_matrix.py:890: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+domain_geom = <POLYGON ((200 0, 200 200, 0 200, 0 0, 200 0))>
+event_x_real = array([10., 20.]), event_y_real = array([10., 20.])
+min_sigma = None, max_sigma = 40.0, spatial_window = None, crs = None
+panel_h_m = 20.0, gl_order = 16, extra_provenance = None
+
+    def prepare_polygon_mass_table(
+        domain_geom,
+        event_x_real,
+        event_y_real,
+        *,
+        min_sigma: float,
+        max_sigma: float,
+        spatial_window: float | None = None,
+        crs=None,
+        panel_h_m: float = DEFAULT_PANEL_H_M,
+        gl_order: int = DEFAULT_GL_ORDER,
+        extra_provenance: Optional[dict] = None,
+    ) -> PolygonMassTable:
+        """Explicit public preparation API for polygon Hermite mass tables.
+    
+        ``min_sigma`` and ``max_sigma`` are spatial standard deviations in real
+        coordinate units. When the model prior is expressed as ``sigmax_2``
+        (variance), the compatible interval is ``[min_sigma**2, max_sigma**2]``.
+    
+        Builds entirely in host NumPy/SciPy float64. Does not mutate process-global
+        JAX precision. Online fitting may later consume the table at the process
+        default JAX precision.
+    
+        Descriptive ``extra_provenance`` is copied under nested
+        ``provenance['extra']`` and cannot overwrite builder-owned compatibility
+        fields. Tables are schema
+        ``hybrid_quad_hermite_numpy_v2`` with exact little-endian float64 event
+        identity; legacy v1 / decimal-``.9g`` hashes are intentionally
+        incompatible and must be rebuilt.
+        """
+        from .excitation_support import metres_to_crs_units
+    
+        if crs is not None and not getattr(crs, "is_geographic", False):
+            h_panel = float(metres_to_crs_units(float(panel_h_m), crs))
+        else:
+            h_panel = float(panel_h_m)
+    
+>       min_s = float(min_sigma)
+                ^^^^^^^^^^^^^^^^
+E       TypeError: float() argument must be a string or a real number, not 'NoneType'
+
+bstpp\polygon_mass.py:1043: TypeError
+_______________ test_lane_b_resolve_sigma_bounds_validates_mode _______________
+
+    def test_lane_b_resolve_sigma_bounds_validates_mode():
+        """A-27: an invalid mode was silently treated as polygon and resolved.
+    
+        The `else` branch was the polygon branch, so resolve_sigma_bounds returned
+        a resolved pair for mode='triangle' instead of rejecting. Unreachable from
+        the model paths, which gate on resolve_excitation_support_mode first;
+        direct callers had no such gate.
+        """
+>       with pytest.raises(NumericalConfigError) as ei:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE NumericalConfigError
+
+tests\test_lane_b_config_matrix.py:906: Failed
+_ test_sigma_mode_invariants_render_the_canonical_clause[kwargs0-excitation support mode must be 'rectangle' or 'polygon'; got 'hexagon'] _
+
+kwargs = {'support_mode': 'hexagon'}
+expected = "excitation support mode must be 'rectangle' or 'polygon'; got 'hexagon'"
+
+    @pytest.mark.parametrize(
+        "kwargs,expected",
+        [
+            (
+                {"support_mode": "hexagon"},  # type: ignore[arg-type]
+                support_mode_invariant_clause(support_mode="hexagon"),
+            ),
+            (
+                {"support_mode": "rectangle", "min_sigma": 1.0},
+                rectangle_bounds_invariant_clause(min_sigma=1.0, max_sigma=None),
+            ),
+            (
+                {"support_mode": "rectangle", "max_sigma": 1.0},
+                rectangle_bounds_invariant_clause(min_sigma=None, max_sigma=1.0),
+            ),
+            (
+                {"support_mode": "rectangle", "min_sigma": 5.0, "max_sigma": 1.0},
+                sigma_order_invariant_clause(min_sigma=5.0, max_sigma=1.0),
+            ),
+            (
+                {"support_mode": "rectangle", "min_sigma": 0.0, "max_sigma": 1.0},
+                min_sigma_positive_invariant_clause(min_sigma=0.0),
+            ),
+            (
+                {"support_mode": "polygon"},
+                polygon_min_sigma_invariant_clause(),
+            ),
+            (
+                {"support_mode": "polygon", "min_sigma": 0.0, "max_sigma": 5.0,
+                 "panel_h_m": 0.2},
+                min_sigma_positive_invariant_clause(min_sigma=0.0),
+            ),
+            (
+                {"support_mode": "polygon", "min_sigma": 5.0, "max_sigma": 1.0,
+                 "panel_h_m": 0.2},
+                sigma_order_invariant_clause(min_sigma=5.0, max_sigma=1.0),
+            ),
+            # Polygon with max_sigma omitted: the config accepts a None upper
+            # bound (it is handed a resolved pair in production and never sees
+            # this), but min_sigma positivity still applies. See the Lane B row
+            # test_lane_b_polygon_default_max_sigma_without_crs_is_rejected.
+            (
+                {"support_mode": "polygon", "min_sigma": 0.0, "panel_h_m": 0.2},
+                min_sigma_positive_invariant_clause(min_sigma=0.0),
+            ),
+            # A-23 argument-type discipline, not one of the five (OP-20): pinned by
+            # equality here for the same reason.
+            (
+                {"support_mode": "polygon", "min_sigma": "0.05", "max_sigma": 5.0,
+                 "panel_h_m": 0.2},
+                "min_sigma must be a real number (int or float; bool and str "
+                "rejected); got '0.05' (str)",
+            ),
+        ],
+    )
+    def test_sigma_mode_invariants_render_the_canonical_clause(kwargs, expected):
+        with pytest.raises(NumericalConfigError) as ei:
+            NumericalConfig.create(**kwargs)
+>       assert str(ei.value) == expected
+E       assert "support_mode...got 'hexagon'" == "excitation s...got 'hexagon'"
+E         
+E         - excitation support mode must be 'rectangle' or 'polygon'; got 'hexagon'
+E         ? -----------       ^
+E         + support_mode must be 'rectangle' or 'polygon'; got 'hexagon'
+E         ?        ^
+
+tests\test_numerical_config.py:183: AssertionError
+_ test_sigma_mode_invariants_render_the_canonical_clause[kwargs1-support-mode compatibility (rectangle): min_sigma and max_sigma must both be supplied or both omitted; got min_sigma=1.0, max_sigma=None. Omitting both leaves the sigmax_2 prior unchanged.] _
+
+kwargs = {'support_mode': 'rectangle', 'min_sigma': 1.0}
+expected = 'support-mode compatibility (rectangle): min_sigma and max_sigma must both be supplied or both omitted; got min_sigma=1.0, max_sigma=None. Omitting both leaves the sigmax_2 prior unchanged.'
+
+    @pytest.mark.parametrize(
+        "kwargs,expected",
+        [
+            (
+                {"support_mode": "hexagon"},  # type: ignore[arg-type]
+                support_mode_invariant_clause(support_mode="hexagon"),
+            ),
+            (
+                {"support_mode": "rectangle", "min_sigma": 1.0},
+                rectangle_bounds_invariant_clause(min_sigma=1.0, max_sigma=None),
+            ),
+            (
+                {"support_mode": "rectangle", "max_sigma": 1.0},
+                rectangle_bounds_invariant_clause(min_sigma=None, max_sigma=1.0),
+            ),
+            (
+                {"support_mode": "rectangle", "min_sigma": 5.0, "max_sigma": 1.0},
+                sigma_order_invariant_clause(min_sigma=5.0, max_sigma=1.0),
+            ),
+            (
+                {"support_mode": "rectangle", "min_sigma": 0.0, "max_sigma": 1.0},
+                min_sigma_positive_invariant_clause(min_sigma=0.0),
+            ),
+            (
+                {"support_mode": "polygon"},
+                polygon_min_sigma_invariant_clause(),
+            ),
+            (
+                {"support_mode": "polygon", "min_sigma": 0.0, "max_sigma": 5.0,
+                 "panel_h_m": 0.2},
+                min_sigma_positive_invariant_clause(min_sigma=0.0),
+            ),
+            (
+                {"support_mode": "polygon", "min_sigma": 5.0, "max_sigma": 1.0,
+                 "panel_h_m": 0.2},
+                sigma_order_invariant_clause(min_sigma=5.0, max_sigma=1.0),
+            ),
+            # Polygon with max_sigma omitted: the config accepts a None upper
+            # bound (it is handed a resolved pair in production and never sees
+            # this), but min_sigma positivity still applies. See the Lane B row
+            # test_lane_b_polygon_default_max_sigma_without_crs_is_rejected.
+            (
+                {"support_mode": "polygon", "min_sigma": 0.0, "panel_h_m": 0.2},
+                min_sigma_positive_invariant_clause(min_sigma=0.0),
+            ),
+            # A-23 argument-type discipline, not one of the five (OP-20): pinned by
+            # equality here for the same reason.
+            (
+                {"support_mode": "polygon", "min_sigma": "0.05", "max_sigma": 5.0,
+                 "panel_h_m": 0.2},
+                "min_sigma must be a real number (int or float; bool and str "
+                "rejected); got '0.05' (str)",
+            ),
+        ],
+    )
+    def test_sigma_mode_invariants_render_the_canonical_clause(kwargs, expected):
+        with pytest.raises(NumericalConfigError) as ei:
+            NumericalConfig.create(**kwargs)
+>       assert str(ei.value) == expected
+E       AssertionError: assert 'support-mode... both omitted' == 'support-mode...or unchanged.'
+E         
+E         Skipping 90 identical leading characters in diff, use -v to show
+E         - oth omitted; got min_sigma=1.0, max_sigma=None. Omitting both leaves the sigmax_2 prior unchanged.
+E         + oth omitted
+
+tests\test_numerical_config.py:183: AssertionError
+_ test_sigma_mode_invariants_render_the_canonical_clause[kwargs2-support-mode compatibility (rectangle): min_sigma and max_sigma must both be supplied or both omitted; got min_sigma=None, max_sigma=1.0. Omitting both leaves the sigmax_2 prior unchanged.] _
+
+kwargs = {'support_mode': 'rectangle', 'max_sigma': 1.0}
+expected = 'support-mode compatibility (rectangle): min_sigma and max_sigma must both be supplied or both omitted; got min_sigma=None, max_sigma=1.0. Omitting both leaves the sigmax_2 prior unchanged.'
+
+    @pytest.mark.parametrize(
+        "kwargs,expected",
+        [
+            (
+                {"support_mode": "hexagon"},  # type: ignore[arg-type]
+                support_mode_invariant_clause(support_mode="hexagon"),
+            ),
+            (
+                {"support_mode": "rectangle", "min_sigma": 1.0},
+                rectangle_bounds_invariant_clause(min_sigma=1.0, max_sigma=None),
+            ),
+            (
+                {"support_mode": "rectangle", "max_sigma": 1.0},
+                rectangle_bounds_invariant_clause(min_sigma=None, max_sigma=1.0),
+            ),
+            (
+                {"support_mode": "rectangle", "min_sigma": 5.0, "max_sigma": 1.0},
+                sigma_order_invariant_clause(min_sigma=5.0, max_sigma=1.0),
+            ),
+            (
+                {"support_mode": "rectangle", "min_sigma": 0.0, "max_sigma": 1.0},
+                min_sigma_positive_invariant_clause(min_sigma=0.0),
+            ),
+            (
+                {"support_mode": "polygon"},
+                polygon_min_sigma_invariant_clause(),
+            ),
+            (
+                {"support_mode": "polygon", "min_sigma": 0.0, "max_sigma": 5.0,
+                 "panel_h_m": 0.2},
+                min_sigma_positive_invariant_clause(min_sigma=0.0),
+            ),
+            (
+                {"support_mode": "polygon", "min_sigma": 5.0, "max_sigma": 1.0,
+                 "panel_h_m": 0.2},
+                sigma_order_invariant_clause(min_sigma=5.0, max_sigma=1.0),
+            ),
+            # Polygon with max_sigma omitted: the config accepts a None upper
+            # bound (it is handed a resolved pair in production and never sees
+            # this), but min_sigma positivity still applies. See the Lane B row
+            # test_lane_b_polygon_default_max_sigma_without_crs_is_rejected.
+            (
+                {"support_mode": "polygon", "min_sigma": 0.0, "panel_h_m": 0.2},
+                min_sigma_positive_invariant_clause(min_sigma=0.0),
+            ),
+            # A-23 argument-type discipline, not one of the five (OP-20): pinned by
+            # equality here for the same reason.
+            (
+                {"support_mode": "polygon", "min_sigma": "0.05", "max_sigma": 5.0,
+                 "panel_h_m": 0.2},
+                "min_sigma must be a real number (int or float; bool and str "
+                "rejected); got '0.05' (str)",
+            ),
+        ],
+    )
+    def test_sigma_mode_invariants_render_the_canonical_clause(kwargs, expected):
+        with pytest.raises(NumericalConfigError) as ei:
+            NumericalConfig.create(**kwargs)
+>       assert str(ei.value) == expected
+E       AssertionError: assert 'support-mode... both omitted' == 'support-mode...or unchanged.'
+E         
+E         Skipping 90 identical leading characters in diff, use -v to show
+E         - oth omitted; got min_sigma=None, max_sigma=1.0. Omitting both leaves the sigmax_2 prior unchanged.
+E         + oth omitted
+
+tests\test_numerical_config.py:183: AssertionError
+_ test_sigma_mode_invariants_render_the_canonical_clause[kwargs5-support-mode compatibility (polygon): min_sigma is required and has no default; supply an explicit finite positive min_sigma in domain-coordinate units.] _
+
+kwargs = {'support_mode': 'polygon'}
+expected = 'support-mode compatibility (polygon): min_sigma is required and has no default; supply an explicit finite positive min_sigma in domain-coordinate units.'
+
+    @pytest.mark.parametrize(
+        "kwargs,expected",
+        [
+            (
+                {"support_mode": "hexagon"},  # type: ignore[arg-type]
+                support_mode_invariant_clause(support_mode="hexagon"),
+            ),
+            (
+                {"support_mode": "rectangle", "min_sigma": 1.0},
+                rectangle_bounds_invariant_clause(min_sigma=1.0, max_sigma=None),
+            ),
+            (
+                {"support_mode": "rectangle", "max_sigma": 1.0},
+                rectangle_bounds_invariant_clause(min_sigma=None, max_sigma=1.0),
+            ),
+            (
+                {"support_mode": "rectangle", "min_sigma": 5.0, "max_sigma": 1.0},
+                sigma_order_invariant_clause(min_sigma=5.0, max_sigma=1.0),
+            ),
+            (
+                {"support_mode": "rectangle", "min_sigma": 0.0, "max_sigma": 1.0},
+                min_sigma_positive_invariant_clause(min_sigma=0.0),
+            ),
+            (
+                {"support_mode": "polygon"},
+                polygon_min_sigma_invariant_clause(),
+            ),
+            (
+                {"support_mode": "polygon", "min_sigma": 0.0, "max_sigma": 5.0,
+                 "panel_h_m": 0.2},
+                min_sigma_positive_invariant_clause(min_sigma=0.0),
+            ),
+            (
+                {"support_mode": "polygon", "min_sigma": 5.0, "max_sigma": 1.0,
+                 "panel_h_m": 0.2},
+                sigma_order_invariant_clause(min_sigma=5.0, max_sigma=1.0),
+            ),
+            # Polygon with max_sigma omitted: the config accepts a None upper
+            # bound (it is handed a resolved pair in production and never sees
+            # this), but min_sigma positivity still applies. See the Lane B row
+            # test_lane_b_polygon_default_max_sigma_without_crs_is_rejected.
+            (
+                {"support_mode": "polygon", "min_sigma": 0.0, "panel_h_m": 0.2},
+                min_sigma_positive_invariant_clause(min_sigma=0.0),
+            ),
+            # A-23 argument-type discipline, not one of the five (OP-20): pinned by
+            # equality here for the same reason.
+            (
+                {"support_mode": "polygon", "min_sigma": "0.05", "max_sigma": 5.0,
+                 "panel_h_m": 0.2},
+                "min_sigma must be a real number (int or float; bool and str "
+                "rejected); got '0.05' (str)",
+            ),
+        ],
+    )
+    def test_sigma_mode_invariants_render_the_canonical_clause(kwargs, expected):
+        with pytest.raises(NumericalConfigError) as ei:
+            NumericalConfig.create(**kwargs)
+>       assert str(ei.value) == expected
+E       AssertionError: assert 'support-mode...; no default)' == 'support-mode...dinate units.'
+E         
+E         Skipping 50 identical leading characters in diff, use -v to show
+E         -  required and has no default; supply an explicit finite positive min_sigma in domain-coordinate units.
+E         +  required (finite, positive; no default)
+
+tests\test_numerical_config.py:183: AssertionError
+_________ test_polygon_mode_requires_min_sigma_and_defaults_max_sigma _________
+
+    def test_polygon_mode_requires_min_sigma_and_defaults_max_sigma():
+        crs = CRS.from_epsg(26918)
+        # A-27 / D-40: this was `pytest.raises(ValueError, match="min_sigma")`,
+        # which discriminated nothing -- NumericalConfigError subclasses
+        # ValueError and "min_sigma" appears in every candidate message, so it
+        # passed identically before and after the identity unification. It now
+        # pins the type exactly and the canonical clause by equality.
+        with pytest.raises(NumericalConfigError) as ei:
+>           resolve_sigma_bounds(mode="polygon", min_sigma=None, max_sigma=None,
+                                 crs=crs)
+
+tests\test_phase3d_excitation_support.py:110: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+mode = 'polygon', min_sigma = None, max_sigma = None
+crs = <Projected CRS: EPSG:26918>
+Name: NAD83 / UTM zone 18N
+Axis Info [cartesian]:
+- E[east]: Easting (metre)
+- N[north]: N...e 18N
+- method: Transverse Mercator
+Datum: North American Datum 1983
+- Ellipsoid: GRS 1980
+- Prime Meridian: Greenwich
+
+
+    def resolve_sigma_bounds(
+        *,
+        mode: ExcitationSupportMode,
+        min_sigma: Optional[float],
+        max_sigma: Optional[float],
+        crs,
+    ) -> tuple[Optional[float], Optional[float], dict]:
+        """Resolve (min_sigma, max_sigma_real) in domain CRS units.
+    
+        Rectangle mode: omitted bounds leave the prior unchanged (both None).
+        Polygon mode: min_sigma required (explicit, finite, positive, domain
+        units); max_sigma defaults to 5 km via projected CRS conversion when
+        omitted.
+        """
+        meta: dict[str, Any] = {
+            "min_sigma_user": min_sigma,
+            "max_sigma_user": max_sigma,
+            "max_sigma_default_km": DEFAULT_MAX_SIGMA_KM,
+        }
+    
+        if mode == "rectangle":
+            if min_sigma is None and max_sigma is None:
+                meta["bounds_active"] = False
+                return None, None, meta
+            if min_sigma is None or max_sigma is None:
+                raise ValueError(
+                    "In rectangle mode, min_sigma and max_sigma must both be "
+                    "supplied or both omitted (omitted leaves the sigmax_2 "
+                    "prior unchanged).")
+            lo, hi = float(min_sigma), float(max_sigma)
+            _validate_sigma_pair(lo, hi)
+            meta.update(bounds_active=True, min_sigma=lo, max_sigma_real=hi,
+                        max_sigma_units="domain", max_sigma_source="user")
+            return lo, hi, meta
+    
+        # polygon mode
+        if min_sigma is None:
+>           raise ValueError(
+                "Polygon excitation_support requires an explicit finite positive "
+                "min_sigma in domain-coordinate units (no default).")
+E           ValueError: Polygon excitation_support requires an explicit finite positive min_sigma in domain-coordinate units (no default).
+
+bstpp\excitation_support.py:131: ValueError
+=========================== short test summary info ===========================
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_sigma_mode_error_identity_is_owner_invariant[I1 rectangle both-or-neither-support-mode compatibility (rectangle): min_sigma and max_sigma must both be supplied or both omitted; got min_sigma=5.0, max_sigma=None. Omitting both leaves the sigmax_2 prior unchanged.-]
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_sigma_mode_error_identity_is_owner_invariant[I2 polygon requires min_sigma-support-mode compatibility (polygon): min_sigma is required and has no default; supply an explicit finite positive min_sigma in domain-coordinate units.-]
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_sigma_mode_error_identity_is_owner_invariant[I3 min_sigma finite and positive-min_sigma must be finite and positive; got 0.0-]
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_sigma_mode_error_identity_is_owner_invariant[I4 min_sigma < max_sigma-sigma-bound coherence requires min_sigma < max_sigma; got min_sigma=40.0, max_sigma=5.0-]
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_sigma_mode_error_identity_is_owner_invariant[I5 support-mode validity-excitation support mode must be 'rectangle' or 'polygon'; got 'triangle'-]
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_prepare_polygon_mass_table_rejects_none_min_sigma_by_name
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_resolve_sigma_bounds_validates_mode
+FAILED tests/test_numerical_config.py::test_sigma_mode_invariants_render_the_canonical_clause[kwargs0-excitation support mode must be 'rectangle' or 'polygon'; got 'hexagon']
+FAILED tests/test_numerical_config.py::test_sigma_mode_invariants_render_the_canonical_clause[kwargs1-support-mode compatibility (rectangle): min_sigma and max_sigma must both be supplied or both omitted; got min_sigma=1.0, max_sigma=None. Omitting both leaves the sigmax_2 prior unchanged.]
+FAILED tests/test_numerical_config.py::test_sigma_mode_invariants_render_the_canonical_clause[kwargs2-support-mode compatibility (rectangle): min_sigma and max_sigma must both be supplied or both omitted; got min_sigma=None, max_sigma=1.0. Omitting both leaves the sigmax_2 prior unchanged.]
+FAILED tests/test_numerical_config.py::test_sigma_mode_invariants_render_the_canonical_clause[kwargs5-support-mode compatibility (polygon): min_sigma is required and has no default; supply an explicit finite positive min_sigma in domain-coordinate units.]
+FAILED tests/test_phase3d_excitation_support.py::test_polygon_mode_requires_min_sigma_and_defaults_max_sigma
+12 failed, 7 passed in 39.49s
+EXIT:1

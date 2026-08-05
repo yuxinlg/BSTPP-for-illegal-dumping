@@ -21,6 +21,10 @@ from pyproj.crs import CRS
 from shapely.geometry import Polygon
 from shapely.geometry import box as shapely_box
 
+from bstpp.config import (
+    NumericalConfigError,
+    polygon_min_sigma_invariant_clause,
+)
 from bstpp.excitation_support import (
     TruncatedLogNormal,
     metres_to_crs_units,
@@ -97,9 +101,17 @@ def test_metres_to_crs_units_does_not_assume_metres():
 
 def test_polygon_mode_requires_min_sigma_and_defaults_max_sigma():
     crs = CRS.from_epsg(26918)
-    with pytest.raises(ValueError, match="min_sigma"):
+    # A-27 / D-40: this was `pytest.raises(ValueError, match="min_sigma")`,
+    # which discriminated nothing -- NumericalConfigError subclasses
+    # ValueError and "min_sigma" appears in every candidate message, so it
+    # passed identically before and after the identity unification. It now
+    # pins the type exactly and the canonical clause by equality.
+    with pytest.raises(NumericalConfigError) as ei:
         resolve_sigma_bounds(mode="polygon", min_sigma=None, max_sigma=None,
                              crs=crs)
+    assert type(ei.value) is NumericalConfigError
+    assert str(ei.value) == polygon_min_sigma_invariant_clause()
+    str(ei.value).encode("ascii")  # D-40: raised messages are ASCII
     lo, hi, meta = resolve_sigma_bounds(
         mode="polygon", min_sigma=10.0, max_sigma=None, crs=crs)
     assert lo == 10.0

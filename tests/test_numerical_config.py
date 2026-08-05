@@ -14,7 +14,12 @@ import pytest
 from bstpp.config import (
     NumericalConfig,
     NumericalConfigError,
+    min_sigma_positive_invariant_clause,
     panel_ratio_invariant_clause,
+    polygon_min_sigma_invariant_clause,
+    rectangle_bounds_invariant_clause,
+    sigma_order_invariant_clause,
+    support_mode_invariant_clause,
 )
 from bstpp.cutoffs import DEFAULT_SPATIAL_TOL, DEFAULT_TEMPORAL_TOL
 from bstpp.polygon_mass import (
@@ -93,21 +98,6 @@ def test_immutable_after_construction():
         ({"default_temporal_tol": 0.0}, "default_temporal_tol"),
         ({"default_spatial_tol": 1.0}, "default_spatial_tol"),
         ({"default_temporal_tol": "0.01"}, "default_temporal_tol|real number|str"),
-        ({"support_mode": "hexagon"}, "support_mode"),  # type: ignore[arg-type]
-        (
-            {"support_mode": "rectangle", "min_sigma": 1.0},
-            "rectangle|both",
-        ),
-        (
-            {"support_mode": "rectangle", "min_sigma": 5.0, "max_sigma": 1.0},
-            # A-26 / D-40: raised messages are ASCII; the former alternative
-            # spelled the sigma-bound clause with a literal U+03C3.
-            "min_sigma < max_sigma|sigma-bound",
-        ),
-        (
-            {"support_mode": "polygon"},
-            "polygon|min_sigma",
-        ),
         (
             {
                 "support_mode": "polygon",
@@ -117,16 +107,81 @@ def test_immutable_after_construction():
             },
             "panel_h_m / min_sigma|max_panel_to_min_sigma_ratio",
         ),
-        (
-            {"support_mode": "polygon", "min_sigma": "0.05", "max_sigma": 5.0,
-             "panel_h_m": 0.2},
-            "min_sigma|real number|str",
-        ),
     ],
 )
 def test_invalid_configs_raise_named_error(kwargs, match):
     with pytest.raises(NumericalConfigError, match=match):
         NumericalConfig.create(**kwargs)
+
+
+# A-27 / D-40 σ-mode refinement. The five σ/mode rows used to live in the
+# alternation table above, matching "rectangle|both", "polygon|min_sigma",
+# "min_sigma < max_sigma|sigma-bound" and "support_mode". Every one of those
+# alternations passed both before and after the identity unification, so they
+# asserted nothing about the property they were named for -- the same finding
+# e-1 made about the panel-ratio tests. They now pin the canonical clause by
+# equality, so a site that restates the invariant fails here.
+
+@pytest.mark.parametrize(
+    "kwargs,expected",
+    [
+        (
+            {"support_mode": "hexagon"},  # type: ignore[arg-type]
+            support_mode_invariant_clause(support_mode="hexagon"),
+        ),
+        (
+            {"support_mode": "rectangle", "min_sigma": 1.0},
+            rectangle_bounds_invariant_clause(min_sigma=1.0, max_sigma=None),
+        ),
+        (
+            {"support_mode": "rectangle", "max_sigma": 1.0},
+            rectangle_bounds_invariant_clause(min_sigma=None, max_sigma=1.0),
+        ),
+        (
+            {"support_mode": "rectangle", "min_sigma": 5.0, "max_sigma": 1.0},
+            sigma_order_invariant_clause(min_sigma=5.0, max_sigma=1.0),
+        ),
+        (
+            {"support_mode": "rectangle", "min_sigma": 0.0, "max_sigma": 1.0},
+            min_sigma_positive_invariant_clause(min_sigma=0.0),
+        ),
+        (
+            {"support_mode": "polygon"},
+            polygon_min_sigma_invariant_clause(),
+        ),
+        (
+            {"support_mode": "polygon", "min_sigma": 0.0, "max_sigma": 5.0,
+             "panel_h_m": 0.2},
+            min_sigma_positive_invariant_clause(min_sigma=0.0),
+        ),
+        (
+            {"support_mode": "polygon", "min_sigma": 5.0, "max_sigma": 1.0,
+             "panel_h_m": 0.2},
+            sigma_order_invariant_clause(min_sigma=5.0, max_sigma=1.0),
+        ),
+        # Polygon with max_sigma omitted: the config accepts a None upper
+        # bound (it is handed a resolved pair in production and never sees
+        # this), but min_sigma positivity still applies. See the Lane B row
+        # test_lane_b_polygon_default_max_sigma_without_crs_is_rejected.
+        (
+            {"support_mode": "polygon", "min_sigma": 0.0, "panel_h_m": 0.2},
+            min_sigma_positive_invariant_clause(min_sigma=0.0),
+        ),
+        # A-23 argument-type discipline, not one of the five (OP-20): pinned by
+        # equality here for the same reason.
+        (
+            {"support_mode": "polygon", "min_sigma": "0.05", "max_sigma": 5.0,
+             "panel_h_m": 0.2},
+            "min_sigma must be a real number (int or float; bool and str "
+            "rejected); got '0.05' (str)",
+        ),
+    ],
+)
+def test_sigma_mode_invariants_render_the_canonical_clause(kwargs, expected):
+    with pytest.raises(NumericalConfigError) as ei:
+        NumericalConfig.create(**kwargs)
+    assert str(ei.value) == expected
+    str(ei.value).encode("ascii")  # D-40: raised messages are ASCII
 
 
 def test_panel_ratio_clause_is_ascii_and_single_sourced():
