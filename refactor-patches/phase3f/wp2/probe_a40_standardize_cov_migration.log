@@ -1,0 +1,45 @@
+PROBE_PROVENANCE
+  repo           : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor
+  bstpp.__file__ : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+
+REPRESENTATIVE FIT
+  park domain          : tacony_box (1 row)
+  covariate layer      : cov_cbg.geojson, 1338 block groups
+  covariate columns    : 12
+  events in domain     : 4587 (5 dropped: in the covariate gap, legacy raises on them)
+  horizon (days)       : 1694.0
+
+(1) DESIGN-MATRIX GAP -- neither spelling raises
+  column                uw_mean      dw_mean     uw_scale     dw_scale  centre_shift_sd
+  pop_density              8603         6110         5921         5255          -0.4209
+  med_inc_avg         5.187e+04    4.011e+04    3.981e+04    3.427e+04          -0.2952
+  lep_density         1.057e+04         5995         8014         5250          -0.5709
+  edu_hs_avg              0.348       0.4224       0.2053       0.1752           0.3626
+  ndvi_mean_4yr          0.3305       0.3942       0.1348       0.1329           0.4730
+  RLD                 3.359e+04    2.329e+04    9.102e+04    2.951e+04          -0.1131
+  RMD                 3.623e+04    4.453e+04    2.899e+04    2.895e+04           0.2862
+  RHD                 1.053e+04         9806    2.464e+04    2.027e+04          -0.0292
+  I                   2.659e+04    7.979e+04    1.235e+05     1.51e+05           0.4307
+  T                   1.567e+05    1.939e+05    2.655e+05     2.98e+05           0.1401
+  GW                      814.1         2028         7868         5030           0.1543
+  vac_area                785.8        87.88         2814        379.4          -0.2481
+
+  max |X_domain_area - X_unweighted|          : 86.7207
+  mean |X_domain_area - X_unweighted|         : 0.542216
+  max |centre shift| in unweighted SDs        : 0.570853
+  scale ratio dw/uw, min .. max               : 0.134861 .. 1.22288
+  ALLCLOSE(rtol=1e-3)                         : False
+
+(2) CONSEQUENCE FOR A COMPUTED VALUE -- loglik at identical latents
+  substituted sites : ['a_0', 'alpha', 'beta', 'sigmax_2', 'w']
+  loglik | standardize_cov='domain_area' (refactor) : 16685.111328125
+  loglik | standardize_cov=True         (main)      : 18259.642578125
+  absolute difference                               : 1574.53
+  relative difference                               : 0.0943674
+
+MIGRATION NOTE. Both spellings mean 'standardize'. On this fit they
+differ by the figures above and NEITHER RAISES. A number produced
+under one spelling is not comparable with a number produced under the
+other; re-derive, do not re-label.
+EXIT:0
+EXIT:0

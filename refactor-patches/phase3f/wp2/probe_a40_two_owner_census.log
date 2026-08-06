@@ -1,0 +1,67 @@
+PROBE_PROVENANCE
+  repo           : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor
+  bstpp.__file__ : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+  sources parsed : 15 files under bstpp/
+
+POPULATION (the denominator)
+  landed frozen config objects : 1  (NumericalConfig)
+  fields, read from the class  : 11
+  ['panel_h_m', 'gl_order', 'default_temporal_tol', 'default_spatial_tol', 'production_tau_abs', 'budget_reference_gl_order', 'budget_reference_oracle_bound', 'max_panel_to_min_sigma_ratio', 'support_mode', 'min_sigma', 'max_sigma']
+  not landed, contributing 0   : ModelConfig, PriorConfig (WP2); WP5 objects
+
+CENSUS
+  field                            2nd owner reconciled  verdict  other bindings / reads
+  panel_h_m                        DEFAULT_P -           LIVE     polygon_mass.py:910 build_quad_table(h_panel=); polygon_mass.py:1054 prepare_polygon_mass_table(panel_h_m=); polygon_mass.py:1063 in prepare_polygon_mass_table(); polygon_mass.py:917 in build_quad_table()
+  gl_order                         DEFAULT_G -           LIVE     polygon_mass.py:910 build_quad_table(gl_order=); polygon_mass.py:1054 prepare_polygon_mass_table(gl_order=); polygon_mass.py:1064 in prepare_polygon_mass_table(); polygon_mass.py:918 in build_quad_table()
+  default_temporal_tol             DEFAULT_T -           LATENT   cutoffs.py:177 field default_temporal_tol=
+  default_spatial_tol              DEFAULT_S -           LATENT   cutoffs.py:178 field default_spatial_tol=
+  production_tau_abs               PRODUCTIO config.py:4 RECONC.  polygon_mass.py:68 alias TAU_ABS=; excitation_support.py:439 in build_excitation_support(); polygon_mass.py:1127 in prepare_polygon_mass_table(); polygon_mass.py:567 in _budget_policy()
+  budget_reference_gl_order        BUDGET_RE config.py:4 RECONC.  excitation_support.py:437 in build_excitation_support(); polygon_mass.py:568 in _budget_policy()
+  budget_reference_oracle_bound    BUDGET_RE config.py:4 RECONC.  excitation_support.py:438 in build_excitation_support(); polygon_mass.py:569 in _budget_policy()
+  max_panel_to_min_sigma_ratio     MAX_PANEL -           LATENT   polygon_mass.py:1120 in prepare_polygon_mass_table(); polygon_mass.py:1126 in prepare_polygon_mass_table(); polygon_mass.py:1131 in prepare_polygon_mass_table(); polygon_mass.py:570 in _budget_policy()
+  support_mode                     no        -           SINGLE   (default is a literal or None)
+  min_sigma                        no        -           SINGLE   (default is a literal or None)
+  max_sigma                        no        -           SINGLE   (default is a literal or None)
+
+  per-field detail for the members
+    panel_h_m
+      second owner        : DEFAULT_PANEL_H_M
+      other bindings      : ['polygon_mass.py:910 build_quad_table(h_panel=)', 'polygon_mass.py:1054 prepare_polygon_mass_table(panel_h_m=)']
+      executable reads    : ['polygon_mass.py:1063 in prepare_polygon_mass_table()', 'polygon_mass.py:917 in build_quad_table()']
+      create() sites      : [('main.py:2065', 'OTHER'), ('main.py:2303', 'OTHER')]
+    gl_order
+      second owner        : DEFAULT_GL_ORDER
+      other bindings      : ['polygon_mass.py:910 build_quad_table(gl_order=)', 'polygon_mass.py:1054 prepare_polygon_mass_table(gl_order=)']
+      executable reads    : ['polygon_mass.py:1064 in prepare_polygon_mass_table()', 'polygon_mass.py:918 in build_quad_table()']
+      create() sites      : [('main.py:2065', 'OTHER'), ('main.py:2303', 'OTHER')]
+    default_temporal_tol
+      second owner        : DEFAULT_TEMPORAL_TOL
+      other bindings      : ['cutoffs.py:177 field default_temporal_tol=']
+      executable reads    : ['(none)']
+      create() sites      : [('main.py:2303', 'SELF')]
+    default_spatial_tol
+      second owner        : DEFAULT_SPATIAL_TOL
+      other bindings      : ['cutoffs.py:178 field default_spatial_tol=']
+      executable reads    : ['(none)']
+      create() sites      : [('main.py:2303', 'SELF')]
+    max_panel_to_min_sigma_ratio
+      second owner        : MAX_PANEL_TO_MIN_SIGMA_RATIO
+      other bindings      : ['(none)']
+      executable reads    : ['polygon_mass.py:1120 in prepare_polygon_mass_table()', 'polygon_mass.py:1126 in prepare_polygon_mass_table()', 'polygon_mass.py:1131 in prepare_polygon_mass_table()', 'polygon_mass.py:570 in _budget_policy()']
+      create() sites      : (never passed)
+
+TOTALS
+  denominator (fields of landed config objects) : 11
+  SINGLE   (no second owner)                    : 3
+  RECONCILED (code compares and raises)         : 3
+  TWO-OWNER CLASS MEMBERS                       : 5
+    of which LIVE   (owners can disagree today) : 2  ['panel_h_m', 'gl_order']
+    of which LATENT (cannot yet disagree)       : 3  ['default_temporal_tol', 'default_spatial_tol', 'max_panel_to_min_sigma_ratio']
+
+  cross-check against the register's named instances:
+    OP-19 (held-out budget policy) covers  : panel_h_m, gl_order
+    OP-26 (CutoffProvenance tolerances)    : default_temporal_tol, default_spatial_tol
+    named instances inside the census      : True
+    census members NOT already named       : ['max_panel_to_min_sigma_ratio']
+EXIT:0
+EXIT:0

@@ -122,6 +122,56 @@ def test_drift_exits_nonzero_and_still_prints_provenance(tmp_path):
     assert "moved_pins.json" in _verdict_line(out)
 
 
+def test_stale_candidate_beside_a_real_drift_is_readable_from_the_capture(
+        tmp_path):
+    """A-40: THE FINE ROW -- it fails for a reason other than "no instrument".
+
+    The five rows above all go red at 8cf19fb for one coarse reason, the file
+    not existing, which A-38 recorded as weak evidence. This row is red under
+    a MINIMAL revert instead: the instrument PRESENT, the canonical baseline
+    PRESENT, a stale candidate path, and values that GENUINELY DIFFER -- the
+    exact A-37 situation, with the one ingredient the real corpus has never
+    had. Nothing about it needs the file to be absent, so a capture holding
+    both states discriminates wrong-file from no-file.
+
+    What it requires is precisely the self-describing verdict: reading the
+    stale file yields a legitimate ``PIN_DIFFS 0 MATCH`` (that candidate
+    really does equal the baseline), while the file that should have been
+    read reports DRIFT. No instrument can stop the operator typing the wrong
+    path. The capture must let a LATER READER see which was typed.
+    """
+    with open(CANONICAL, encoding="utf-8-sig") as fh:
+        payload = json.load(fh)
+    cfg = sorted(payload)[0]
+    drifted = json.loads(json.dumps(payload))
+    drifted[cfg]["loglik"] = "-1.0"                  # pins store repr() strings
+
+    right = tmp_path / "_a40_right_candidate.json"   # what should be compared
+    stale = tmp_path / "_a40_stale_candidate.json"   # last amendment's path
+    right.write_text(json.dumps(drifted, indent=0, sort_keys=True),
+                     encoding="utf-8")
+    stale.write_text(json.dumps(payload, indent=0, sort_keys=True),
+                     encoding="utf-8")
+    assert hashlib.sha256(right.read_bytes()).digest() != \
+        hashlib.sha256(stale.read_bytes()).digest(), "the fixture proves nothing"
+
+    code_stale, out_stale = _run(str(stale))
+    code_right, out_right = _run(str(right))
+
+    # The regression is real and the wrong file conceals it.
+    assert (code_stale, code_right) == (0, 1)
+    assert _verdict_line(out_stale).startswith("PIN_DIFFS 0 MATCH")
+    assert _verdict_line(out_right).startswith("PIN_DIFFS 1 DRIFT")
+
+    # THE REQUIREMENT: the concealing capture identifies the file it read, by
+    # name AND by content hash, so the mistake is visible after the fact.
+    stale_line = _verdict_line(out_stale)
+    assert "_a40_stale_candidate.json" in stale_line
+    assert hashlib.sha256(stale.read_bytes()).hexdigest()[:12] in stale_line
+    assert "_a40_right_candidate.json" not in stale_line
+    assert str(stale) in out_stale, "the provenance block must give the path"
+
+
 def test_missing_file_is_an_error_not_a_silent_match(tmp_path):
     code, out = _run(str(tmp_path / "does_not_exist.json"))
     assert code == 1

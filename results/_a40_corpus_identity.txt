@@ -1,0 +1,16 @@
+PIN_CORPUS_IDENTITY
+  pattern                        : results/*pins*candidate*.json
+  candidates on disk             : 31
+  candidates tracked by git      : 18
+  tracked but not on disk        : none (population is a superset)
+  (the on-disk set is the population: superset of the tracked set,
+   so the identity claim over it is the stronger one)
+  baseline                       : pins.json
+  baseline canonical hash        : 2905490ca3f7afea
+  DISTINCT_CANONICAL_HASHES      : 1
+    2905490ca3f7afea  == BASELINE  n=31
+  IDENTITY_HOLDS                 : True
+  A-38's retroactive rescue of the 24 historical PIN_DIFFS 0
+  claims still stands: one content group, so the candidate-side
+  ambiguity could not have changed a verdict.
+EXIT:0

@@ -33,6 +33,11 @@ ALLOWED = {
         "as above.",
     "refactor-patches/test_sbc_smoke_v3.py":
         "as above.",
+    "Illegal-Dumping/replication/README.md":
+        "A-40: a path in yuxinlg/Illegal-Dumping, a DIFFERENT repository. Cited to "
+        "flag a defect that is theirs to fix (the README installs from this fork's "
+        "URL while 03_analysis.py requires a module that URL does not supply). It "
+        "can never be tracked here, and naming the file is the point of the flag.",
 }
 
 PATH_RE = re.compile(

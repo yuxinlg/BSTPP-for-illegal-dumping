@@ -1,0 +1,505 @@
+A-40 RED CAPTURE -- two pre-change states, so the capture discriminates
+wrong-file from no-file.
+
+D-41 clause 1 requires a demonstrated RED; clause 2 requires the revert to
+be MINIMAL. A-38's capture satisfied clause 1 with one coarse revert (the
+instrument deleted) and recorded itself as weak: all five rows failed for
+the same reason, the file not existing. This capture adds the fine state.
+
+  STATE A  instrument ABSENT              -- A-38's revert, reproduced
+  STATE B  instrument PRESENT, verdict not self-describing (MINIMAL)
+
+STATE B is the sharp one. pin_compare.py exists, argparse works, the
+canonical baseline is found, the walker is untouched, exit codes are
+untouched. The ONLY thing removed is what the rows are meant to detect:
+the PIN_PROVENANCE block and the candidate/baseline names and hashes in
+the verdict line. Under it the new A-40 row fails with a genuinely
+drifting candidate beside a stale one -- values differing, instrument
+present, and the capture unable to say which file was read.
+
+Machine-local, this repo, run 2026-08-06T08:53:51Z.
+git rev-parse --short HEAD: 3a9eafb
+python: 3.12.13
+
+================================================================
+BASELINE -- BOTH FILES PRESENT AND UNMODIFIED (the GREEN reference)
+================================================================
+..........                                                               [100%]
+10 passed in 2.30s
+PYTEST_EXIT:0
+
+================================================================
+STATE B -- MINIMAL REVERT: instrument PRESENT, verdict not self-describing
+================================================================
+diff of the revert (only the reporting is removed):
+warning: in the working copy of 'refactor-patches/pin_compare.py', LF will be replaced by CRLF the next time Git touches it
+ refactor-patches/pin_compare.py | 25 ++++++-------------------
+ 1 file changed, 6 insertions(+), 19 deletions(-)
+warning: in the working copy of 'refactor-patches/pin_compare.py', LF will be replaced by CRLF the next time Git touches it
+diff --git a/refactor-patches/pin_compare.py b/refactor-patches/pin_compare.py
+index d0befe4..d941d41 100644
+--- a/refactor-patches/pin_compare.py
++++ b/refactor-patches/pin_compare.py
+@@ -117,26 +117,13 @@ def main(argv: list[str] | None = None) -> int:
+     for line in lines:
+         print(line)
+ 
+-    # The provenance block. Printed on EVERY run, MATCH or DRIFT -- a block
+-    # that appeared only on failure would make "not printed" and "not run"
+-    # the same observable, which is the A-35 lesson about the hazard section.
+-    print()
+-    print("PIN_PROVENANCE")
+-    print(f"  candidate : {cand_path}")
+-    print(f"  candidate_sha256 : {sha256_of(cand_path)}")
+-    print(f"  baseline  : {base_path}")
+-    print(f"  baseline_sha256  : {sha256_of(base_path)}")
+-    print(f"  baseline_source  : "
+-          f"{'CANONICAL' if canonical else 'NON-CANONICAL (--baseline given)'}")
+-    if not canonical:
+-        print(f"  canonical_would_be : {CANONICAL_BASELINE}")
+-    print()
+-
++    # ===== A-40 RED, MINIMAL REVERT (temporary; restored after capture) =====
++    # Removed: the PIN_PROVENANCE block and the self-describing suffix on the
++    # verdict line. Everything else -- argparse, the canonical-baseline
++    # default, the walker, the exit codes -- is untouched, so a row that fails
++    # here fails for the ABSENCE OF SELF-DESCRIPTION and nothing else.
+     verdict = "MATCH" if not diffs else "DRIFT"
+-    print(f"PIN_DIFFS {len(diffs)} {verdict} "
+-          f"candidate={cand_path.name}:{sha256_of(cand_path)[:12]} "
+-          f"baseline={base_path.name}:{sha256_of(base_path)[:12]} "
+-          f"{'canonical' if canonical else 'NON-CANONICAL'}")
++    print(f"PIN_DIFFS {len(diffs)} {verdict}")
+     for d in diffs[:20]:
+         print(d)
+     return 0 if not diffs else 1
+
+-- the instrument still runs, and still gets the arithmetic right --
+cox_hawkes: MATCH
+hawkes: MATCH
+hawkes_nonsquare_4to1: MATCH
+lgcp: MATCH
+PIN_DIFFS 0 MATCH
+PIN_COMPARE_EXIT:0
+
+-- the rows, under STATE B --
+FFFFF.                                                                   [100%]
+================================== FAILURES ===================================
+________ test_match_against_canonical_names_the_files_and_their_hashes ________
+
+    def test_match_against_canonical_names_the_files_and_their_hashes():
+        code, out = _run(CANONICAL)
+        assert code == 0
+        line = _verdict_line(out)
+        assert line.startswith("PIN_DIFFS 0 MATCH")
+>       assert "canonical" in line
+E       AssertionError: assert 'canonical' in 'PIN_DIFFS 0 MATCH'
+
+tests\test_pin_compare_provenance.py:64: AssertionError
+___________ test_match_against_a_wrong_baseline_is_distinguishable ____________
+
+twin_baselines = WindowsPath('C:/Users/Terhi/AppData/Local/Temp/pytest-of-Terhi/pytest-118/test_match_against_a_wrong_bas0/decoy_pins.json')
+
+    def test_match_against_a_wrong_baseline_is_distinguishable(twin_baselines):
+        """THE FIRING ROW. Same verdict, different file -- and the output says so.
+    
+        Without the provenance block these two runs are the same six characters.
+        """
+        code_ok, out_ok = _run(CANONICAL)
+        code_bad, out_bad = _run(CANONICAL, "--baseline", str(twin_baselines))
+    
+        # Both are MATCH: the decoy is byte-equivalent content in another file.
+        assert code_ok == 0 and code_bad == 0
+        assert _verdict_line(out_ok).startswith("PIN_DIFFS 0 MATCH")
+        assert _verdict_line(out_bad).startswith("PIN_DIFFS 0 MATCH")
+    
+        # ... and yet the two verdict lines differ. That is the whole requirement.
+>       assert _verdict_line(out_ok) != _verdict_line(out_bad), (
+            "a MATCH against a non-canonical baseline is indistinguishable from a "
+            "MATCH against the canonical one -- this is the A-37 defect")
+E       AssertionError: a MATCH against a non-canonical baseline is indistinguishable from a MATCH against the canonical one -- this is the A-37 defect
+E       assert 'PIN_DIFFS 0 MATCH' != 'PIN_DIFFS 0 MATCH'
+E        +  where 'PIN_DIFFS 0 MATCH' = _verdict_line('cox_hawkes: MATCH\nhawkes: MATCH\nhawkes_nonsquare_4to1: MATCH\nlgcp: MATCH\nPIN_DIFFS 0 MATCH\n')
+E        +  and   'PIN_DIFFS 0 MATCH' = _verdict_line('cox_hawkes: MATCH\nhawkes: MATCH\nhawkes_nonsquare_4to1: MATCH\nlgcp: MATCH\nPIN_DIFFS 0 MATCH\n')
+
+tests\test_pin_compare_provenance.py:87: AssertionError
+___________ test_candidate_side_is_identified_not_only_the_baseline ___________
+
+twin_baselines = WindowsPath('C:/Users/Terhi/AppData/Local/Temp/pytest-of-Terhi/pytest-118/test_candidate_side_is_identif0/decoy_pins.json')
+
+    def test_candidate_side_is_identified_not_only_the_baseline(twin_baselines):
+        """A-37's stale read was of a CANDIDATE path, so that side must speak too.
+    
+        Two runs sharing one baseline and differing only in candidate must have
+        different verdict lines.
+        """
+        _, out_a = _run(CANONICAL)
+        _, out_b = _run(str(twin_baselines))
+>       assert _verdict_line(out_a) != _verdict_line(out_b)
+E       AssertionError: assert 'PIN_DIFFS 0 MATCH' != 'PIN_DIFFS 0 MATCH'
+E        +  where 'PIN_DIFFS 0 MATCH' = _verdict_line('cox_hawkes: MATCH\nhawkes: MATCH\nhawkes_nonsquare_4to1: MATCH\nlgcp: MATCH\nPIN_DIFFS 0 MATCH\n')
+E        +  and   'PIN_DIFFS 0 MATCH' = _verdict_line('cox_hawkes: MATCH\nhawkes: MATCH\nhawkes_nonsquare_4to1: MATCH\nlgcp: MATCH\nPIN_DIFFS 0 MATCH\n')
+
+tests\test_pin_compare_provenance.py:103: AssertionError
+____________ test_drift_exits_nonzero_and_still_prints_provenance _____________
+
+tmp_path = WindowsPath('C:/Users/Terhi/AppData/Local/Temp/pytest-of-Terhi/pytest-118/test_drift_exits_nonzero_and_s0')
+
+    def test_drift_exits_nonzero_and_still_prints_provenance(tmp_path):
+        """A capture records the comparison's own status (D-41), and a DRIFT is
+        as much in need of provenance as a MATCH."""
+        with open(CANONICAL, encoding="utf-8-sig") as fh:
+            payload = json.load(fh)
+        cfg = sorted(payload)[0]
+        payload[cfg]["loglik"] = "0.0"  # pins store repr() strings
+        moved = tmp_path / "moved_pins.json"
+        moved.write_text(json.dumps(payload, indent=0, sort_keys=True),
+                         encoding="utf-8")
+    
+        code, out = _run(str(moved))
+        assert code == 1, "DRIFT must not exit 0"
+        assert _verdict_line(out).startswith("PIN_DIFFS 1 DRIFT")
+>       assert "PIN_PROVENANCE" in out
+E       assert 'PIN_PROVENANCE' in "cox_hawkes: DRIFT\nhawkes: MATCH\nhawkes_nonsquare_4to1: MATCH\nlgcp: MATCH\nPIN_DIFFS 1 DRIFT\n('cox_hawkes.loglik', '0.0', '-2534.9873046875')\n"
+
+tests\test_pin_compare_provenance.py:121: AssertionError
+____ test_stale_candidate_beside_a_real_drift_is_readable_from_the_capture ____
+
+tmp_path = WindowsPath('C:/Users/Terhi/AppData/Local/Temp/pytest-of-Terhi/pytest-118/test_stale_candidate_beside_a_0')
+
+    def test_stale_candidate_beside_a_real_drift_is_readable_from_the_capture(
+            tmp_path):
+        """A-40: THE FINE ROW -- it fails for a reason other than "no instrument".
+    
+        The five rows above all go red at 8cf19fb for one coarse reason, the file
+        not existing, which A-38 recorded as weak evidence. This row is red under
+        a MINIMAL revert instead: the instrument PRESENT, the canonical baseline
+        PRESENT, a stale candidate path, and values that GENUINELY DIFFER -- the
+        exact A-37 situation, with the one ingredient the real corpus has never
+        had. Nothing about it needs the file to be absent, so a capture holding
+        both states discriminates wrong-file from no-file.
+    
+        What it requires is precisely the self-describing verdict: reading the
+        stale file yields a legitimate ``PIN_DIFFS 0 MATCH`` (that candidate
+        really does equal the baseline), while the file that should have been
+        read reports DRIFT. No instrument can stop the operator typing the wrong
+        path. The capture must let a LATER READER see which was typed.
+        """
+        with open(CANONICAL, encoding="utf-8-sig") as fh:
+            payload = json.load(fh)
+        cfg = sorted(payload)[0]
+        drifted = json.loads(json.dumps(payload))
+        drifted[cfg]["loglik"] = "-1.0"                  # pins store repr() strings
+    
+        right = tmp_path / "_a40_right_candidate.json"   # what should be compared
+        stale = tmp_path / "_a40_stale_candidate.json"   # last amendment's path
+        right.write_text(json.dumps(drifted, indent=0, sort_keys=True),
+                         encoding="utf-8")
+        stale.write_text(json.dumps(payload, indent=0, sort_keys=True),
+                         encoding="utf-8")
+        assert hashlib.sha256(right.read_bytes()).digest() != \
+            hashlib.sha256(stale.read_bytes()).digest(), "the fixture proves nothing"
+    
+        code_stale, out_stale = _run(str(stale))
+        code_right, out_right = _run(str(right))
+    
+        # The regression is real and the wrong file conceals it.
+        assert (code_stale, code_right) == (0, 1)
+        assert _verdict_line(out_stale).startswith("PIN_DIFFS 0 MATCH")
+        assert _verdict_line(out_right).startswith("PIN_DIFFS 1 DRIFT")
+    
+        # THE REQUIREMENT: the concealing capture identifies the file it read, by
+        # name AND by content hash, so the mistake is visible after the fact.
+        stale_line = _verdict_line(out_stale)
+>       assert "_a40_stale_candidate.json" in stale_line
+E       AssertionError: assert '_a40_stale_candidate.json' in 'PIN_DIFFS 0 MATCH'
+
+tests\test_pin_compare_provenance.py:169: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_pin_compare_provenance.py::test_match_against_canonical_names_the_files_and_their_hashes
+FAILED tests/test_pin_compare_provenance.py::test_match_against_a_wrong_baseline_is_distinguishable
+FAILED tests/test_pin_compare_provenance.py::test_candidate_side_is_identified_not_only_the_baseline
+FAILED tests/test_pin_compare_provenance.py::test_drift_exits_nonzero_and_still_prints_provenance
+FAILED tests/test_pin_compare_provenance.py::test_stale_candidate_beside_a_real_drift_is_readable_from_the_capture
+5 failed, 1 passed in 1.55s
+PYTEST_EXIT:1
+
+STATE B READING. 5 failed, 1 passed, PYTEST_EXIT:1. The one that PASSES
+is test_missing_file_is_an_error_not_a_silent_match, which needs only the
+existence check -- evidence that the revert is targeted and not a
+sledgehammer. The new row fails on
+  assert '_a40_stale_candidate.json' in 'PIN_DIFFS 0 MATCH'
+with BOTH candidates written, values genuinely differing, the comparator
+running, and the arithmetic right (PIN_DIFFS 0 MATCH for the stale file,
+PIN_DIFFS 1 DRIFT for the right one, exits 0 and 1). Nothing about that
+failure is 'the file is missing'.
+
+================================================================
+STATE A -- INSTRUMENT ABSENT (A-38's coarse revert, reproduced, plus the
+new corpus gate, whose minimal revert IS its absence: it is a new
+instrument, so there is no weaker state to remove)
+================================================================
+ls refactor-patches/pin_compare.py refactor-patches/pin_corpus_identity.py
+ls: cannot access 'refactor-patches/pin_compare.py': No such file or directory
+ls: cannot access 'refactor-patches/pin_corpus_identity.py': No such file or directory
+FFFFFFFFFF                                                               [100%]
+================================== FAILURES ===================================
+________ test_match_against_canonical_names_the_files_and_their_hashes ________
+
+    def test_match_against_canonical_names_the_files_and_their_hashes():
+        code, out = _run(CANONICAL)
+>       assert code == 0
+E       assert 2 == 0
+
+tests\test_pin_compare_provenance.py:61: AssertionError
+___________ test_match_against_a_wrong_baseline_is_distinguishable ____________
+
+twin_baselines = WindowsPath('C:/Users/Terhi/AppData/Local/Temp/pytest-of-Terhi/pytest-119/test_match_against_a_wrong_bas0/decoy_pins.json')
+
+    def test_match_against_a_wrong_baseline_is_distinguishable(twin_baselines):
+        """THE FIRING ROW. Same verdict, different file -- and the output says so.
+    
+        Without the provenance block these two runs are the same six characters.
+        """
+        code_ok, out_ok = _run(CANONICAL)
+        code_bad, out_bad = _run(CANONICAL, "--baseline", str(twin_baselines))
+    
+        # Both are MATCH: the decoy is byte-equivalent content in another file.
+>       assert code_ok == 0 and code_bad == 0
+E       assert (2 == 0)
+
+tests\test_pin_compare_provenance.py:82: AssertionError
+___________ test_candidate_side_is_identified_not_only_the_baseline ___________
+
+twin_baselines = WindowsPath('C:/Users/Terhi/AppData/Local/Temp/pytest-of-Terhi/pytest-119/test_candidate_side_is_identif0/decoy_pins.json')
+
+    def test_candidate_side_is_identified_not_only_the_baseline(twin_baselines):
+        """A-37's stale read was of a CANDIDATE path, so that side must speak too.
+    
+        Two runs sharing one baseline and differing only in candidate must have
+        different verdict lines.
+        """
+        _, out_a = _run(CANONICAL)
+        _, out_b = _run(str(twin_baselines))
+>       assert _verdict_line(out_a) != _verdict_line(out_b)
+               ^^^^^^^^^^^^^^^^^^^^
+
+tests\test_pin_compare_provenance.py:103: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+out = ''
+
+    def _verdict_line(out):
+        for line in out.splitlines():
+            if line.startswith("PIN_DIFFS "):
+                return line
+>       raise AssertionError(f"no PIN_DIFFS line in output:\n{out}")
+E       AssertionError: no PIN_DIFFS line in output:
+
+tests\test_pin_compare_provenance.py:40: AssertionError
+____________ test_drift_exits_nonzero_and_still_prints_provenance _____________
+
+tmp_path = WindowsPath('C:/Users/Terhi/AppData/Local/Temp/pytest-of-Terhi/pytest-119/test_drift_exits_nonzero_and_s0')
+
+    def test_drift_exits_nonzero_and_still_prints_provenance(tmp_path):
+        """A capture records the comparison's own status (D-41), and a DRIFT is
+        as much in need of provenance as a MATCH."""
+        with open(CANONICAL, encoding="utf-8-sig") as fh:
+            payload = json.load(fh)
+        cfg = sorted(payload)[0]
+        payload[cfg]["loglik"] = "0.0"  # pins store repr() strings
+        moved = tmp_path / "moved_pins.json"
+        moved.write_text(json.dumps(payload, indent=0, sort_keys=True),
+                         encoding="utf-8")
+    
+        code, out = _run(str(moved))
+>       assert code == 1, "DRIFT must not exit 0"
+E       AssertionError: DRIFT must not exit 0
+E       assert 2 == 1
+
+tests\test_pin_compare_provenance.py:119: AssertionError
+____ test_stale_candidate_beside_a_real_drift_is_readable_from_the_capture ____
+
+tmp_path = WindowsPath('C:/Users/Terhi/AppData/Local/Temp/pytest-of-Terhi/pytest-119/test_stale_candidate_beside_a_0')
+
+    def test_stale_candidate_beside_a_real_drift_is_readable_from_the_capture(
+            tmp_path):
+        """A-40: THE FINE ROW -- it fails for a reason other than "no instrument".
+    
+        The five rows above all go red at 8cf19fb for one coarse reason, the file
+        not existing, which A-38 recorded as weak evidence. This row is red under
+        a MINIMAL revert instead: the instrument PRESENT, the canonical baseline
+        PRESENT, a stale candidate path, and values that GENUINELY DIFFER -- the
+        exact A-37 situation, with the one ingredient the real corpus has never
+        had. Nothing about it needs the file to be absent, so a capture holding
+        both states discriminates wrong-file from no-file.
+    
+        What it requires is precisely the self-describing verdict: reading the
+        stale file yields a legitimate ``PIN_DIFFS 0 MATCH`` (that candidate
+        really does equal the baseline), while the file that should have been
+        read reports DRIFT. No instrument can stop the operator typing the wrong
+        path. The capture must let a LATER READER see which was typed.
+        """
+        with open(CANONICAL, encoding="utf-8-sig") as fh:
+            payload = json.load(fh)
+        cfg = sorted(payload)[0]
+        drifted = json.loads(json.dumps(payload))
+        drifted[cfg]["loglik"] = "-1.0"                  # pins store repr() strings
+    
+        right = tmp_path / "_a40_right_candidate.json"   # what should be compared
+        stale = tmp_path / "_a40_stale_candidate.json"   # last amendment's path
+        right.write_text(json.dumps(drifted, indent=0, sort_keys=True),
+                         encoding="utf-8")
+        stale.write_text(json.dumps(payload, indent=0, sort_keys=True),
+                         encoding="utf-8")
+        assert hashlib.sha256(right.read_bytes()).digest() != \
+            hashlib.sha256(stale.read_bytes()).digest(), "the fixture proves nothing"
+    
+        code_stale, out_stale = _run(str(stale))
+        code_right, out_right = _run(str(right))
+    
+        # The regression is real and the wrong file conceals it.
+>       assert (code_stale, code_right) == (0, 1)
+E       assert (2, 2) == (0, 1)
+E         
+E         At index 0 diff: 2 != 0
+E         Use -v to get more diff
+
+tests\test_pin_compare_provenance.py:162: AssertionError
+______________ test_missing_file_is_an_error_not_a_silent_match _______________
+
+tmp_path = WindowsPath('C:/Users/Terhi/AppData/Local/Temp/pytest-of-Terhi/pytest-119/test_missing_file_is_an_error_0')
+
+    def test_missing_file_is_an_error_not_a_silent_match(tmp_path):
+        code, out = _run(str(tmp_path / "does_not_exist.json"))
+>       assert code == 1
+E       assert 2 == 1
+
+tests\test_pin_compare_provenance.py:177: AssertionError
+___________ test_corpus_is_one_content_group_equal_to_the_baseline ____________
+
+    def test_corpus_is_one_content_group_equal_to_the_baseline():
+        """THE EXPIRY GATE. Red here means the property has lapsed, not that the
+    
+        pins have drifted -- pin_compare.py is what says that.
+        """
+        code, out = _run()
+>       distinct = int(_field(out, "DISTINCT_CANONICAL_HASHES"))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_pin_corpus_identity.py:48: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+out = '', key = 'DISTINCT_CANONICAL_HASHES'
+
+    def _field(out, key):
+        for line in out.splitlines():
+            if line.strip().startswith(key):
+                return line.split(":", 1)[1].strip()
+>       raise AssertionError(f"no {key} line in output:\n{out}")
+E       AssertionError: no DISTINCT_CANONICAL_HASHES line in output:
+
+tests\test_pin_corpus_identity.py:39: AssertionError
+______ test_the_gate_reports_the_distinct_count_whether_or_not_it_passes ______
+
+    def test_the_gate_reports_the_distinct_count_whether_or_not_it_passes():
+        """A gate that printed only on failure would make 'not printed' and 'not
+    
+        run' the same observable (the A-35 lesson). The count is the artifact.
+        """
+        _, out = _run()
+>       assert "DISTINCT_CANONICAL_HASHES" in out
+E       AssertionError: assert 'DISTINCT_CANONICAL_HASHES' in ''
+
+tests\test_pin_corpus_identity.py:66: AssertionError
+______________ test_population_is_a_superset_of_the_tracked_set _______________
+
+    def test_population_is_a_superset_of_the_tracked_set():
+        """The stronger-claim argument depends on this, so it is measured."""
+        _, out = _run()
+>       assert _field(out, "tracked but not on disk").startswith("none")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_pin_corpus_identity.py:77: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+out = '', key = 'tracked but not on disk'
+
+    def _field(out, key):
+        for line in out.splitlines():
+            if line.strip().startswith(key):
+                return line.split(":", 1)[1].strip()
+>       raise AssertionError(f"no {key} line in output:\n{out}")
+E       AssertionError: no tracked but not on disk line in output:
+
+tests\test_pin_corpus_identity.py:39: AssertionError
+_______________ test_a_second_content_group_makes_the_gate_fail _______________
+
+tmp_path = WindowsPath('C:/Users/Terhi/AppData/Local/Temp/pytest-of-Terhi/pytest-119/test_a_second_content_group_ma0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000208E6F03E60>
+
+    def test_a_second_content_group_makes_the_gate_fail(tmp_path, monkeypatch):
+        """The gate must be capable of failing. A tripwire never shown to trip is
+    
+        indistinguishable from an absent one (AGENTS.md: an unreached guard).
+        """
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("_pin_corpus_identity", GATE)
+        mod = importlib.util.module_from_spec(spec)
+>       spec.loader.exec_module(mod)
+
+tests\test_pin_corpus_identity.py:88: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+<frozen importlib._bootstrap_external>:995: in exec_module
+    ???
+<frozen importlib._bootstrap_external>:1132: in get_code
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <_frozen_importlib_external.SourceFileLoader object at 0x00000208E6F03EC0>
+path = 'C:\\Users\\Terhi\\dev\\BSTPP_terhi\\BSTPP-refactor\\refactor-patches\\pin_corpus_identity.py'
+
+>   ???
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\Terhi\\dev\\BSTPP_terhi\\BSTPP-refactor\\refactor-patches\\pin_corpus_identity.py'
+
+<frozen importlib._bootstrap_external>:1190: FileNotFoundError
+=========================== short test summary info ===========================
+FAILED tests/test_pin_compare_provenance.py::test_match_against_canonical_names_the_files_and_their_hashes
+FAILED tests/test_pin_compare_provenance.py::test_match_against_a_wrong_baseline_is_distinguishable
+FAILED tests/test_pin_compare_provenance.py::test_candidate_side_is_identified_not_only_the_baseline
+FAILED tests/test_pin_compare_provenance.py::test_drift_exits_nonzero_and_still_prints_provenance
+FAILED tests/test_pin_compare_provenance.py::test_stale_candidate_beside_a_real_drift_is_readable_from_the_capture
+FAILED tests/test_pin_compare_provenance.py::test_missing_file_is_an_error_not_a_silent_match
+FAILED tests/test_pin_corpus_identity.py::test_corpus_is_one_content_group_equal_to_the_baseline
+FAILED tests/test_pin_corpus_identity.py::test_the_gate_reports_the_distinct_count_whether_or_not_it_passes
+FAILED tests/test_pin_corpus_identity.py::test_population_is_a_superset_of_the_tracked_set
+FAILED tests/test_pin_corpus_identity.py::test_a_second_content_group_makes_the_gate_fail
+10 failed in 1.30s
+PYTEST_EXIT:1
+
+STATE A READING. 10 failed, PYTEST_EXIT:1. Every row fails, including
+test_missing_file_is_an_error_not_a_silent_match, which passed under
+STATE B. THAT DIFFERENCE IS THE POINT OF THIS CAPTURE: no-file fails
+everything indiscriminately, wrong-file-not-nameable fails only what
+depends on self-description. A reader can now tell the two apart, which
+is what A-38's single-state capture could not support.
+
+The four corpus-identity rows fail here for instrument-absent, which is
+COARSE and is recorded as such. Their minimal revert IS absence: the gate
+is a new instrument, so there is no weaker pre-change state to construct.
+The sharp evidence for that gate is instead
+test_a_second_content_group_makes_the_gate_fail, which builds a corpus
+with two content groups -- something the real corpus has never had -- and
+observes the gate return exit 1 on it. Same shape as A-38's constructed
+demonstration, and for the same reason: the data cannot exhibit the
+condition, so the condition is built.
+
+================================================================
+RESTORED -- verification that this capture left nothing behind
+================================================================
+git status --porcelain refactor-patches/pin_compare.py :
+(empty above means byte-identical to HEAD)
+
+..........                                                               [100%]
+10 passed in 2.67s
+PYTEST_EXIT:0
