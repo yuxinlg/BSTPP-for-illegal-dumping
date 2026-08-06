@@ -1,0 +1,11 @@
+PIN_CAPTURE_PROVENANCE
+  repo_under_test  : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor
+  bstpp.__file__   : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+  git_rev          : 6a4d22b
+  tracked_dirty    : 3
+    M AGENTS.md
+     M phase3_record.tex
+     M refactor-patches/phase3f/wp2/wp2_opening_conditions_proposal.md
+  canonical_baseline        : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\refactor-patches\baselines-2026-07\pins.json
+  canonical_baseline_sha256 : f2141fd558704057c87c8c20a3f2b9516c8815f232b6eaafc8f71baa0864e7eb
+  (this script emits no verdict; compare with refactor-patches/pin_compare.py)

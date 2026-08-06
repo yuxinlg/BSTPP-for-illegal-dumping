@@ -142,6 +142,96 @@ gaps, or restructure the plan --- is escalated, not absorbed into another
 round. The cap has no extension clause. A cap with an extension clause is not
 a cap.
 
+## C1 — the list, CLOSED at round seven
+
+Every item has a landed decision or an explicit deferral. **Three items, and
+the list does not grow.**
+
+| # | item | decision state |
+| --- | --- | --- |
+| 1 | **CI-9** | **LANDED (A-39).** The invariant is established: *a config-owned argument drawn from a fixed set of permitted values is validated against that set at construction, independently of whether the leg that consumes it executes.* What is outstanding is its **enforcement**, which is WP2 work, not a decision. |
+| 2 | **D-43 cl.2 — `panel_h_m` sentinel leg** | **LANDED (A-36 established, A-39 reviewed and accepted).** `DEFAULT_PANEL_H_M = 20.0` is metres and needs the domain CRS, which is `ModelData`; it is stored as an explicit sentinel and resolved at bind. |
+| 3 | **D-43 cl.2 — `standardize_cov` bind-time leg** | **LANDED as a *location* decision (A-39).** But see C4: its **classification** is undetermined pending OP-28, and it is left, not classified provisionally. |
+| 4 | **OP-25** | **DEFERRED, explicitly.** Deciding whether D-40's corollary governs text that reaches a console *without being raised* is a decision about the corollary's governance, and A-39's standing rule bars settling it in a bookkeeping pass. The deferral carries content rather than being a shrug: the two candidate answers are (a) widen D-40's corollary to all message-bearing surfaces, which makes the ASCII sweep's population wrong and requires re-deriving 184/184 over a larger denominator, or (b) escape `warnings.warn` at the site and record the asymmetry as deliberate, which is cheaper and leaves the general question open a second time. **Criterion for choosing:** whether any *other* non-raised surface renders a caller-supplied value — if `enforce`'s warning is the only one, (b) is a point fix; if there are others, (a) is the only answer that closes them. That count has not been taken. |
+
+Item 3 is listed separately from item 2 because a single decision asserted
+over both legs is the shape C4's constraint 1 exists to forbid.
+
+## C4 — BP/SC/API classification, per item
+
+**Four rows against the closed C1 list; three classified, one undetermined.**
+No row is classified on inference: where a classification would require
+knowing something not in the repo under test, it says so.
+
+| # | item | class | why |
+| --- | --- | --- | --- |
+| 1 | CI-9 enforcement | **SC / API** | The accepted configuration space narrows. `standardize_cov='nonsense'` with no covariates **constructs silently today** and would raise; `True` likewise. Observable behaviour changes (raise where there was none) *and* the accept set shrinks, so it is both. Not BP, and calling it BP because "nobody passes nonsense" would be classification on inference. |
+| 2 | D-43 cl.2, `panel_h_m` sentinel | **SC** | Resolving metres→CRS units at bind changes the stored `panel_h_m` for any domain whose CRS is not metric — today `create` stores 20.0 unconditionally, so a CRS-less unit-scale domain holds a panel twenty times the domain. Fixing that changes the quadrature panel and therefore the mass table, so **values move**. **And no pin will see it**: all four pinned configurations resolve to rectangle mode, and this quantity only reaches polygon mode (OP-24). A value-moving change with no pin coverage is stated here, not discovered at the commit. |
+| 3 | D-43 cl.2, `standardize_cov` bind-time | **UNDETERMINED — pending OP-28** | If `'domain_area'` is the intended estimator, moving its resolution to bind time is a relocation: same computation, different place, values unchanged. If OP-28 resolves the other way, the remedy is likely to move the standardization **away from the clipped-support site** — and the reason the population is restricted at all is that the site's weights were to hand (A-41). That is *the same edit*, and it is then part of a semantic correction with values moving, not a relocation. **The class depends on an answer that is not in the repo under test.** Left. |
+| 4 | OP-25 | **UNDETERMINED — decision deferred** | Its class follows its decision: answer (a) is **CF** across a widened surface, answer (b) is **CF** at one site plus a **DOC** declaration of the asymmetry. Classifying before the decision would be classifying a change that has not been chosen. |
+
+**Count: 4 rows. Classified 2. Undetermined 2** — one blocked on OP-28, one
+blocked on a deferred decision that C1 records as deferred rather than absent.
+
+### What C4 does not cover, stated where a reader of C4 will see it
+
+**This classification covers the repository under test and nothing else.** In
+particular it makes **no claim about the vendored downstream copy.** Measured
+at A-41 against upstream `f5f1382`:
+`Illegal-Dumping/replication/cox_hawkes_offset.py` reads **44 `args` keys, 33
+of them ours, and 17 of the kind WP2 is named for — including
+`args['priors']`, which is exactly `PriorConfig`'s quantity** (plus `T`, `S`,
+`sp_var_mu`, both trigger handles, the three field-cell counts and all seven
+VAE dimensions). It reads them straight out of `args`, in a file that does not
+follow this repository.
+
+**`bstpp/cox_hawkes_shared.py` — the base class that file subclasses and the
+function it copies — is in no reachable tree.** Every row above is therefore
+a classification of the effect on *this* repository. A row marked BP or SC
+here is **not** a statement that the vendored copy still works. That surface is
+**UNMEASURABLE**, not not-required, and C4 does not cover it.
+
+## C2 — assessed, with counts
+
+Measured over the **committed** tree by
+`refactor-patches/phase3f/wp2/probe_a42_gate_capability_census.py` (not the
+working directory: an uncommitted red capture is not evidence anyone can
+reach). The probe was **wrong twice before it was right, both times in the
+direction that would have closed C2** — first on a shared `^FAIL` signature,
+then, after this document was staged, because *this section's own description
+of the citation sweep's A-40 red matched the signature it was searching for*.
+A capture is a file produced by running an instrument, never a document
+written about one. Both corrections are recorded in the probe's docstring.
+
+| | count | gates |
+| --- | --- | --- |
+| **GATED** | **4** | fast lane; `pin_compare.py`; `pin_corpus_identity.py`; ASCII sweep |
+| **UNGATED** | **3** | content / decision-monotonicity checks; `\hypertarget` structural check; citation + label sweeps |
+| **RED** | **0** | — |
+| **sum** | **7** | = the closed gate set |
+
+**The UNGATED three, gate by gate, per the round-six amendment:**
+
+- **content / decision-monotonicity checks** — no committed capture shows it
+  reporting a decision-row gap, duplicate or regression. It has printed
+  `KNOWN-PREEXISTING 1` on every run in the series and has never been observed
+  to fail.
+- **`\hypertarget` structural check** — no committed capture shows
+  `MISSING n` for `n > 0`. Every recorded run is `MISSING 0`.
+- **citation + label sweeps** — this one is the sharpest, because the sweep
+  **did** go red twice in this series, at A-40 (`FAIL 5 unreachable
+  citation(s)`) and A-41 (`FAIL 2`), and **both captures were overwritten by
+  the passing re-run before the commit.** The gate demonstrated its own
+  capability and the evidence was destroyed by the capture-then-fix workflow.
+  That is worth more than the other two entries put together: it is not that
+  the gate cannot fail, it is that the process throws away the proof.
+
+Discharging all three is small, known work — one mutate-run-restore capture
+each, the shape A-40's State B and A-41's revert already use. It was **not
+done at round seven**, because round seven's declared scope is C1's list
+closure and C4's classification and nothing else. Naming it here is the
+condition's own prescribed treatment, not a substitute for it.
+
 ## Status at the end of round six
 
 | condition | state |
@@ -153,3 +243,60 @@ a cap.
 
 **Round seven's scope is C1's list closure and C4's classification, and
 nothing else.** If either needs work beyond that, that is the finding.
+
+## Final states at the end of round seven — and the finding
+
+| condition | state |
+| --- | --- |
+| **C1** | **CLOSED.** Three items, each with a landed decision or an explicit deferral; the list did not grow. |
+| **C2** | **NOT CLOSED.** GATED 4 / UNGATED 3 / RED 0, summing to the closed set of 7. |
+| **C3** | **CLOSED** at round six. |
+| **C4** | **NOT CLOSED.** The table is written and structurally complete — 4 rows, per item, with the count and the UNMEASURABLE statement in the text. 2 rows classified, 2 undetermined. |
+
+**THE FINDING, in the words the cap requires.** *Two of four opening
+conditions are unmet at the end of round seven. That is a finding about the
+plan, not a reason for round eight.*
+
+**What remains, exactly:**
+
+- **C2** — three red captures, one per ungated gate. Small, known, mechanical.
+  Not blocked on anything.
+- **C4** — two classifications. One (row 3) is blocked on **OP-28**, which is
+  escalated and is a question about modelling intent, **not repo work**: no
+  number of further rounds resolves it, because the answer is not in the
+  repository. One (row 4) is blocked on OP-25's deferred decision, and C1
+  records that deferral with its two candidate answers and its choosing
+  criterion.
+
+**RECOMMENDATION: open WP2 with two declared gaps, not restructure.** The
+reasoning, stated so it can be rejected:
+
+1. **The unmet conditions are bounded and named, not diffuse.** C2's three
+   gaps are all **document** gates — none of them guards `bstpp/`. An ungated
+   `\hypertarget` check cannot let a numerical defect through; it can let a
+   broken anchor through. The risk they carry is register hygiene, which is
+   real and is not WP2's failure mode.
+2. **C4's blocking item is excludable.** The undetermined row is exactly one
+   leg — `standardize_cov`'s relocation. WP2 can proceed on the other items
+   and **not touch that leg** until OP-28 is answered. A gap you can draw a
+   boundary around is a gap; a gap you cannot is a reason to restructure.
+3. **Restructuring would not address either cause.** C2's cause is a workflow
+   habit (capture, then fix, then overwrite the capture). C4's cause is an open
+   question about modelling intent. Neither is a defect in the plan's shape.
+
+**Declared gaps, to be carried in WP2's opening entry rather than assumed:**
+
+- **G-A.** Three per-commit gates are UNGATED — content checks, `\hypertarget`,
+  citation + label. Named, counted, and to be discharged as a by-product of
+  any WP2 commit touching the register, not as a prerequisite.
+- **G-B.** `standardize_cov`'s bind-time relocation is **out of WP2's scope
+  until OP-28 is answered.** Any WP2 commit touching
+  `attach_covariate_partitions`' standardization block violates this gap and
+  should be refused.
+
+**WP2's first commit, if opened: CI-9's enforcement.** Class **SC / API**.
+It is the smallest item on the list, it is independent of OP-28's semantics
+(the *set* of permitted values is unchanged whichever estimator
+`'domain_area'` denotes), it lands an enforcement rather than a relocation,
+and it is RED-demonstrable today — `standardize_cov='nonsense'` with no
+covariates constructs silently at tip.
