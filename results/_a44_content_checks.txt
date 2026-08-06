@@ -1,0 +1,70 @@
+COLUMN1_COUNT 8
+COL1: Prep (freeze)
+COL1: 3a
+COL1: 3b
+COL1: 3c
+COL1: 3d
+COL1: 3e
+COL1: 3f
+COL1: 3g / exit
+
+LONGTABLE FIELD COUNTS
+  line   137: 2 cols, 5 body rows -> OK
+  line   174: 2 cols, 7 body rows -> OK
+  line   325: 4 cols, 7 body rows -> OK
+  line   360: 2 cols, 8 body rows -> OK
+  line   385: 3 cols, 9 body rows -> OK
+  line   414: 2 cols, 6 body rows -> OK
+  line   439: 3 cols, 4 body rows -> OK
+  line   463: 8 cols, 5 body rows -> OK
+  line   533: 3 cols, 8 body rows -> OK
+  line   562: 3 cols, 3 body rows -> OK
+  line   585: 3 cols, 3 body rows -> OK
+  line   608: 3 cols, 3 body rows -> OK
+  line   631: 3 cols, 4 body rows -> OK
+  line   655: 3 cols, 5 body rows -> OK
+  line   680: 3 cols, 6 body rows -> OK
+  line   706: 3 cols, 4 body rows -> OK
+  line   730: 3 cols, 5 body rows -> OK
+  line   755: 3 cols, 7 body rows -> OK
+  line   782: 3 cols, 6 body rows -> OK
+  line   808: 3 cols, 3 body rows -> OK
+  line   831: 3 cols, 3 body rows -> OK
+  line   854: 3 cols, 4 body rows -> OK
+  line   878: 3 cols, 3 body rows -> OK
+  line   985: 2 cols, 10 body rows -> OK
+  line  1014: 3 cols, 23 body rows -> OK
+  line  1059: 4 cols, 46 body rows -> OK
+  line  1190: 3 cols, 10 body rows -> OK
+  line  1274: 3 cols, 6 body rows -> OK
+  line  1338: 3 cols, 5 body rows -> OK
+  line  1475: 13 cols, 9 body rows -> OK
+  line  1534: 4 cols, 2 body rows -> OK
+  line  1655: 3 cols, 15 body rows -> OK
+  line  1729: 7 cols, 28 body rows -> OK
+  line  1826: 3 cols, 28 body rows -> OK
+  line  1929: 4 cols, 28 body rows -> OK
+  line  2250: 5 cols, 7 body rows -> OK
+  line  2707: 4 cols, 11 body rows -> OK
+  line  2736: 3 cols, 11 body rows -> OK
+  line  2763: 5 cols, 12 body rows -> OK
+
+PART I DECISION-ROW MONOTONICITY
+  45 decision rows: D-1 .. D-45
+  strictly increasing, no duplicates, no gaps -> OK
+
+CHECK 4 -- prose vs table (OP-29)
+  amendments declare OPENS : 10  ['OP-19', 'OP-20', 'OP-21', 'OP-22', 'OP-24', 'OP-25', 'OP-26', 'OP-27', 'OP-28', 'OP-29']
+  amendments declare CLOSES: 3  ['OP-17', 'OP-20', 'OP-22']
+  items with a §11 row     : 23
+  4a opened-with-no-row    : none
+  4b closed-but-row-unmarked: none
+  4c cited-with-no-row      : none
+  work packages with entries: 10  ['WP1', 'WP2', 'WP3', 'WP4', 'WP5', 'WP6', 'WP7', 'WP8', 'WP9', 'WP10']
+  4d routed-to-no-entry     : none
+
+KNOWN-PREEXISTING 1  (frozen Part I; reported, not suppressed)
+  longtable at line 414: row has 1 fields, expected 2: 'same suite command/result as §1.2.1; artifact \\texttt{freeze-476c2a0/f'
+
+ALL CONTENT CHECKS PASS
+EXIT:0

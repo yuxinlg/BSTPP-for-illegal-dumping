@@ -1,0 +1,72 @@
+C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\refactor-patches\phase3f\wp2\probe_a42_gate_capability_census.py:29: SyntaxWarning: invalid escape sequence '\d'
+  matches ``FAIL \d+ unreachable citation`` exactly. **The instrument counted the
+PROBE_PROVENANCE
+  repo     : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor
+  git_rev  : 45d63e4
+  tracked_dirty : 5
+    M  phase3_record.tex
+    A  refactor-patches/phase3f/phase3f_finding_at_cap.md
+    M  results/_a25_content_checks.py
+    A  results/_a44_content_check4_discrimination.log
+    A  results/_a44_content_check4_discrimination.py
+
+  tracked files          : 490
+  eligible capture files : 234 ('.txt', '.log', '.json')
+  (.py excluded: printing 'FAIL' is not evidence of having. .md/.tex
+   excluded: PROSE ABOUT a gate having failed is not a capture of it
+   failing -- the register and the WP2 proposal both describe the very
+   reds this probe is looking for.)
+
+C2 ASSESSMENT -- the closed gate set
+  fast lane
+    instruments  : ["pytest tests/ -m 'not slow'"]
+    failure mode : pytest's own exit status
+    committed capture(s) showing it red : ['refactor-patches/phase3f/wp2/a37_red_capture.txt', 'refactor-patches/phase3f/wp2/a38_red_capture.txt', 'refactor-patches/phase3f/wp2/a40_red_capture.txt', 'refactor-patches/phase3f/wp2/a41_red_capture.txt'] ...
+    VERDICT      : GATED
+  pin_compare.py
+    instruments  : ['refactor-patches/pin_compare.py']
+    failure mode : DRIFT or a missing file, exit 1
+    committed capture(s) showing it red : ['refactor-patches/phase3f/wp2/a40_red_capture.txt', 'results/_a38_corpus_and_defect_demo.txt']
+    VERDICT      : GATED
+  pin_corpus_identity.py
+    instruments  : ['refactor-patches/pin_corpus_identity.py']
+    failure mode : a second content group, exit 1
+    committed capture(s) showing it red : ['refactor-patches/phase3f/wp2/a40_red_capture.txt']
+    VERDICT      : GATED
+  ASCII sweep
+    instruments  : ['results/_a26_ascii_sweep.py']
+    failure mode : a non-ASCII raise site
+    committed capture(s) showing it red : ['results/_a29_sweep_discrimination.txt']
+    VERDICT      : GATED
+  content / decision-monotonicity checks
+    instruments  : ['results/_a25_content_checks.py']
+    failure mode : a decision-row gap, duplicate or regression
+    committed capture(s) showing it red : ['results/_a44_content_check4_discrimination.log']
+    VERDICT      : GATED
+  hypertarget structural check
+    instruments  : ['results/_c1_hypertarget_check.py']
+    failure mode : a subsection with no anchor
+    committed capture(s) showing it red : NONE
+    VERDICT      : UNGATED
+  citation + label sweeps
+    instruments  : ['results/_a25_citation_sweep.py', 'results/_a30_label_check.py']
+    failure mode : an unreachable citation, or a broken renumber
+    committed capture(s) showing it red : NONE
+    VERDICT      : UNGATED
+
+COUNTS
+  gate set (closed) : 7
+  GATED   : 5   ['fast lane', 'pin_compare.py', 'pin_corpus_identity.py', 'ASCII sweep', 'content / decision-monotonicity checks']
+  UNGATED : 2   ['hypertarget structural check', 'citation + label sweeps']
+  RED     : 0   []
+  SUM_MATCHES_SET : True
+
+QUALIFICATION ON THE FAST LANE, stated rather than elided. What the
+committed red captures show is pytest under the fast-lane marker over a
+SUBSET of tests/ (they carry their own 'N deselected'), never over the
+whole tree. Exit status is not selection-dependent -- a failing row fails
+the whole-tree run too -- so the capability is established; the
+population of the demonstration is not the population of the gate, and a
+reader should know which was shown.
+EXIT:0
+EXIT:0

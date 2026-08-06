@@ -1,0 +1,40 @@
+A-44 -- check 4 discrimination. Exit codes are the CHECK's own,
+emitted as CONTENT_CHECKS_EXIT:n, which is the signature the C2 gate
+census searches for -- a capture nobody can find is not evidence.
+captured before any pipe. Nothing is mutated in place.
+
+--- baseline (unmutated)
+    CONTENT_CHECKS_EXIT:0   expected 0
+    ALL CONTENT CHECKS PASS
+
+--- M1  4a: OP-27's §11 row deleted (it is declared Opened by A-40)
+    CONTENT_CHECKS_EXIT:1   expected 1
+    FAIL 1
+    4a opened-with-no-row    : ['OP-27']
+    4a opened in prose with no §11 row: OP-27
+    4a_FIRED:True
+
+--- M2  4b: OP-22's row no longer says CLOSED
+    CONTENT_CHECKS_EXIT:1   expected 1
+    FAIL 1
+    4b closed-but-row-unmarked: ['OP-22']
+    4b closed in prose, §11 row not marked CLOSED: OP-22
+    4b_FIRED:True
+
+--- M3  4c: D-99 cited with no §8 row
+    CONTENT_CHECKS_EXIT:1   expected 1
+    FAIL 1
+    4c cited-with-no-row      : ['D-99']
+    4c decision cited with no §8 row: D-99
+    4c_FIRED:True
+
+--- M4  4d: OP-19 re-pointed at WP11, which has no entry
+    CONTENT_CHECKS_EXIT:1   expected 1
+    FAIL 1
+    4d routed-to-no-entry     : ['WP11']
+    4d D-44: destination names a work package with no entry: WP11 (OP-19)
+    4d_FIRED:True
+
+ALL_SUBCHECKS_DISCRIMINATE:True
+EXIT:0
+EXIT:0

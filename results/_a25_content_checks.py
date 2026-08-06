@@ -14,6 +14,19 @@ structural \\hypertarget check cannot see:
    and was caught by reading. A misordered row is structurally perfect, so neither
    check above can see it; nor can either see a duplicate or a gap. Demonstrated to
    discriminate by mutating a copy (D-40 moved before D-39) and confirming exit 1.
+4. PROSE-AND-TABLE DIVERGENCE (added A-44; OP-29). Three instances in one series:
+   D-43 was cited as authority before it existed; OP-21 and OP-22 were opened in
+   prose and never entered the §11 table; OP-20 was CLOSED in prose at A-33 and its
+   §11 row never marked, so a reader enumerating open items from the table -- which
+   is what the table is for -- counted it open, and C1's "exhaustive" WP2 list
+   omitted it for exactly that reason. Three is the OP-22 precedent's threshold for
+   enumerating a class rather than accumulating instances, so the enumeration stops
+   being something done when somebody happens to look and becomes this check.
+   Four sub-checks, each catching one instance of the class:
+     4a  every OP-n an amendment says it OPENS has a §11 row
+     4b  every OP-n an amendment says it CLOSES has CLOSED in that row
+     4c  every D-n cited anywhere in the register has a §8 row
+     4d  D-44: every work package named in a §11 destination cell has an entry
 """
 from __future__ import annotations
 
@@ -154,6 +167,82 @@ else:
             + ", ".join(f"D-{n}" for n in missing))
     if labels and not missing and labels == sorted(set(labels)):
         print("  strictly increasing, no duplicates, no gaps -> OK")
+
+# ---------------------------------------------------------------- check 4
+# Prose-and-table divergence (OP-29). The register states things twice -- once in an
+# amendment's prose and once in a table row -- and nothing has ever compared the two.
+print()
+print("CHECK 4 -- prose vs table (OP-29)")
+
+# §11 rows: "OP-n & ... & <destination>". Collect the row text per item.
+op_rows: dict[str, str] = {}
+for line in text.splitlines():
+    m = re.match(r"\s*(?:\\amdnew\{[^}]*\}\s*)*(OP-\d+)\s*&", line)
+    if m:
+        op_rows.setdefault(m.group(1), line)
+
+# Amendment headers: "\textbf{Opens} OP-19 and OP-26." / "\textbf{Closes} OP-20."
+def _declared(verb: str) -> set[str]:
+    out: set[str] = set()
+    for frag in re.findall(r"\\textbf\{" + verb + r"\}([^.]*)\.", text):
+        # A quoted mention inside prose is not a header declaration; headers are
+        # short and list bare identifiers.
+        if len(frag) > 60:
+            continue
+        out.update(re.findall(r"OP-\d+", frag))
+    return out
+
+
+opened, closed = _declared("Opens"), _declared("Closes")
+print(f"  amendments declare OPENS : {len(opened)}  {sorted(opened)}")
+print(f"  amendments declare CLOSES: {len(closed)}  {sorted(closed)}")
+print(f"  items with a §11 row     : {len(op_rows)}")
+
+missing_row = sorted(opened - set(op_rows))
+if missing_row:
+    failures.append(
+        "4a opened in prose with no §11 row: " + ", ".join(missing_row))
+print(f"  4a opened-with-no-row    : {missing_row or 'none'}")
+
+unmarked = sorted(i for i in closed
+                  if i in op_rows and "CLOSED" not in op_rows[i])
+if unmarked:
+    failures.append(
+        "4b closed in prose, §11 row not marked CLOSED: " + ", ".join(unmarked))
+print(f"  4b closed-but-row-unmarked: {unmarked or 'none'}")
+
+# 4c: every D-n mentioned anywhere must have a §8 row (D-43 was cited before it
+# existed). `labels` is check 3's list of §8 decision numbers.
+cited_d = {int(n) for n in re.findall(r"\bD-(\d+)\b", text)}
+undefined_d = sorted(cited_d - set(labels))
+if undefined_d:
+    failures.append(
+        "4c decision cited with no §8 row: "
+        + ", ".join(f"D-{n}" for n in undefined_d))
+print(f"  4c cited-with-no-row      : "
+      f"{[f'D-{n}' for n in undefined_d] or 'none'}")
+
+# 4d (D-44): a destination naming a work package must name one that has an entry.
+wp_dir = Path("refactor-patches/phase3f")
+entries = set()
+if wp_dir.is_dir():
+    for p in wp_dir.glob("wp*_*entry.md"):
+        m = re.match(r"wp(\d+)_", p.name)
+        if m:
+            entries.add(f"WP{int(m.group(1))}")
+entries |= {"WP1", "WP2"}          # defined in the register itself, not as files
+routed: dict[str, set[str]] = {}
+for item, row in op_rows.items():
+    dest = row.rsplit("&", 1)[-1]
+    for wp in re.findall(r"\bWP(\d+)\b", dest):
+        routed.setdefault(f"WP{int(wp)}", set()).add(item)
+unresolved = sorted(w for w in routed if w not in entries)
+if unresolved:
+    failures.append(
+        "4d D-44: destination names a work package with no entry: "
+        + ", ".join(f"{w} ({', '.join(sorted(routed[w]))})" for w in unresolved))
+print(f"  work packages with entries: {len(entries)}  {sorted(entries, key=lambda w: int(w[2:]))}")
+print(f"  4d routed-to-no-entry     : {unresolved or 'none'}")
 
 print()
 if known:
