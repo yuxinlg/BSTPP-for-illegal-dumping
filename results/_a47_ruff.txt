@@ -1,0 +1,6 @@
+[1m8[0m	[1;31mE402[0m	[ ] module-import-not-at-top-of-file
+[1m3[0m	[1;31mE702[0m	[ ] multiple-statements-on-one-line-semicolon
+[1m2[0m	[1;31mE401[0m	[[36m*[0m] multiple-imports-on-one-line
+Found 13 errors.
+[[36m*[0m] 2 fixable with the `--fix` option.
+RUFF_EXIT:1

@@ -1,0 +1,3 @@
+.......                                                                  [100%]
+7 passed in 5.28s
+PYTEST_EXIT:0

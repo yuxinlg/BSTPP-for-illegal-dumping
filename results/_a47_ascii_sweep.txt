@@ -1,0 +1,61 @@
+scanned 17 modules under bstpp/
+
+COVERAGE (D-39: a gate states its own coverage)
+  direct raise sites                    : 182
+    literal text scanned                : 171  (94%)
+    no literal, text from a clause fn   : 10  (covered below by evaluation)
+    no literal, ascii_safe()-wrapped    : 1  (covered BY CONSTRUCTION -- listed below)
+    no literal, text built at runtime   : 0  (NOT covered -- listed below)
+  delegated raise_*() call sites        : 23  (remediation literals scanned)
+  *_invariant_clause functions          : 10 evaluated, 0 unevaluated
+  => raise sites whose text is checked  : 182/182  (100%)
+
+POPULATION OF THIS RATIO (stated, because 100% invites the wrong
+reading of what it covers)
+  INCLUDED : ast.Raise nodes in bstpp/*.py -- every site that
+             raises, whether its text is a literal, a D-40 clause
+             function, or an ascii_safe()-wrapped runtime string.
+  EXCLUDED : text that reaches a console WITHOUT being raised.
+             KNOWN LIVE INSTANCE -- OP-25: data_contracts.enforce's
+             warnings.warn renders the SAME DataContractReport
+             .summary() as the raise beside it, to the same console,
+             and is NOT ascii_safe()-wrapped. Under data_contracts=
+             'report' the identical UnicodeEncodeError is reachable.
+             A-37 escaped the raise and deliberately stopped there;
+             D-40's corollary names raised messages, and widening it
+             is a decision, not a detail.
+  EXCLUDED : warnings, logging, print, and __str__/__repr__ on
+             package objects. None is swept; none is claimed.
+  So: 184/184 means EVERY RAISE SITE, not every console-bound
+  string in the package. The second figure is not measured here.
+
+ASCII-SAFE-WRAPPED RAISES (guaranteed, not scanned): 1
+  bstpp\data_contracts.py:501
+
+CLAUSE EVALUATION (population 3)
+  ASCII      builder_max_sigma_invariant_clause
+  ASCII      config_integral_invariant_clause
+  ASCII      config_real_invariant_clause
+  ASCII      min_sigma_positive_invariant_clause
+  ASCII      panel_ratio_invariant_clause
+  ASCII      polygon_min_sigma_invariant_clause
+  ASCII      rectangle_bounds_invariant_clause
+  ASCII      sigma_order_invariant_clause
+  ASCII      standardize_cov_invariant_clause
+  ASCII      support_mode_invariant_clause
+
+INTERPOLATION HAZARD (informational, not a failure)
+  NON_ASCII_PROPAGATING_SLOTS=0
+  Slots rendering a caller-supplied value without numeric coercion,
+  where a NON-ASCII argument reaches the message (OP-22).
+  RESIDUAL, not covered by this count: _ascii_safe escapes non-ASCII
+  but NOT ASCII control characters. Measured, because the general
+  form of that claim is wrong: every !r slot is already safe, since
+  repr() escapes a newline itself. The residual is confined to the
+  PLAIN {name} slots of the CI-7/CI-8 clauses, and `name` is a
+  call-site literal, never caller-supplied -- so it is reachable
+  only by calling the clause function directly.
+    (none)
+
+PASS - 182/182 raise sites' text checked (100%); 10 clause functions evaluated, all ASCII
+SWEEP_EXIT:0

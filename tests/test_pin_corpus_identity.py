@@ -1,18 +1,30 @@
 """A-40: the corpus-identity property, checked every commit instead of once.
 
 A-38's retroactive rescue of twenty-four historical ``PIN_DIFFS 0`` claims
-rests entirely on one measurement: every pin candidate in the tree normalises
+rested entirely on one measurement: every pin candidate in the tree normalises
 to a single canonical-JSON hash, equal to the baseline's. With one content
 group the candidate-side ambiguity could not have changed a verdict. That is a
 fact about the data, and it expires at the first re-baseline.
 
-These rows exist so the expiry is observed AT the commit that causes it. The
-expected trigger is already scheduled: OP-24's fifth pinned configuration in
-polygon mode adds a configuration key the baseline does not carry, so the
-first candidate holding it will not normalise to the baseline's hash. When
-that lands, this file goes red, the record says the rescue has expired as of
-that commit, and the baseline is re-declared. Relaxing the assertion instead
-would be the whole point missed.
+These rows existed so the expiry would be observed AT the commit that causes
+it. **It was, and this is that file after the event.** The trigger was the one
+A-40 scheduled -- OP-24's polygon-mode pin adds configuration keys the 2026-07
+baseline does not carry -- and the sequence went as designed: this file went
+red, the red was captured
+(``refactor-patches/captures/a47_corpus_identity_test_red.log``, exit 1), the
+register recorded at A-47 that the rescue covers commits before A-47 and
+nothing after, and **the baseline was then re-declared, which is what A-40
+said to do and is not the relaxation A-40 warned against.**
+
+The distinction, because it is the whole point. A-40 forbade weakening the
+assertion to accommodate the new group -- ``distinct <= 2``, or deleting the
+row. What replaced it is the same sentence over a two-era population: every
+content group must equal one of the DECLARED baselines, an undeclared group is
+red, and the number of declared eras is itself asserted below so that a third
+baseline cannot be slipped in to make a group go away. What is NOT recovered
+is the rescue: two content groups mean a ``PIN_DIFFS 0`` artifact that does not
+name its baseline is ambiguous, and no assertion here can fix an artifact
+written earlier (OP-31).
 
 RED at 3a9eafb: refactor-patches/pin_corpus_identity.py does not exist.
 """
@@ -45,22 +57,52 @@ def _value(out, key):
     return _field(out, key).split("[")[0].strip()
 
 
-def test_corpus_is_one_content_group_equal_to_the_baseline():
-    """THE EXPIRY GATE. Red here means the property has lapsed, not that the
+def test_every_content_group_belongs_to_a_declared_baseline():
+    """THE DRIFT GATE, in its post-A-47 form. Red here means some capture in
 
-    pins have drifted -- pin_compare.py is what says that.
+    results/ was produced by a harness or a tree no declared baseline
+    describes -- not that the pins have drifted, which pin_compare.py says.
     """
     code, out = _run()
-    distinct = int(_value(out, "DISTINCT_CANONICAL_HASHES"))
-    assert distinct == 1, (
-        f"the pin candidate corpus now holds {distinct} distinct content "
-        "groups. A-38's retroactive rescue of the 24 historical PIN_DIFFS 0 "
-        "claims covered only a corpus with ONE group, so from this commit "
-        "forward it applies only to commits before this one. Re-baseline and "
-        "record the expiry. If this is OP-24's polygon-mode pin, it is the "
-        "expected trigger and the correct response is still to record it.")
+    undeclared = int(_value(out, "UNDECLARED_GROUPS"))
+    assert undeclared == 0, (
+        f"{undeclared} content group(s) in the pin candidate corpus match no "
+        "declared baseline. The gate names the files under the UNDECLARED "
+        "marker. Explain the group or re-declare deliberately, recording the "
+        "re-declaration in the register with the commit that causes it; do "
+        "not add a baseline entry merely to make this row green.")
     assert _value(out, "IDENTITY_HOLDS") == "True"
     assert code == 0
+
+
+def test_the_declared_era_count_is_itself_pinned():
+    """The one edit to this gate that CAN be a relaxation is declaring a new
+
+    baseline to absorb a group instead of explaining it. That edit is
+    therefore not silent: it fails here until the number is updated
+    deliberately, alongside the register entry that justifies it.
+    """
+    _, out = _run()
+    assert _value(out, "DECLARED_BASELINES") == "2", (
+        "the declared-era count moved. Two eras are declared: the 2026-07 "
+        "canonical baseline, and the 2026-08 polygon forward baseline added "
+        "at A-47 when OP-24's fifth pin landed. A third is a re-declaration "
+        "and needs a register amendment, not just a passing test.")
+    assert "2026-07 canonical" in out
+    assert "2026-08 polygon (A-47)" in out
+
+
+def test_the_gate_states_the_expiry_on_every_capture_including_green_ones():
+    """A green line here used to mean 'one content group', which is what
+
+    A-38's rescue rested on. It no longer does, and a capture that did not say
+    so would let a later reader take the old meaning from the new pass -- the
+    silent-shift class this gate was built to prevent.
+    """
+    code, out = _run()
+    assert code == 0
+    assert "A-38's retroactive rescue EXPIRED at A-47" in out
+    assert "is not restored by" in out
 
 
 def test_the_gate_reports_the_distinct_count_whether_or_not_it_passes():
@@ -105,10 +147,13 @@ def test_the_gate_names_which_population_it_measured():
         assert "[ON_DISK]" in _field(out, key + " ")
 
 
-def test_a_second_content_group_makes_the_gate_fail(tmp_path, monkeypatch):
+def test_an_undeclared_content_group_makes_the_gate_fail(tmp_path, monkeypatch):
     """The gate must be capable of failing. A tripwire never shown to trip is
 
-    indistinguishable from an absent one (AGENTS.md: an unreached guard).
+    indistinguishable from an absent one (AGENTS.md: an unreached guard). This
+    row is the reason the A-47 re-declaration is not a relaxation: the fixture
+    below is a candidate that matches NEITHER declared baseline, and it is
+    still red.
     """
     import importlib.util
     spec = importlib.util.spec_from_file_location("_pin_corpus_identity", GATE)
@@ -134,6 +179,8 @@ def test_a_second_content_group_makes_the_gate_fail(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "RESULTS", fake)
     m = mod.measure()
     assert m["distinct"] == 2
+    assert len(m["undeclared"]) == 1
+    assert m["undeclared"][0] not in m["declared"]
     assert m["holds"] is False
     # ... and the exit status follows, so a capture records the lapse.
     assert mod.main() == 1

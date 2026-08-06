@@ -49,22 +49,41 @@ defect this entry exists to close, committed a second time. **At WP5's opening
 either the text lands or the `AGENTS.md` citation is withdrawn.** Until then
 the number is reserved so it cannot be re-issued.
 
-## Coverage limits — both already established, carried here
+## Coverage limits — both established below; limit 1 is DISCHARGED at A-47
 
-**1. No pinned configuration builds a polygon mass table, so `PIN_DIFFS` is
-silent on every surface WP5 touches.**
+**1. ~~No pinned configuration builds a polygon mass table, so `PIN_DIFFS` is
+silent on every surface WP5 touches.~~ DISCHARGED at A-47 — forward only.**
 
-Measured, not asserted: `refactor-patches/pin_check_v2.py` emits **four**
-configurations — `hawkes`, `cox_hawkes`, `lgcp`, `hawkes_nonsquare_4to1`
-(confirmed against the top-level keys of `baselines-2026-07/pins.json`) — and
-the harness contains **zero occurrences** of `polygon`, `mass_table`,
-`excitation_support` or `min_sigma`. The polygon surfaces are not merely
-unexercised; they are unreachable from the harness as written.
+*The limit as it stood, kept because the discharge is only interpretable
+against it.* Measured, not asserted: `refactor-patches/pin_check_v2.py` emitted
+**four** configurations — `hawkes`, `cox_hawkes`, `lgcp`,
+`hawkes_nonsquare_4to1` (confirmed against the top-level keys of
+`baselines-2026-07/pins.json`) — and the harness contained **zero occurrences**
+of `polygon`, `mass_table`, `excitation_support` or `min_sigma`. The polygon
+surfaces were not merely unexercised; they were unreachable from the harness as
+written. So `PIN_DIFFS 0 MATCH` was **not evidence** about `ExcitationSupport`,
+`PolygonMassTable` or cutoff provenance, which is precisely the set WP5 changes.
 
-So `PIN_DIFFS 0 MATCH` is **not evidence** about `ExcitationSupport`,
-`PolygonMassTable` or cutoff provenance, which is precisely the set WP5
-changes. A polygon-regime regression reports MATCH on every configuration the
-harness runs.
+**What A-47 landed.** Two configurations —
+`hawkes_notched_4to1_polygon_mode` and `hawkes_notched_4to1_rectangle_mode` —
+over one 4:1 **non-rectangular** domain with the same events and σ bounds, so
+**both excitation support modes are pinned and the mode switch is the only
+difference between the two records.** All four previously-absent tokens are
+reachable. The mass table's SHA-256 is inside the pinned record, so a
+differently-built table is a DRIFT rather than a silent shift.
+
+**Read the discharge with its two limits attached.**
+
+- **It is FORWARD.** The baseline is `baselines-2026-08-polygon/pins.json`,
+  dated at its capture. It certifies commits after that capture and **nothing
+  before it**; six configurations are not six configurations of retroactive
+  coverage.
+- **The canonical comparison still does not gate it.** Against
+  `baselines-2026-07/pins.json` the two new keys report `NEW IN CANDIDATE`, and
+  `pin_compare`'s walker counts a new key as no diff. **Any WP5 gate line must
+  cite the forward baseline explicitly** (`pin_compare.py --baseline`), or it
+  reports `PIN_DIFFS 0 MATCH` while remaining as silent about the polygon
+  regime as it was before A-47.
 
 **2. OP-24's polygon-mode pin is a WP5 ENTRY PRECONDITION, not a task inside
 WP5.** A-36's reason: *an instrument built by the package it is meant to gate
@@ -73,24 +92,29 @@ considered and rejected there for a specific reason: WP5's surfaces are exactly
 the ones the existing pins are blind to, so "proceeding without coverage" and
 "proceeding with the coverage we have" would produce identical gate lines.
 
-### Where the scheduled instrument stands
+### Where the scheduled instrument stands — BUILT at A-47
 
 **Polygon-regime excitation validation was SCHEDULED, not deferred** — A-36
 records the decision in those words ("A-36 decides: schedule it") and
 deliberately recorded it then "so it is not carried into WP5's opening as
 scheduling TBD".
 
-**As of A-43 it has not been built.** The harness still emits four
-configurations, none polygon. So the scheduling decision stands and the
-instrument does not exist, and the two facts together are the entry
-precondition's whole current status: **WP5 cannot open until the fifth pin
-lands.**
+**It was unbuilt as of A-43 and is built as of A-47.** The harness emits six
+configurations, two of them polygon-domain, and **the entry precondition is
+discharged.**
 
-One consequence, recorded because it is easy to trip over: the fifth pin adds
-a configuration key the baseline does not carry, so it will make
-`pin_corpus_identity.py` go red and expire A-38's retroactive rescue. That is
-the *expected* trigger, named in the gate's own failure message; the response
-is to re-baseline and record the expiry, not to relax the check.
+**Discharged is not the same as open.** WP5's opening remains a separate
+decision that A-47 explicitly declines to take: **OP-23's text still does not
+exist**, which is its own condition at WP5's opening, and A-44's two declared
+gaps stand.
+
+The consequence recorded here in advance did occur, exactly as predicted: the
+fifth pin added a configuration key the 2026-07 baseline does not carry, so
+`pin_corpus_identity.py` went red and **A-38's retroactive rescue expired at
+A-47**. The check was not relaxed, the red is preserved at
+`refactor-patches/captures/a47_corpus_identity_expiry.log`, and A-47 opens
+**OP-31** for what the expiry costs that gate (its exit status is saturated, so
+a *third* content group is now indistinguishable from the second).
 
 ## Questions this entry leaves open rather than settling
 

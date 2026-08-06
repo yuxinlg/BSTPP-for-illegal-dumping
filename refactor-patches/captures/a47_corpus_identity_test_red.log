@@ -1,0 +1,26 @@
+F....                                                                    [100%]
+================================== FAILURES ===================================
+___________ test_corpus_is_one_content_group_equal_to_the_baseline ____________
+
+    def test_corpus_is_one_content_group_equal_to_the_baseline():
+        """THE EXPIRY GATE. Red here means the property has lapsed, not that the
+    
+        pins have drifted -- pin_compare.py is what says that.
+        """
+        code, out = _run()
+        distinct = int(_value(out, "DISTINCT_CANONICAL_HASHES"))
+>       assert distinct == 1, (
+            f"the pin candidate corpus now holds {distinct} distinct content "
+            "groups. A-38's retroactive rescue of the 24 historical PIN_DIFFS 0 "
+            "claims covered only a corpus with ONE group, so from this commit "
+            "forward it applies only to commits before this one. Re-baseline and "
+            "record the expiry. If this is OP-24's polygon-mode pin, it is the "
+            "expected trigger and the correct response is still to record it.")
+E       AssertionError: the pin candidate corpus now holds 2 distinct content groups. A-38's retroactive rescue of the 24 historical PIN_DIFFS 0 claims covered only a corpus with ONE group, so from this commit forward it applies only to commits before this one. Re-baseline and record the expiry. If this is OP-24's polygon-mode pin, it is the expected trigger and the correct response is still to record it.
+E       assert 2 == 1
+
+tests\test_pin_corpus_identity.py:55: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_pin_corpus_identity.py::test_corpus_is_one_content_group_equal_to_the_baseline
+1 failed, 4 passed in 8.34s
+PYTEST_EXIT:1
