@@ -1,0 +1,386 @@
+A-36 census denominator -- method printed above in the module docstring
+repo = C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor
+
+SCALAR-INTENDED (entry point, parameter) PAIRS
+--------------------------------------------------------------------------------------------
+config.py:266             validate_sigma_pair
+                              .min_sigma
+                              .max_sigma
+config.py:517             NumericalConfig.create
+                              .panel_h_m
+                              .gl_order
+                              .min_sigma
+                              .max_sigma
+                              .default_temporal_tol
+                              .default_spatial_tol
+                              .production_tau_abs
+                              .budget_reference_gl_order
+                              .budget_reference_oracle_bound
+                              .max_panel_to_min_sigma_ratio
+cutoffs.py:42             days_to_internal
+                              .days
+                              .horizon_days
+cutoffs.py:54             internal_to_days
+                              .internal
+                              .horizon_days
+cutoffs.py:66             scale_temporal_prior_to_internal
+                              .horizon_days
+cutoffs.py:89             temporal_omitted_mass
+                              .window
+                              .beta
+cutoffs.py:108            temporal_cutoff_from_tol
+                              .eps
+                              .beta
+cutoffs.py:117            spatial_omitted_mass
+                              .spatial_window
+                              .sigma
+cutoffs.py:134            spatial_cutoff_from_tol
+                              .eps
+                              .sigma
+cutoffs.py:189            resolve_computational_cutoffs
+                              .horizon_days
+                              .temporal_cutoff_days
+                              .window_internal
+                              .spatial_window
+                              .temporal_cutoff_tol
+                              .spatial_cutoff_tol
+                              .cutoff_tol
+                              .design_mean_lag_days
+                              .design_sigma
+data_contracts.py:182     validate_events
+                              .n_xy
+excitation_support.py:55  metres_to_crs_units
+                              .metres
+excitation_support.py:81  resolve_excitation_support_mode
+                              .is_polygon_domain
+excitation_support.py:103 resolve_sigma_bounds
+                              .min_sigma
+                              .max_sigma
+excitation_support.py:251 truncate_sigmax_2_prior
+                              .min_sigma
+                              .max_sigma
+excitation_support.py:358 build_excitation_support
+                              .is_polygon_domain
+                              .spatial_window
+                              .min_sigma
+                              .max_sigma
+likelihood.py:152         rectangular_excitation_compensator
+                              .spatial_window
+likelihood.py:216         spatial_refinement_integral
+                              .b_0
+likelihood.py:238         spatial_refinement_masses
+                              .b_0
+main.py:208               add_month_grid_and_labels
+                              .label_every_n_months
+main.py:237               Point_Process_Model.__init__
+                              .T
+                              .offset_seasonal
+                              .sp_var_mu
+main.py:578               Point_Process_Model.run_svi
+                              .num_steps
+                              .lr
+                              .num_samples
+main.py:637               Point_Process_Model.run_mcmc
+                              .batch_size
+                              .num_warmup
+                              .num_samples
+                              .num_chains
+                              .thinning
+main.py:1244              Point_Process_Model.plot_seasonal
+                              .ref_year
+main.py:1300              Point_Process_Model.plot_seasonal_components
+                              .ref_year
+main.py:1843              Hawkes_Model.__init__
+                              .T
+                              .window
+                              .spatial_window
+                              .temporal_cutoff_days
+                              .temporal_cutoff_tol
+                              .spatial_cutoff_tol
+                              .cutoff_tol
+                              .design_mean_lag_days
+                              .design_sigma
+                              .min_sigma
+                              .max_sigma
+main.py:2566              Hawkes_Model.analyze_trigger_decay_distribution
+                              .n_bootstrap
+polygon_mass.py:103       knot_count
+                              .sigma_min
+                              .sigma_max
+polygon_mass.py:115       log_knots
+                              .sigma_min
+                              .sigma_max
+polygon_mass.py:121       panelize
+                              .h
+polygon_mass.py:166       prepare_quadrature
+                              .h
+                              .ws
+polygon_mass.py:204       make_quad_eval
+                              .gl_order
+                              .ws
+polygon_mass.py:580       assert_polygon_mass_table_budget
+                              .sigma_min
+polygon_mass.py:643       measure_polygon_mass_table_residual
+                              .spatial_window
+polygon_mass.py:697       assert_polygon_mass_table_accuracy
+                              .spatial_window
+polygon_mass.py:731       validate_polygon_mass_table
+                              .spatial_window
+                              .sigma_min
+                              .sigma_max
+polygon_mass.py:910       build_quad_table
+                              .sigma_min
+                              .sigma_max
+                              .ws
+                              .h_panel
+                              .gl_order
+polygon_mass.py:1054      prepare_polygon_mass_table
+                              .min_sigma
+                              .max_sigma
+                              .spatial_window
+                              .panel_h_m
+                              .gl_order
+polygon_mass.py:1202      validate_sigma_in_range
+                              .sigma
+polygon_mass.py:1212      hermite_polygon_masses
+                              .dtype
+polygon_mass.py:1225      warn_if_sigma_near_bound
+                              .max_sigma_real
+                              .min_sigma_real
+                              .frac
+preparation.py:272        prepare_partitions
+                              .horizon_days
+                              .offset_seasonal
+trigger.py:157            simulate_hawkes_like_events
+                              .total_time
+                              .baseline_rate
+utils.py:30               exp_sq_kernel
+                              .jitter
+utils.py:93               aligned_difference_pairs
+                              .spatial_window
+--------------------------------------------------------------------------------------------
+DENOMINATOR_PAIRS=110
+DENOMINATOR_ENTRY_POINTS=45
+
+RECOVERED_BY_STEP_3B=4  -- required positionals the annotation/default rule alone dropped
+    main.py:237 Point_Process_Model.__init__.T
+    main.py:578 Point_Process_Model.run_svi.num_steps
+    main.py:578 Point_Process_Model.run_svi.lr
+    main.py:1843 Hawkes_Model.__init__.T
+
+EXCLUDED_E1=20  -- D-40 clause renderers / raisers (never compute)
+    config.py:71 panel_ratio_invariant_clause
+    config.py:96 raise_panel_ratio_violation
+    config.py:146 rectangle_bounds_invariant_clause
+    config.py:156 raise_rectangle_bounds_violation
+    config.py:167 polygon_min_sigma_invariant_clause
+    config.py:175 raise_polygon_min_sigma_violation
+    config.py:183 builder_max_sigma_invariant_clause
+    config.py:210 raise_builder_max_sigma_violation
+    config.py:218 min_sigma_positive_invariant_clause
+    config.py:223 raise_min_sigma_positive_violation
+    config.py:232 sigma_order_invariant_clause
+    config.py:240 raise_sigma_order_violation
+    config.py:250 support_mode_invariant_clause
+    config.py:257 raise_support_mode_violation
+    config.py:293 config_real_invariant_clause
+    config.py:300 raise_config_real_violation
+    config.py:309 config_integral_invariant_clause
+    config.py:316 raise_config_integral_violation
+    config.py:325 require_config_real
+    config.py:339 require_config_integral
+EXCLUDED_E2=27  -- no parameters (accessors, exporters)
+    cutoffs.py:156 TemporalCutoffRecord.to_dict
+    cutoffs.py:169 SpatialCutoffRecord.to_dict
+    cutoffs.py:180 CutoffProvenance.to_dict
+    data_contracts.py:89 DataContractReport.violations
+    data_contracts.py:93 DataContractReport.diagnostics
+    data_contracts.py:97 DataContractReport.ok
+    data_contracts.py:100 DataContractReport.summary
+    data_contracts.py:114 DataContractReport.to_frame
+    excitation_support.py:201 TruncatedLogNormal.support
+    excitation_support.py:243 TruncatedLogNormal.tree_flatten
+    main.py:162 load_Boko_Haram
+    main.py:177 load_Chicago_Shootings
+    main.py:876 Point_Process_Model.expected_AIC
+    main.py:1821 Point_Process_Model.get_params
+    main.py:2434 Hawkes_Model.get_params
+    main.py:2470 Hawkes_Model.plot_prop_excitation
+    main.py:2857 LGCP_Model.__init__
+    main.py:2903 LGCP_Model.get_params
+    polygon_mass.py:259 PolygonMassTable.n_knots
+    polygon_mass.py:263 PolygonMassTable.n_events
+    polygon_mass.py:266 PolygonMassTable.copy
+    polygon_mass.py:1194 make_table_eval
+    trigger.py:48 Trigger.sample_parameters
+    trigger.py:113 Trigger.get_par_names
+    trigger.py:152 Temporal_Power_Law.get_par_names
+    trigger.py:263 Temporal_Exponential.get_par_names
+    trigger.py:307 Spatial_Symmetric_Gaussian.get_par_names
+EXCLUDED_E3=82  -- no scalar-intended parameter
+    config.py:42 ascii_safe
+    data_contracts.py:134 validate_domain
+    data_contracts.py:288 validate_covariates
+    data_contracts.py:378 validate_covariate_coverage
+    data_contracts.py:477 enforce
+    decode_fields.py:20 decode_temporal_field
+    decode_fields.py:30 decode_seasonal_field
+    decode_fields.py:36 decode_spatial_field
+    excitation_support.py:189 TruncatedLogNormal.__init__
+    excitation_support.py:230 TruncatedLogNormal.sample
+    excitation_support.py:240 TruncatedLogNormal.log_prob
+    excitation_support.py:247 TruncatedLogNormal.tree_unflatten
+    excitation_support.py:339 ExcitationSupport.candidate_in_support
+    excitation_support.py:348 domain_polygon_geometry
+    inference_functions.py:25 spatiotemporal_hawkes_model
+    inference_functions.py:208 spatiotemporal_LGCP_model
+    inference_functions.py:289 run_mcmc
+    inference_functions.py:322 get_samples
+    inference_functions.py:334 run_SVI
+    likelihood.py:81 aggregate_pair_trigger_values
+    likelihood.py:98 real_spatial_trigger_values
+    likelihood.py:124 polygon_excitation_compensator
+    likelihood.py:202 seasonal_time_integral
+    likelihood.py:254 constant_background_integral
+    likelihood.py:259 covariate_background_integral
+    likelihood.py:268 background_masses
+    main.py:198 add_month_column
+    main.py:544 Point_Process_Model.load_rslts
+    main.py:560 Point_Process_Model.save_rslts
+    main.py:762 Point_Process_Model.log_expected_likelihood
+    main.py:886 Point_Process_Model.cov_weight_post_summary
+    main.py:1052 Point_Process_Model.plot_temporal
+    main.py:1110 Point_Process_Model.plot_temporal_components
+    main.py:1441 Point_Process_Model.plot_temp_date
+    main.py:1508 Point_Process_Model.plot_spatial
+    main.py:1772 Point_Process_Model.set_window
+    main.py:2192 Hawkes_Model.set_window
+    main.py:2421 Hawkes_Model.export_polygon_mass_table
+    main.py:2484 Hawkes_Model.plot_trigger_posterior
+    main.py:2523 Hawkes_Model.plot_trigger_time_decay
+    main.py:2814 Hawkes_Model.simulate
+    main.py:2887 LGCP_Model.set_window
+    main.py:2929 LGCP_Model.simulate
+    polygon_mass.py:286 PolygonMassTable.export_npz
+    polygon_mass.py:312 PolygonMassTable.load_npz
+    preparation.py:118 PreparedDomain.covers_xy
+    preparation.py:137 prepare_domain
+    preparation.py:388 attach_covariate_partitions
+    preparation.py:520 finalize_integration_arrays
+    spatial_grid_helpers.py:51 get_grid_post_mean
+    spatial_grid_helpers.py:183 identify_hotspots_coldspots
+    spatial_grid_helpers.py:263 plot_daily_event_counts
+    trigger.py:12 Trigger.__init__
+    trigger.py:61 Trigger.simulate_trigger
+    trigger.py:76 Trigger.compute_trigger
+    trigger.py:94 Trigger.compute_integral
+    trigger.py:125 Temporal_Power_Law.__init__
+    trigger.py:139 Temporal_Power_Law.simulate_trigger
+    trigger.py:144 Temporal_Power_Law.compute_trigger
+    trigger.py:149 Temporal_Power_Law.compute_integral
+    trigger.py:204 plot_inter_arrival_distribution
+    trigger.py:251 Temporal_Exponential.simulate_trigger
+    trigger.py:255 Temporal_Exponential.compute_trigger
+    trigger.py:260 Temporal_Exponential.compute_integral
+    trigger.py:289 Spatial_Symmetric_Gaussian.simulate_trigger
+    trigger.py:293 Spatial_Symmetric_Gaussian.compute_trigger
+    trigger.py:299 Spatial_Symmetric_Gaussian.compute_integral
+    utils.py:12 dist_euclid
+    utils.py:42 accepts_rng_kwarg
+    utils.py:75 within_real_box_window
+    vae_functions.py:13 vae_encoder_temporal
+    vae_functions.py:25 vae_decoder_temporal
+    vae_functions.py:33 vae_model_temporal
+    vae_functions.py:42 vae_guide_temporal
+    vae_functions.py:53 vae_encoder_seasonal
+    vae_functions.py:67 vae_decoder_seasonal
+    vae_functions.py:77 vae_model_seasonal
+    vae_functions.py:86 vae_guide_seasonal
+    vae_functions.py:97 vae_encoder_spatial
+    vae_functions.py:111 vae_decoder_spatial
+    vae_functions.py:122 vae_model_spatial
+    vae_functions.py:132 vae_guide_spatial
+
+UNCLASSIFIED_PARAMS=81  -- the method could not decide; sentinel defaults (_UNSET) and undocumented required positionals live here
+    config.py:42 ascii_safe.text
+    cutoffs.py:66 scale_temporal_prior_to_internal.prior_days
+    data_contracts.py:182 validate_events.T_max
+    data_contracts.py:477 enforce.n_events
+    decode_fields.py:20 decode_temporal_field.hidden_dim
+    decode_fields.py:20 decode_temporal_field.n_t
+    decode_fields.py:30 decode_seasonal_field.hidden_dim1
+    decode_fields.py:30 decode_seasonal_field.hidden_dim2
+    decode_fields.py:30 decode_seasonal_field.n_s
+    decode_fields.py:36 decode_spatial_field.hidden_dim1
+    decode_fields.py:36 decode_spatial_field.hidden_dim2
+    decode_fields.py:36 decode_spatial_field.n_xy
+    decode_fields.py:36 decode_spatial_field.sp_var_mu
+    excitation_support.py:189 TruncatedLogNormal.__init__.loc
+    excitation_support.py:189 TruncatedLogNormal.__init__.scale
+    excitation_support.py:189 TruncatedLogNormal.__init__.low
+    excitation_support.py:189 TruncatedLogNormal.__init__.high
+    inference_functions.py:25 spatiotemporal_hawkes_model.args
+    inference_functions.py:208 spatiotemporal_LGCP_model.args
+    inference_functions.py:289 run_mcmc.model_mcmc
+    inference_functions.py:289 run_mcmc.args
+    inference_functions.py:322 get_samples.args
+    inference_functions.py:334 run_SVI.args
+    inference_functions.py:334 run_SVI.num_steps
+    inference_functions.py:334 run_SVI.lr
+    likelihood.py:81 aggregate_pair_trigger_values.n_events
+    likelihood.py:124 polygon_excitation_compensator.alpha
+    likelihood.py:124 polygon_excitation_compensator.horizon
+    likelihood.py:124 polygon_excitation_compensator.temporal_window
+    likelihood.py:152 rectangular_excitation_compensator.alpha
+    likelihood.py:152 rectangular_excitation_compensator.horizon
+    likelihood.py:152 rectangular_excitation_compensator.temporal_window
+    likelihood.py:202 seasonal_time_integral.a_0
+    likelihood.py:254 constant_background_integral.horizon
+    likelihood.py:254 constant_background_integral.domain_area
+    likelihood.py:259 covariate_background_integral.horizon
+    likelihood.py:268 background_masses.horizon
+    main.py:208 add_month_grid_and_labels.num_days
+    main.py:1772 Point_Process_Model.set_window.window
+    main.py:1772 Point_Process_Model.set_window.spatial_window
+    main.py:2192 Hawkes_Model.set_window.window
+    main.py:2192 Hawkes_Model.set_window.spatial_window
+    main.py:2887 LGCP_Model.set_window.window
+    main.py:2887 LGCP_Model.set_window.spatial_window
+    utils.py:30 exp_sq_kernel.var
+    utils.py:30 exp_sq_kernel.length
+    utils.py:30 exp_sq_kernel.noise
+    utils.py:75 within_real_box_window.spatial_window
+    utils.py:93 aligned_difference_pairs.window
+    vae_functions.py:13 vae_encoder_temporal.hidden_dim
+    vae_functions.py:13 vae_encoder_temporal.z_dim
+    vae_functions.py:25 vae_decoder_temporal.hidden_dim
+    vae_functions.py:25 vae_decoder_temporal.out_dim
+    vae_functions.py:33 vae_model_temporal.hidden_dim
+    vae_functions.py:33 vae_model_temporal.z_dim
+    vae_functions.py:42 vae_guide_temporal.hidden_dim
+    vae_functions.py:42 vae_guide_temporal.z_dim
+    vae_functions.py:53 vae_encoder_seasonal.hidden_dim1
+    vae_functions.py:53 vae_encoder_seasonal.hidden_dim2
+    vae_functions.py:53 vae_encoder_seasonal.z_dim
+    vae_functions.py:67 vae_decoder_seasonal.hidden_dim1
+    vae_functions.py:67 vae_decoder_seasonal.hidden_dim2
+    vae_functions.py:67 vae_decoder_seasonal.out_dim
+    vae_functions.py:77 vae_model_seasonal.hidden_dim1
+    vae_functions.py:77 vae_model_seasonal.hidden_dim2
+    vae_functions.py:77 vae_model_seasonal.z_dim
+    vae_functions.py:86 vae_guide_seasonal.hidden_dim1
+    vae_functions.py:86 vae_guide_seasonal.hidden_dim2
+    vae_functions.py:86 vae_guide_seasonal.z_dim
+    vae_functions.py:97 vae_encoder_spatial.hidden_dim1
+    vae_functions.py:97 vae_encoder_spatial.hidden_dim2
+    vae_functions.py:97 vae_encoder_spatial.z_dim
+    vae_functions.py:111 vae_decoder_spatial.hidden_dim1
+    vae_functions.py:111 vae_decoder_spatial.hidden_dim2
+    vae_functions.py:111 vae_decoder_spatial.out_dim
+    vae_functions.py:122 vae_model_spatial.hidden_dim1
+    vae_functions.py:122 vae_model_spatial.hidden_dim2
+    vae_functions.py:122 vae_model_spatial.z_dim
+    vae_functions.py:132 vae_guide_spatial.hidden_dim1
+    vae_functions.py:132 vae_guide_spatial.hidden_dim2
+    vae_functions.py:132 vae_guide_spatial.z_dim
+EXIT:0

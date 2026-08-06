@@ -261,6 +261,33 @@ def main() -> int:
           f"  ({100.0 * covered / tot_raise:.0f}%)")
     print()
 
+    # A-39. The ratio's DENOMINATOR, printed beside it. 184/184 is a true
+    # statement about raise sites and says nothing about text that reaches a
+    # console any other way -- and one such site is known and live. A 100%
+    # figure over an unstated population is the 183/184 defect inverted:
+    # 183/184 named its blind spot and understated its coverage; an unqualified
+    # 184/184 would overstate its scope. Both are the same error about what a
+    # ratio is a ratio OF.
+    print("POPULATION OF THIS RATIO (stated, because 100% invites the wrong")
+    print("reading of what it covers)")
+    print("  INCLUDED : ast.Raise nodes in bstpp/*.py -- every site that")
+    print("             raises, whether its text is a literal, a D-40 clause")
+    print("             function, or an ascii_safe()-wrapped runtime string.")
+    print("  EXCLUDED : text that reaches a console WITHOUT being raised.")
+    print("             KNOWN LIVE INSTANCE -- OP-25: data_contracts.enforce's")
+    print("             warnings.warn renders the SAME DataContractReport")
+    print("             .summary() as the raise beside it, to the same console,")
+    print("             and is NOT ascii_safe()-wrapped. Under data_contracts=")
+    print("             'report' the identical UnicodeEncodeError is reachable.")
+    print("             A-37 escaped the raise and deliberately stopped there;")
+    print("             D-40's corollary names raised messages, and widening it")
+    print("             is a decision, not a detail.")
+    print("  EXCLUDED : warnings, logging, print, and __str__/__repr__ on")
+    print("             package objects. None is swept; none is claimed.")
+    print("  So: 184/184 means EVERY RAISE SITE, not every console-bound")
+    print("  string in the package. The second figure is not measured here.")
+    print()
+
     # Always printed, at zero if empty -- the A-35 lesson about the hazard
     # section: a section that vanishes when empty makes "found nothing" and
     # "did not run" satisfy the same grep.

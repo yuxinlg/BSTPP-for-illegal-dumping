@@ -97,7 +97,14 @@ def main() -> int:
     if fails:
         print(f"FAIL {fails} label check(s)")
         return 1
-    print("PASS - config sequence renumbered CI-1..CI-6; model identities intact")
+    print("PASS - CI-1..CI-6 renumber intact; model identities intact.")
+    # A-39: a gate states the population its PASS is about. This one checks
+    # the A-30 RENUMBER only. CI-7/CI-8 (A-33) and CI-9 (A-39) are later
+    # additions that were never renumbered, so they are outside its
+    # population -- a PASS here is not a statement about them.
+    print("       SCOPE: the A-30 renumber only. CI-7/CI-8 (A-33) and CI-9")
+    print("       (A-39) were added later, never renumbered, and are OUTSIDE")
+    print("       this gate's population; a PASS is not a claim about them.")
     return 0
 
 

@@ -1,0 +1,74 @@
+bstpp.__file__ = C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+
+  0%|          | 0/1 [00:00<?, ?it/s]100%|##########| 1/1 [00:05<00:00,  5.95s/it, init loss: 110.5743, avg. loss [1-1]: 110.5743]100%|##########| 1/1 [00:05<00:00,  5.95s/it, init loss: 110.5743, avg. loss [1-1]: 110.5743]
+Number of posterior samples: 2
+Number of pairs: 1770
+
+SVI elapsed time: 30.957853078842163
+  0%|          | 0/2 [00:00<?, ?it/s] 50%|#####     | 1/2 [00:05<00:05,  5.79s/it, init loss: 110.5743, avg. loss [1-1]: 110.5743]100%|##########| 2/2 [00:05<00:00,  2.90s/it, init loss: 110.5743, avg. loss [2-2]: 68.0677] 
+Number of posterior samples: 2
+Number of pairs: 1770
+
+SVI elapsed time: 10.46614384651184
+  0%|          | 0/2 [00:00<?, ?it/s] 50%|#####     | 1/2 [00:05<00:05,  5.67s/it, init loss: 110.5743, avg. loss [1-1]: 110.5743]100%|##########| 2/2 [00:05<00:00,  2.83s/it, init loss: 110.5743, avg. loss [2-2]: 106.5324]
+Number of posterior samples: True
+Number of pairs: 1770
+
+SVI elapsed time: 6.572147607803345
+
+========================================================================================================================
+ENTRY POINT                           PARAMETER                         VERDICT    COVERED BY                                    DETAIL
+========================================================================================================================
+Hawkes_Model.__init__                 T                                 COLLAPSED  n/a (nothing rejected it)                     computed on (True, 50)
+Hawkes_Model.__init__                 offset_seasonal                   COLLAPSED  n/a (nothing rejected it)                     computed on (True, 50.0)
+Hawkes_Model.__init__                 sp_var_mu                         COLLAPSED  n/a (nothing rejected it)                     computed on 1.0
+Hawkes_Model.__init__                 window                            COLLAPSED  n/a (nothing rejected it)                     computed on 1.0
+Hawkes_Model.__init__                 spatial_window                    COLLAPSED  n/a (nothing rejected it)                     computed on 1.0
+Hawkes_Model.__init__                 temporal_cutoff_days              COLLAPSED  n/a (nothing rejected it)                     computed on 0.0547945205479452
+Hawkes_Model.__init__                 design_sigma                      COLLAPSED  n/a (nothing rejected it)                     computed on 2.2364766445577917
+Hawkes_Model.__init__                 design_mean_lag_days              COLLAPSED  n/a (nothing rejected it)                     computed on 0.16414971361939676
+Hawkes_Model.__init__                 cutoff_tol                        RAISED     interval-accident [suite_pins_bool=False  <-- UNPROTECTED]ValueError: cutoff_tol must be finite and in (0, 1); got 1.0
+Hawkes_Model.__init__                 min_sigma/max_sigma               RAISED     type-discipline                               NumericalConfigError: min_sigma must be a real number (int or float; bool and str rejected); got True (bool)
+Hawkes_Model.__init__                 standardize_cov (no covariates)   COLLAPSED  n/a (nothing rejected it)                     computed on {'method': 'none', 'columns': [], 'mean': None, 'scale': None}
+Hawkes_Model.__init__                 standardize_cov=True (no covariates)COLLAPSED  n/a (nothing rejected it)                     computed on {'method': 'none', 'columns': [], 'mean': None, 'scale': None}
+Hawkes_Model.__init__                 standardize_cov=True (+covariates)RAISED     type-discipline                               ValueError: standardize_cov no longer accepts booleans; pass None (off, default) or 'domain_area' (area-weig
+Hawkes_Model.__init__                 cov_names=[] (+covariates)        COLLAPSED  n/a (nothing rejected it)                     computed on 0
+Point_Process_Model.run_svi           num_steps                         COLLAPSED  n/a (nothing rejected it)                     computed on '<ran; num_steps=True == 1 step>'
+Point_Process_Model.run_svi           lr                                COLLAPSED  n/a (nothing rejected it)                     computed on '<ran; lr=True == 1.0>'
+Point_Process_Model.run_svi           num_samples                       COLLAPSED  n/a (nothing rejected it)                     computed on '<ran; num_samples=True == 1 draw>'
+NumericalConfig.create                gl_order                          RAISED     type-discipline                               NumericalConfigError: gl_order must be an int (bool rejected); got True (bool)
+NumericalConfig.create                gl_order                          RAISED     type-discipline                               NumericalConfigError: gl_order must be an int (bool rejected); got 16.7 (float)
+NumericalConfig.create                panel_h_m                         RAISED     type-discipline                               NumericalConfigError: panel_h_m must be a real number (int or float; bool and str rejected); got True (bool)
+polygon_mass.knot_count               sigma_min                         COLLAPSED  n/a (nothing rejected it)                     computed on 24
+polygon_mass.log_knots                sigma_min                         COLLAPSED  n/a (nothing rejected it)                     computed on (0.0, 1.3862943611198906, 24)
+polygon_mass.make_quad_eval           gl_order                          COLLAPSED  n/a (nothing rejected it)                     computed on '<built>'
+polygon_mass.warn_if_sigma_near_bound frac                              COLLAPSED  n/a (nothing rejected it)                     computed on '<ran>'
+cutoffs.days_to_internal              days                              COLLAPSED  n/a (nothing rejected it)                     computed on 0.136986301369863
+cutoffs.temporal_omitted_mass         window                            COLLAPSED  n/a (nothing rejected it)                     computed on 0.6065306597126334
+cutoffs.temporal_cutoff_from_tol      eps                               RAISED     interval-accident [suite_pins_bool=False  <-- UNPROTECTED]ValueError: temporal tol must be finite and in (0, 1); got 1.0
+cutoffs.spatial_cutoff_from_tol       eps                               RAISED     interval-accident [suite_pins_bool=False  <-- UNPROTECTED]ValueError: spatial tol must be finite and in (0, 1); got 1.0
+cutoffs.resolve_computational_cutoffs horizon_days                      COLLAPSED  n/a (nothing rejected it)                     computed on "<unreadable: TypeError: 'CutoffProvenance' object is not subscriptable>"
+utils.aligned_difference_pairs        window                            COLLAPSED  n/a (nothing rejected it)                     computed on '<2 pairs>'
+utils.within_real_box_window          spatial_window                    COLLAPSED  n/a (nothing rejected it)                     computed on [True]
+Hawkes_Model.set_window               window                            COLLAPSED  n/a (nothing rejected it)                     computed on 1.0
+========================================================================================================================
+ROWS_FIRED=32  COLLAPSED=24  RAISED=8
+  RAISED_BY_TYPE_DISCIPLINE=5   (CI-7 / CI-8; a suite row asserts it)
+  RAISED_BY_INTERVAL_ACCIDENT=3   of which UNPROTECTED=3
+  RAISED_UNCLASSIFIED=0   (no typed probe supplied)
+
+COVERAGE NO TEST PROTECTS
+  These rows RAISE today, and the census would overstate the
+  package's protection by counting them beside the CI-7/CI-8 rows.
+  Nothing tested the TYPE: True coerced to 1.0 and 1.0 is outside
+  the permitted interval, so the interval did the work. Widen it to
+  (0, 1] -- a change someone could argue for on its merits -- and
+  True is accepted, the parameter silently collapses to 1.0, AND NO
+  SUITE ROW MOVES: the existing rows parametrise bad_tol over
+  [-1.0, 0.0, 1.0, nan, inf], all floats, so they would simply be
+  updated for the new interval, and the bool case has no row at all.
+    Hawkes_Model.__init__.cutoff_tol
+    cutoffs.temporal_cutoff_from_tol.eps
+    cutoffs.spatial_cutoff_from_tol.eps
+
+EXIT:0

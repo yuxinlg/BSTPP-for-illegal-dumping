@@ -1,0 +1,44 @@
+=== A-39: yuxinlg/Illegal-Dumping -- standardize_cov call-site audit ===
+clone: https://github.com/yuxinlg/Illegal-Dumping.git
+HEAD : f5f138210186c8baf742808021c095cd05d3b896 2026-07-22 Add replication scripts, reports, and figures; ignore large geospatial datasets
+read-only clone into the session scratchpad; nothing written to that repo.
+
+QUESTION: does any call pass standardize_cov WITHOUT covariates?
+That is the break the bind-time relocation (D-43 clause 3) would cause.
+
+METHOD: for each `standardize_cov=` line, walk UP to the nearest line
+ending in `(` (any callable, so subclasses are matched -- the first
+scan hard-coded Hawkes_Model/LGCP_Model and produced a FALSE POSITIVE
+on Cox_Hawkes_Shared_Offset, caught by reading the file), then DOWN to
+the matching close, then look for an uncommented `spatial_cov=`.
+
+SITE                                             LN  STATE         CTOR                                      COVARIATES?
+------------------------------------------------------------------------------------------------------------------------------------
+code\cbg-park-litter.ipynb:cell56                21  commented-out bstpp.main.Hawkes_Model                   yes: spatial_cov=cov_gdf, #cov_gdf_
+code\cbg-park-litter.ipynb:cell56                41  LIVE CALL     bstpp.cox_hawkes_shared.Cox_Hawkes_Shared yes: spatial_cov=cov_gdf, #cov_gdf_
+code\cbg-park-seasonal.ipynb:cell60              21  LIVE CALL     bstpp.main.Hawkes_Model                   yes: spatial_cov = cov_gdf,#spatial
+code\cbg-park-seasonal_fence.ipynb:cell61        21  LIVE CALL     bstpp.main.Hawkes_Model                   yes: spatial_cov = cov_gdf,#spatial
+code\cbg-park-seasonal_fence.ipynb:cell61        39  commented-out bstpp.cox_hawkes_shared.Cox_Hawkes_Shared *** NONE ***
+code\fairmount-split.ipynb:cell29                21  LIVE CALL     bstpp.main.Hawkes_Model                   yes: spatial_cov = cov_gdf,#spatial
+code\gateway_plot.ipynb:cell21                   15  commented-out bstpp.cox_hawkes_shared.Cox_Hawkes_Shared *** NONE ***
+replication\03_analysis.py                      806  LIVE CALL     Cox_Hawkes_Shared                         yes: spatial_cov=cov_gdf,
+replication\05_corrected_hawkes_by_district.py  222  LIVE CALL     Cox_Hawkes_Shared_Offset                  yes: spatial_cov=cov_gdf,
+
+OCCURRENCES=9  LIVE=6  COMMENTED=3
+LIVE CALLS PASSING standardize_cov WITHOUT COVARIATES = 0
+
+ANSWER: zero. The bind-time relocation breaks nothing in this repo.
+
+TWO THINGS THE GREP FOUND THAT THE QUESTION DID NOT ASK FOR:
+ 1. All six live calls pass standardize_cov=True, and booleans have
+    been rejected on `refactor` since OP-3/OP-4. On origin/main the
+    parameter DEFAULTS to True and is a plain flag (unweighted
+    (X-mean)/sd); on refactor it defaults to None and 'domain_area' is
+    AREA-WEIGHTED. So these six already break, for an older and
+    already-decided reason, and a migrating user must change the value
+    AND accept different numbers. A break we own and shipped.
+ 2. They subclass bstpp.cox_hawkes_shared.Cox_Hawkes_Shared, a module
+    THIS FORK DOES NOT HAVE; their bstpp/ is vendored and untracked.
+    The surface we own for them is Point_Process_Model.__init__,
+    which their subclass inherits.
+EXIT:0
