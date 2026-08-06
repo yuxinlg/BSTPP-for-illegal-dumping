@@ -1,0 +1,25 @@
+bstpp.__file__ = C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+
+1. standardize_cov -- WITH covariates, so the standardization leg runs
+   (the first probe passed no covariates, so the guard was never reached
+    and reported ACCEPTED -- a false negative)
+  standardize_cov=True (+covariates)           ValueError             standardize_cov no longer accepts booleans; pass None (off, default) or 'domain_
+  standardize_cov=False (+covariates)          ValueError             standardize_cov no longer accepts booleans; pass None (off, default) or 'domain_
+  standardize_cov='nope' (+covariates)         ValueError             standardize_cov must be None (off) or 'domain_area' (area-weighted over |C_c int
+  standardize_cov='domain_area' (+covariates)  ACCEPTED               (no error)
+  standardize_cov=None (+covariates)           ACCEPTED               (no error)
+
+2. design_sigma / spatial tol -- with a REAL custom spatial trigger
+  design_sigma=10 + custom spatial             TypeError              design_sigma is valid only for Spatial_Symmetric_Gaussian (got spatial_trig=_Cus
+  spatial_cutoff_tol + custom spatial          TypeError              spatial_cutoff_tol is valid only for Spatial_Symmetric_Gaussian (got spatial_tri
+  min_sigma + custom spatial                   TypeError              min_sigma / max_sigma apply only to Spatial_Symmetric_Gaussian (got spatial_trig
+
+3. horizon T -- is it validated as a QUANTITY, or only via the events?
+  T=0 with events present                      DataContractError      BSTPP data-contract report: 1 violation check(s), 0 diagnostic(s) over 8 events 
+  T=-5 with events present                     DataContractError      BSTPP data-contract report: 1 violation check(s), 0 diagnostic(s) over 8 events 
+  T=inf with events present                    DataContractError      BSTPP data-contract report: 1 violation check(s), 0 diagnostic(s) over 8 events 
+  T=nan with events present                    DataContractError      BSTPP data-contract report: 1 violation check(s), 0 diagnostic(s) over 8 events 
+  T='30' with events present                   TypeError              unsupported operand type(s) for /: 'str' and 'int'
+
+4. the prior-type message: does it describe the actual failure?
+  a_0=1.0 (KNOWN name, wrong type)             Exception              Unknown argument a_0. Prior distributions must be instances of numpyro Distribut

@@ -1,0 +1,20 @@
+bstpp.__file__ = C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+
+A-23 discipline: _require_real VALIDATES a coerced copy; the frozen field
+keeps the CALLER'S object. Measured stored types:
+--------------------------------------------------------------------------
+  min_sigma=float   5.0  -> stored 5.0          type=float
+  min_sigma=int     5    -> stored 5            type=int
+  min_sigma=np.float64   -> stored 5.0          type=float64
+
+  panel_h_m=int    20    -> stored 20           type=int
+  panel_h_m=float  20.0  -> stored 20.0         type=float
+  panel_h_m=np.float64   -> stored 20.0         type=float64
+
+  gl_order=int 16          -> stored 16 type=int
+
+CONSEQUENCE: two configs that validate identically can hold different
+dtypes, and equality/identity comparisons downstream see the difference.
+  float vs np.float64 configs equal? True
+  float vs int        configs equal? True
+  stored types: float / float64 / int

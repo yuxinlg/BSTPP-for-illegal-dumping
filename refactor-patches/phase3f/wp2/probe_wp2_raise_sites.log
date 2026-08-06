@@ -1,0 +1,108 @@
+bstpp.__file__ = C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+
+============================================================================================
+PART A -- AST census of raise sites in bstpp/main.py, by candidate owner
+============================================================================================
+
+  PriorConfig: 6 raise site(s)
+    main.py:110   TypeError              TypeError(f'mean_lag_days is valid only for Temporal_Exponential (got temporal_trig={t_n
+    main.py:121   TypeError              TypeError(f'design_mean_lag_days is valid only for Temporal_Exponential (got temporal_tr
+    main.py:537   Exception              Exception(f'Unknown argument {par}. Prior distributions must be instances of numpyro Dis
+    main.py:2022  ValueError             ValueError('Pass mean_lag_days or beta, not both (mean_lag_days is the public days-unit 
+    main.py:2053  ValueError             ValueError('Hawkes_Model requires a user-supplied sigmax_2 prior (numpyro Distribution i
+    main.py:2088  ValueError             ValueError(f'{axis} trigger {type(trig).__name__} requires a prior named {pname!r} (from
+
+  ModelConfig: 14 raise site(s)
+    main.py:101   TypeError              TypeError(f'Shared cutoff_tol requires Temporal_Exponential and Spatial_Symmetric_Gaussi
+    main.py:154   FileNotFoundError      FileNotFoundError(f"Decoder artifact 'bstpp/decoders/{name}' is missing from the package
+    main.py:2895  NotImplementedError    NotImplementedError('LGCP_Model.set_window is not supported: computational excitation cu
+    main.py:116   TypeError              TypeError(f'temporal_cutoff_tol is valid only for Temporal_Exponential (got temporal_tri
+    main.py:128   TypeError              TypeError(f'spatial_cutoff_tol is valid only for Spatial_Symmetric_Gaussian (got spatial
+    main.py:134   TypeError              TypeError(f'design_sigma is valid only for Spatial_Symmetric_Gaussian (got spatial_trig=
+    main.py:138   TypeError              TypeError(f'min_sigma / max_sigma apply only to Spatial_Symmetric_Gaussian (got spatial_
+    main.py:752   Exception              Exception(f"Computational grid does not encompass all data points! {len(points) - len(ar
+    main.py:807   ValueError             ValueError(f"Held-out events must lie within the training time horizon [0, {self.args['T
+    main.py:899   Exception              Exception('Spatial covariates were not included in the model.')
+    main.py:1524  Exception              Exception('No spatial covariates are in the model and include_cov was set to True')
+    main.py:2038  TypeError              TypeError(f"Polygon excitation_support currently requires the exact Spatial_Symmetric_Ga
+    main.py:697   ValueError             ValueError("'A' column is inconsistent with 'T' + offset_seasonal (tolerance 1 day). Dro
+    main.py:440   ValueError             ValueError("spatial_cov_crs is required when CSV/plain-DataFrame covariates are used wit
+
+  NumericalConfig (WP1, existing): 8 raise site(s)
+    main.py:1980  ValueError             ValueError('Polygon excitation_support requires a prepared mass_table from bstpp.polygon
+    main.py:2168  ValueError             ValueError('Polygon held-out excitation support requires mass_table= from bstpp.polygon_
+    main.py:2174  ValueError             ValueError('mass_table is only accepted for polygon excitation_support')
+    main.py:2277  ValueError             ValueError('mass_table is only accepted for polygon excitation_support')
+    main.py:840   ValueError             ValueError('Polygon log_expected_likelihood requires mass_table= from bstpp.polygon_mass
+    main.py:850   ValueError             ValueError('mass_table is only accepted for polygon excitation_support')
+    main.py:2258  ValueError             ValueError('Polygon set_window with a changed spatial_window requires mass_table= from b
+    main.py:2273  ValueError             ValueError('Polygon set_window requires an installed or supplied mass_table from prepare
+
+  CutoffConfig (no object yet): 4 raise site(s)
+    main.py:1791  ValueError             ValueError(f'window must be finite and > 0; got {window}')
+    main.py:1798  ValueError             ValueError(f'spatial_window must be finite and > 0; got {spatial_window}')
+    main.py:2227  ValueError             ValueError(f'window must be finite and > 0; got {new_window}')
+    main.py:2237  ValueError             ValueError(f'spatial_window must be finite and > 0; got {new_sw}')
+
+  UNATTRIBUTED: 29 raise site(s)
+    main.py:791   DataContractError      DataContractError(f'{_n_rows} held-out row(s) have non-numeric or nonfinite coordinates/
+    main.py:797   ValueError             ValueError('No held-out events to score')
+    main.py:897   Exception              Exception('MCMC posterior sampling has not been performed yet.')
+    main.py:1062  Exception              Exception('MCMC posterior sampling has not been performed yet.')
+    main.py:1064  Exception              Exception('Nothing to plot: temporal background in constant.')
+    main.py:1137  Exception              Exception('MCMC posterior sampling has not been performed yet.')
+    main.py:1139  Exception              Exception('Nothing to plot: temporal background is constant.')
+    main.py:1142  ValueError             ValueError('At least one of show_gp or show_hist must be True.')
+    main.py:1254  Exception              Exception('MCMC posterior sampling has not been performed yet.')
+    main.py:1256  Exception              Exception('Nothing to plot: seasonal background in constant.')
+    main.py:1329  Exception              Exception('MCMC posterior sampling has not been performed yet.')
+    main.py:1331  Exception              Exception('Nothing to plot: seasonal background is constant.')
+    main.py:1334  ValueError             ValueError('At least one of show_gp or show_hist must be True.')
+    main.py:1457  Exception              Exception('MCMC posterior sampling has not been performed yet.')
+    main.py:1459  Exception              Exception('Nothing to plot: temporal background in constant.')
+    main.py:1520  Exception              Exception('MCMC posterior sampling has not been performed yet.')
+    main.py:1522  Exception              Exception('Nothing to plot: spatial background is constant')
+    main.py:1605  RuntimeError           RuntimeError(f'sample_points returned {len(pts)} points for {counts.sum()} requested; re
+    main.py:1655  ValueError             ValueError('PreparedDomain.union_geometry is required for polygon domain simulation filt
+    main.py:1752  RuntimeError           RuntimeError(f'geometry rows ({len(geo_df)}) misaligned with integration arrays ({len(h_
+    main.py:2425  ValueError             ValueError('No polygon mass table to export (rectangle mode, or support not installed).'
+    main.py:2495  Exception              Exception('MCMC posterior sampling has not been performed yet.')
+    main.py:2528  Exception              Exception('MCMC posterior sampling has not been performed yet.')
+    main.py:2574  Exception              Exception('MCMC posterior sampling has not been performed yet.')
+    main.py:2832  ValueError             ValueError('simulate requires an explicit numpy.random.Generator via rng=; the legacy np
+    main.py:2947  ValueError             ValueError('simulate requires an explicit numpy.random.Generator via rng=; the legacy np
+    main.py:490   Exception              Exception('Spatial covariates are not defined for all data points!')
+    main.py:862   ValueError             ValueError(f"Held-out cov_ind length does not match the held-out event count: got {len(t
+    main.py:2731  ValueError             ValueError('PreparedDomain.union_geometry is required for polygon plain-Hawkes backgroun
+
+  TOTAL raise sites in main.py: 61
+  DISTINCT exception types: 7 -> DataContractError, Exception, FileNotFoundError, NotImplementedError, RuntimeError, TypeError, ValueError
+
+============================================================================================
+PART B -- runtime reachability per candidate invariant
+============================================================================================
+
+  PriorConfig candidates
+    prior not a Distribution           Exception                Unknown argument a_0. Prior distributions must be instances of numpyro Distribution.
+    unknown kwarg (non-Distribution)   Exception                Unknown argument nonsense. Prior distributions must be instances of numpyro Distribution.
+    missing sigmax_2 (Gaussian sp)     ValueError               Hawkes_Model requires a user-supplied sigmax_2 prior (numpyro Distribution in squared real units
+    missing beta (Exponential temporal) ValueError               temporal trigger Temporal_Exponential requires a prior named 'beta' (from get_par_names()).
+    Power_Law without gamma            ValueError               temporal trigger Temporal_Power_Law requires a prior named 'gamma' (from get_par_names()).
+    mean_lag_days AND beta both        ValueError               Pass mean_lag_days or beta, not both (mean_lag_days is the public days-unit prior; beta is the l
+    mean_lag_days on Power_Law         TypeError                mean_lag_days is valid only for Temporal_Exponential (got temporal_trig=Temporal_Power_Law). Tem
+
+  ModelConfig candidates
+    T = 0                              DataContractError        BSTPP data-contract report: 1 violation check(s), 0 diagnostic(s) over 8 events (mode=reject). V
+    T negative                         DataContractError        BSTPP data-contract report: 1 violation check(s), 0 diagnostic(s) over 8 events (mode=reject). V
+    T = inf                            DataContractError        BSTPP data-contract report: 1 violation check(s), 0 diagnostic(s) over 8 events (mode=reject). V
+    data_contracts bogus mode          ValueError               data_contracts must be 'report' or 'reject', got 'bogus'
+    standardize_cov=True (legacy bool) ACCEPTED                 (no error)
+    standardize_cov bogus str          ACCEPTED                 (no error)
+    sp_var_mu = str                    ValueError               could not convert string to float: 'big'
+    sp_var_mu = None                   TypeError                float() argument must be a string or a real number, not 'NoneType'
+    offset_seasonal = str              UFuncTypeError           ufunc 'add' did not contain a loop with signature matching types (dtype('float64'), dtype('<U1')
+    excitation_support bogus           NumericalConfigError     excitation support mode must be 'rectangle' or 'polygon'; got 'triangle' Pass excitation_support
+
+  Cross-object: trigger capability gates (which object owns these?)
+    mean_lag_days + Power_Law          TypeError                mean_lag_days is valid only for Temporal_Exponential (got temporal_trig=Temporal_Power_Law). Tem
+    design_sigma + custom spatial      ACCEPTED                 (no error)

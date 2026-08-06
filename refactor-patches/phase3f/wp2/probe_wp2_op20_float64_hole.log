@@ -1,0 +1,12 @@
+np.float64 is a Python float subclass : True
+np.float32 is a Python float subclass : False
+np.int64   is a Python int   subclass : False
+np.bool_   is a Python bool  subclass : False
+
+=> A-23 _require_real uses isinstance(value,(int,float)), so the declared
+   type discipline ALREADY admits np.float64 while rejecting np.float32.
+   The float32/float64 hazard it exists to prevent is therefore already
+   half-open at the only place it is enforced.
+   NumericalConfig.create(min_sigma=float64) -> ACCEPT, stored 5.0 (float64)
+   NumericalConfig.create(min_sigma=float32) -> reject(NumericalConfigError)
+   NumericalConfig.create(min_sigma=bool_) -> reject(NumericalConfigError)

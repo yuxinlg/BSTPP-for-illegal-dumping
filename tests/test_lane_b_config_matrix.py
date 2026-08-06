@@ -24,6 +24,8 @@ import json
 import os
 import pickle
 import tempfile
+from decimal import Decimal
+from fractions import Fraction
 
 os.environ.setdefault("JAX_PLATFORM_NAME", "cpu")
 
@@ -40,6 +42,8 @@ from bstpp.config import (
     NumericalConfig,
     NumericalConfigError,
     builder_max_sigma_invariant_clause,
+    config_integral_invariant_clause,
+    config_real_invariant_clause,
     min_sigma_positive_invariant_clause,
     panel_ratio_invariant_clause,
     polygon_min_sigma_invariant_clause,
@@ -1042,6 +1046,146 @@ def test_lane_b_build_quad_table_rejects_none_min_sigma_by_name():
             gl_order=int(DEFAULT_GL_ORDER))
     assert str(ei.value).startswith(polygon_min_sigma_invariant_clause())
     assert not isinstance(ei.value, TypeError)
+
+
+# ------------------------------------------- CI-7 / CI-8 argument types --
+# A-33 / D-42 (OP-20 closed). One policy for what a config-owned numeric
+# argument may be. Before this, resolve_sigma_bounds coerced with float() and
+# NumericalConfig rejected with _require_real, so eight input classes
+# constructed a model on one path and were refused on another.
+
+_CI7_ACCEPTED = [("int", 5), ("float", 5.0), ("np.float64", np.float64(5.0))]
+
+
+class _HasFloat:
+    def __float__(self):
+        return 5.0
+
+    def __repr__(self):
+        return "<obj.__float__>"
+
+
+_CI7_REJECTED = [
+    ("np.float32", np.float32(5.0)),
+    ("np.int64", np.int64(5)),
+    ("ndarray0d", np.array(5.0)),
+    ("str", "5"),
+    ("bool", True),
+    ("Decimal", Decimal("5")),
+    ("Fraction", Fraction(5, 1)),
+    ("obj.__float__", _HasFloat()),
+]
+
+
+def _ci7_owners(v):
+    """Every owner of the CI-7 invariant for a real config argument."""
+    return {
+        "NumericalConfig.create": lambda: NumericalConfig.create(
+            support_mode="rectangle", min_sigma=v, max_sigma=40.0),
+        "resolve_sigma_bounds": lambda: resolve_sigma_bounds(
+            mode="rectangle", min_sigma=v, max_sigma=40.0, crs=None),
+        "prepare_polygon_mass_table": lambda: prepare_polygon_mass_table(
+            box(0.0, 0.0, 200.0, 200.0), np.array([10.0, 20.0]),
+            np.array([10.0, 20.0]), min_sigma=v, max_sigma=40.0,
+            panel_h_m=1.0),
+        "build_quad_table": lambda: build_quad_table(
+            box(0.0, 0.0, 200.0, 200.0), np.array([10.0, 20.0]),
+            np.array([10.0, 20.0]), v, 40.0, ws=None, h_panel=1.0,
+            gl_order=int(DEFAULT_GL_ORDER)),
+    }
+
+
+@pytest.mark.parametrize("label,value", _CI7_REJECTED,
+                         ids=[n for n, _ in _CI7_REJECTED])
+def test_lane_b_ci7_rejects_the_same_class_from_every_owner(label, value):
+    """A-33 / CI-7: one invariant, one identity, independent of entry path.
+
+    The defect this row exists to catch is the one OP-20 recorded: the same
+    argument was accepted by ``resolve_sigma_bounds`` and refused by
+    ``NumericalConfig``, so which answer a caller got depended on which door
+    they came through. Owners are compared to EACH OTHER before the text is
+    pinned to the single-sourced clause, so a future divergence fails here
+    whatever the wording.
+    """
+    raised = [(name, _raised(fn)) for name, fn in _ci7_owners(value).items()]
+    detail = "\n".join(f"    {n}: {type(e).__name__}: {e}" for n, e in raised)
+
+    types = {type(e) for _, e in raised}
+    assert types == {NumericalConfigError}, (
+        f"CI-7 {label}: one identity from every owner (D-40); got\n{detail}")
+
+    clause = config_real_invariant_clause(name="min_sigma", value=value)
+    for name, exc in raised:
+        # build_quad_table names its parameter sigma_min, so the clause head
+        # differs by argument name; the invariant text after it must not.
+        tail = clause.split(" must be ", 1)[1]
+        assert str(exc).endswith(tail), (
+            f"CI-7 {label}: {name} restates the invariant instead of "
+            f"rendering the canonical clause.\n  expected tail: {tail!r}\n"
+            f"  got:           {str(exc)!r}")
+    for _, exc in raised:
+        str(exc).encode("ascii")  # D-40
+
+
+@pytest.mark.parametrize("label,value", _CI7_ACCEPTED,
+                         ids=[n for n, _ in _CI7_ACCEPTED])
+def test_lane_b_ci7_still_accepts_the_three_real_classes(label, value):
+    """A-33: the accept set is exactly {int, float, np.float64}, unchanged.
+
+    np.float64 stays accepted because it is a Python float subclass -- the
+    asymmetry A-23 reason 3 already had. This row pins that the tightening did
+    not quietly narrow the accept set beyond what was declared.
+    """
+    for name, fn in _ci7_owners(value).items():
+        fn()  # must not raise
+
+
+def test_lane_b_ci7_build_quad_table_type_change_is_declared():
+    """A-33: at build_quad_table four classes were ALREADY rejected -- with a
+    bare TypeError from np.isfinite on the raw value, not an accept. Their
+    change is the identity, not the verdict, and NumericalConfigError is not a
+    TypeError subclass, so a caller catching TypeError IS affected.
+    """
+    for label, value in [("str", "5"), ("Decimal", Decimal("5")),
+                         ("Fraction", Fraction(5, 1)),
+                         ("obj.__float__", _HasFloat())]:
+        exc = _raised(_ci7_owners(value)["build_quad_table"])
+        assert isinstance(exc, NumericalConfigError), label
+        assert not isinstance(exc, TypeError), label
+
+
+@pytest.mark.parametrize(
+    "label,value",
+    [("float 16.0", 16.0), ("float 16.7", 16.7), ("str", "16"),
+     ("bool", True), ("np.int64", np.int64(16))],
+)
+def test_lane_b_ci8_integral_arguments_rejected_at_the_builders(label, value):
+    """A-33 / CI-8: a bare int() on a quadrature order is a silent accuracy
+    change.
+
+    ``int(16.7)`` truncates to 16 and ``int(True)`` is the order 1, both
+    without an error, and both were accepted at BOTH builders while
+    ``NumericalConfig.create`` rejected them. CI-8 is a distinct invariant from
+    CI-7 by the D-40 owners-by-quantity test: a float is a valid real and an
+    invalid gl_order, so the accept sets differ.
+    """
+    poly, ex, ey = (box(0.0, 0.0, 200.0, 200.0), np.array([10.0, 20.0]),
+                    np.array([10.0, 20.0]))
+    for name, fn in {
+        "prepare_polygon_mass_table": lambda: prepare_polygon_mass_table(
+            poly, ex, ey, min_sigma=5.0, max_sigma=40.0, panel_h_m=1.0,
+            gl_order=value),
+        "build_quad_table": lambda: build_quad_table(
+            poly, ex, ey, 5.0, 40.0, ws=None, h_panel=1.0, gl_order=value),
+        "NumericalConfig.create": lambda: NumericalConfig.create(
+            support_mode="rectangle", gl_order=value),
+    }.items():
+        exc = _raised(fn)
+        assert isinstance(exc, NumericalConfigError), f"{label} via {name}"
+        assert str(exc).endswith(
+            config_integral_invariant_clause(
+                name="gl_order", value=value).split(" must be ", 1)[1]), name
+        str(exc).encode("ascii")
 
 
 def test_lane_b_resolve_sigma_bounds_validates_mode():

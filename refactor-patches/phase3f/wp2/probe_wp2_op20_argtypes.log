@@ -1,0 +1,44 @@
+bstpp.__file__ = C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+
+OP-20: acceptance surface for a real-valued config argument
+==============================================================================
+input class      resolve_sigma_bounds      NumericalConfig.create    
+------------------------------------------------------------------------------
+float            ACCEPT                    ACCEPT                    
+int              ACCEPT                    ACCEPT                    
+bool True        ACCEPT                    reject(NumericalConfigError)  <-- DIVERGES
+str '5'          ACCEPT                    reject(NumericalConfigError)  <-- DIVERGES
+np.float32       ACCEPT                    reject(NumericalConfigError)  <-- DIVERGES
+np.float64       ACCEPT                    ACCEPT                    
+np.int64         ACCEPT                    reject(NumericalConfigError)  <-- DIVERGES
+0-d ndarray      ACCEPT                    reject(NumericalConfigError)  <-- DIVERGES
+Decimal('5')     ACCEPT                    reject(NumericalConfigError)  <-- DIVERGES
+Fraction(5,1)    ACCEPT                    reject(NumericalConfigError)  <-- DIVERGES
+obj.__float__    ACCEPT                    reject(NumericalConfigError)  <-- DIVERGES
+
+DIVERGENT INPUT CLASSES: 8
+  bool True       resolver=ACCEPT                 config=reject(NumericalConfigError)
+  str '5'         resolver=ACCEPT                 config=reject(NumericalConfigError)
+  np.float32      resolver=ACCEPT                 config=reject(NumericalConfigError)
+  np.int64        resolver=ACCEPT                 config=reject(NumericalConfigError)
+  0-d ndarray     resolver=ACCEPT                 config=reject(NumericalConfigError)
+  Decimal('5')    resolver=ACCEPT                 config=reject(NumericalConfigError)
+  Fraction(5,1)   resolver=ACCEPT                 config=reject(NumericalConfigError)
+  obj.__float__   resolver=ACCEPT                 config=reject(NumericalConfigError)
+
+Reachability through the PUBLIC constructor (what a user can actually do)
+------------------------------------------------------------------------------
+float            Hawkes_Model(min_sigma=...) -> ACCEPT
+int              Hawkes_Model(min_sigma=...) -> ACCEPT
+bool True        Hawkes_Model(min_sigma=...) -> ACCEPT
+str '5'          Hawkes_Model(min_sigma=...) -> ACCEPT
+np.float32       Hawkes_Model(min_sigma=...) -> ACCEPT
+np.float64       Hawkes_Model(min_sigma=...) -> ACCEPT
+np.int64         Hawkes_Model(min_sigma=...) -> ACCEPT
+0-d ndarray      Hawkes_Model(min_sigma=...) -> ACCEPT
+Decimal('5')     Hawkes_Model(min_sigma=...) -> ACCEPT
+Fraction(5,1)    Hawkes_Model(min_sigma=...) -> ACCEPT
+obj.__float__    Hawkes_Model(min_sigma=...) -> ACCEPT
+
+CONSTRUCTS A MODEL TODAY: 11 of 11 classes
+  float, int, bool True, str '5', np.float32, np.float64, np.int64, 0-d ndarray, Decimal('5'), Fraction(5,1), obj.__float__

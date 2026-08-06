@@ -1,0 +1,34 @@
+A-33 DECLARED CHANGES, enumerated from the census diff (not the brief)
+==============================================================================
+
+1. ACCEPT -> REJECT : 28 (path, class) pairs
+   Decimal          now rejected on: Hawkes_Model, prepare_polygon_mass_table, resolve_sigma_bounds
+   Fraction         now rejected on: Hawkes_Model, prepare_polygon_mass_table, resolve_sigma_bounds
+   bool             now rejected on: Hawkes_Model, build_quad_table, prepare_polygon_mass_table, resolve_sigma_bounds
+   ndarray0d        now rejected on: Hawkes_Model, build_quad_table, prepare_polygon_mass_table, resolve_sigma_bounds
+   np.float32       now rejected on: Hawkes_Model, build_quad_table, prepare_polygon_mass_table, resolve_sigma_bounds
+   np.int64         now rejected on: Hawkes_Model, build_quad_table, prepare_polygon_mass_table, resolve_sigma_bounds
+   obj.__float__    now rejected on: Hawkes_Model, prepare_polygon_mass_table, resolve_sigma_bounds
+   str              now rejected on: Hawkes_Model, prepare_polygon_mass_table, resolve_sigma_bounds
+
+   distinct INPUT CLASSES that lose acceptance anywhere: 8
+   -> Decimal, Fraction, bool, ndarray0d, np.float32, np.int64, obj.__float__, str
+
+2. TYPE CHANGE (already rejected, new identity): 4
+   Decimal        build_quad_table             reject:TypeError -> reject:NumericalConfigError
+   Fraction       build_quad_table             reject:TypeError -> reject:NumericalConfigError
+   obj.__float__  build_quad_table             reject:TypeError -> reject:NumericalConfigError
+   str            build_quad_table             reject:TypeError -> reject:NumericalConfigError
+
+3. UNCHANGED cells: 48
+
+STORED TYPES -- unchanged by A-33 (that is A-34's job):
+   all float args     before={'gl_order': 'int', 'max_panel_to_min_sigma_ratio': 'float', 'max_sigma': 'float', 'min_sigma': 'float', 'panel_h_m': 'float', 'production_tau_abs': 'float'}
+                      after ={'gl_order': 'int', 'max_panel_to_min_sigma_ratio': 'float', 'max_sigma': 'float', 'min_sigma': 'float', 'panel_h_m': 'float', 'production_tau_abs': 'float'}
+                      SAME
+   int args           before={'gl_order': 'int', 'max_panel_to_min_sigma_ratio': 'float', 'max_sigma': 'int', 'min_sigma': 'int', 'panel_h_m': 'int', 'production_tau_abs': 'float'}
+                      after ={'gl_order': 'int', 'max_panel_to_min_sigma_ratio': 'float', 'max_sigma': 'int', 'min_sigma': 'int', 'panel_h_m': 'int', 'production_tau_abs': 'float'}
+                      SAME
+   np.float64 args    before={'gl_order': 'int', 'max_panel_to_min_sigma_ratio': 'float', 'max_sigma': 'float64', 'min_sigma': 'float64', 'panel_h_m': 'float64', 'production_tau_abs': 'float'}
+                      after ={'gl_order': 'int', 'max_panel_to_min_sigma_ratio': 'float', 'max_sigma': 'float64', 'min_sigma': 'float64', 'panel_h_m': 'float64', 'production_tau_abs': 'float'}
+                      SAME

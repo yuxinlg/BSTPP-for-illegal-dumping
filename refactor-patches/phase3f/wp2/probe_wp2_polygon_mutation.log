@@ -1,0 +1,22 @@
+bstpp.__file__ = C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+
+polygon set_window(spatial_window 60 -> 30, mass_table=<new>)
+==============================================================================
+  numerical_config id   CHANGED   1940743641936 -> 1940744025920
+  nc min/max sigma      same      (5.0, 40.0) -> (5.0, 40.0)
+  nc panel_h_m          same      1.0 -> 1.0
+  sigmax_2 support      same      Interval(lower_bound=2 -> Interval(lower_bound=2
+  sigmax_2 obj id       same      1940743630064 -> 1940743630064
+  spatial_window        CHANGED   60.0 -> 30.0
+
+READING: NumericalConfig is REBUILT (new id) on this path, as WP1.4b
+requires. The sigmax_2 prior object is NOT rebuilt and does not need to
+be: set_window re-resolves bounds from the ORIGINAL constructor args
+(_min_sigma_arg/_max_sigma_arg), which no public call can change, so the
+resolved pair is invariant and the truncation stays correct.
+
+=> The staleness coupling is LATENT, not live: PriorConfig's truncated
+   sigmax_2 depends on NumericalConfig's resolved bounds, and today
+   nothing can move those after construction. WP2 must not ADD a public
+   way to move them without re-truncating, which is exactly the
+   half-applied state D-35's rebuild-on-mutation rule exists to prevent.

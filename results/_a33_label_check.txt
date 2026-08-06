@@ -1,0 +1,45 @@
+### git status
+ M bstpp/config.py
+ M bstpp/excitation_support.py
+ M bstpp/polygon_mass.py
+ M phase3_record.tex
+ M refactor-patches/pre-3f-stabilization/traceability_matrix.md
+ M results/_a26_ascii_sweep.py
+ M tests/test_lane_b_config_matrix.py
+### label
+1. CONFIG sequence fully renumbered (no surviving I1-I6)
+   Exemption: the supersession note in each rebaseline record quotes
+   the OLD labels on purpose ('was written as I1-I6'). Those lines
+   are blockquoted and skipped; every other line must be clean.
+   OK                                       bstpp/config.py
+   OK                                       bstpp/polygon_mass.py
+   OK                                       tests/test_lane_b_config_matrix.py
+   OK                                       refactor-patches/phase3f/rebaseline_record_a27.md
+   OK                                       refactor-patches/phase3f/rebaseline_record_a28.md
+
+2. MODEL identities untouched vs 426d60a
+   OK                                       bstpp/likelihood.py  (3 label(s))
+   OK                                       tests/test_identities.py  (11 label(s))
+   OK                                       tests/test_likelihood_atoms.py  (1 label(s))
+   OK                                       tests/test_clipped_support.py  (1 label(s))
+
+3. Matrix model-identity rows still present
+   OK                                       row I1
+   OK                                       row I3/I4
+   OK                                       row I5
+   OK                                       row I6
+   OK                                       row I9
+   OK                                       row I10
+   OK                                       row I11
+   OK                                       row I12
+
+4. CI-1..CI-6 all defined and used
+   OK                                       CI-1 in 5 file(s)
+   OK                                       CI-2 in 6 file(s)
+   OK                                       CI-3 in 6 file(s)
+   OK                                       CI-4 in 5 file(s)
+   OK                                       CI-5 in 5 file(s)
+   OK                                       CI-6 in 6 file(s)
+
+PASS - config sequence renumbered CI-1..CI-6; model identities intact
+EXIT:0

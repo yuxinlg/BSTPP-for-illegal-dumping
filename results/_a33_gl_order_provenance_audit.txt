@@ -1,0 +1,13 @@
+=== artifacts under refactor-patches/baselines-2026-07/ ===
+  results\polygon_mass_backend_shootout\run_config.json
+     .oracle.gl_order = 20  (int)  OK integral
+
+JSON artifacts recording gl_order: 1
+
+=== .npz provenance (shootout tables) ===
+  16 .npz files present
+  no gl_order key in the sampled shootout tables (they predate the provenance schema)
+
+=== the pin baseline itself ===
+  refactor-patches\baselines-2026-07\pins.json: contains 'gl_order'? False
+  (pins are loglik values and gradients; they carry no builder metadata)

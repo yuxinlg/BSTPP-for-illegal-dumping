@@ -1,0 +1,64 @@
+bstpp.__file__ = C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+
+============================================================================================================
+ACCEPTANCE CENSUS -- config-owned REAL arguments
+============================================================================================================
+input class     NumericalConfig.creaNumericalConfig.crearesolve_sigma_boundsHawkes_Model      prepare_polygon_massbuild_quad_table  
+                .min_sigma        .panel_h_m        .min_sigma        .min_sigma        .min_sigma        .sigma_min        
+------------------------------------------------------------------------------------------------------------
+int             ACCEPT            ACCEPT            ACCEPT            ACCEPT            ACCEPT            ACCEPT            
+float           ACCEPT            ACCEPT            ACCEPT            ACCEPT            ACCEPT            ACCEPT            
+np.float64      ACCEPT            ACCEPT            ACCEPT            ACCEPT            ACCEPT            ACCEPT            
+np.float32      NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  
+np.int64        NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  
+ndarray0d       NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  
+str             NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  
+bool            NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  
+Decimal         NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  
+Fraction        NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  
+obj.__float__   NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  NumericalConfigE  
+
+============================================================================================================
+ACCEPTANCE CENSUS -- config-owned INTEGRAL arguments
+each field probed at its REQUIRED magnitude (gl_order=16, budget_reference_gl_order=32), so a rejection here is a TYPE rejection and not the frozen-policy value gate
+============================================================================================================
+input class     gl_order                          budget_reference_gl_order         
+------------------------------------------------------------------------------------------------------------
+int             ACCEPT                            ACCEPT                            
+float           NumericalConfigError              NumericalConfigError              
+np.int64        NumericalConfigError              NumericalConfigError              
+np.float64      NumericalConfigError              NumericalConfigError              
+str             NumericalConfigError              NumericalConfigError              
+bool            NumericalConfigError              NumericalConfigError              
+obj.__index__   NumericalConfigError              NumericalConfigError              
+
+============================================================================================================
+STORED FIELD TYPES -- what the frozen object actually holds
+============================================================================================================
+  all float args:
+    panel_h_m                       float
+    gl_order                        int
+    min_sigma                       float
+    max_sigma                       float
+    production_tau_abs              float
+    max_panel_to_min_sigma_ratio    float
+  int args:
+    panel_h_m                       int
+    gl_order                        int
+    min_sigma                       int
+    max_sigma                       int
+    production_tau_abs              float
+    max_panel_to_min_sigma_ratio    float
+  np.float64 args:
+    panel_h_m                       float64  <-- NOT a builtin
+    gl_order                        int
+    min_sigma                       float64  <-- NOT a builtin
+    max_sigma                       float64  <-- NOT a builtin
+    production_tau_abs              float
+    max_panel_to_min_sigma_ratio    float
+
+============================================================================================================
+DIVERGENT REAL CLASSES (accepted on some paths, rejected on others): 0
+============================================================================================================
+
+UNIFORMLY ACCEPTED on every real path: 3 -> int, float, np.float64

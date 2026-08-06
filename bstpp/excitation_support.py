@@ -31,6 +31,7 @@ from .config import (
     raise_polygon_min_sigma_violation,
     raise_rectangle_bounds_violation,
     raise_support_mode_violation,
+    require_config_real,
     validate_sigma_pair,
 )
 from .polygon_mass import (
@@ -140,7 +141,12 @@ def resolve_sigma_bounds(
         if min_sigma is None or max_sigma is None:
             raise_rectangle_bounds_violation(
                 min_sigma=min_sigma, max_sigma=max_sigma)
-        lo, hi = float(min_sigma), float(max_sigma)
+        # CI-7 (D-42): float() here accepted str, bool, np.float32,
+        # np.int64, 0-d ndarray, Decimal and any __float__ object, while
+        # the config this pair is handed to rejected all of them. One
+        # policy, applied where the user's argument still exists.
+        lo = require_config_real("min_sigma", min_sigma)
+        hi = require_config_real("max_sigma", max_sigma)
         validate_sigma_pair(lo, hi)
         meta.update(bounds_active=True, min_sigma=lo, max_sigma_real=hi,
                     max_sigma_units="domain", max_sigma_source="user")
@@ -149,14 +155,14 @@ def resolve_sigma_bounds(
     # polygon mode
     if min_sigma is None:
         raise_polygon_min_sigma_violation()
-    lo = float(min_sigma)
+    lo = require_config_real("min_sigma", min_sigma)
     if max_sigma is None:
         hi = metres_to_crs_units(DEFAULT_MAX_SIGMA_KM * 1000.0, crs)
         meta["max_sigma_source"] = "default_5km"
         meta["max_sigma_units"] = (
             None if crs is None else str(crs.axis_info[0].unit_name))
     else:
-        hi = float(max_sigma)
+        hi = require_config_real("max_sigma", max_sigma)
         meta["max_sigma_source"] = "user"
         meta["max_sigma_units"] = "domain"
     validate_sigma_pair(lo, hi)

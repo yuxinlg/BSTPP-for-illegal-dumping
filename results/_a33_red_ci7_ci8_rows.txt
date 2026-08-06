@@ -1,0 +1,521 @@
+### A-33 RED capture
+### minimal revert: excitation_support.py + polygon_mass.py reverted to HEAD.
+### config.py HELD AT CANDIDATE -- the CI-7/CI-8 clause API is the new
+### single source, not the defect; reverting it too would give an
+### ImportError at collection, a red that proves nothing (D-41 clause 2).
+ M bstpp/config.py
+ M tests/test_lane_b_config_matrix.py
+### git diff --stat bstpp/
+ bstpp/config.py | 85 +++++++++++++++++++++++++++++++++++++++++++++++++--------
+ 1 file changed, 73 insertions(+), 12 deletions(-)
+
+FFFFFFFF...FFFFFF                                                        [100%]
+================================== FAILURES ===================================
+_____ test_lane_b_ci7_rejects_the_same_class_from_every_owner[np.float32] _____
+
+label = 'np.float32', value = 5.0
+
+    @pytest.mark.parametrize("label,value", _CI7_REJECTED,
+                             ids=[n for n, _ in _CI7_REJECTED])
+    def test_lane_b_ci7_rejects_the_same_class_from_every_owner(label, value):
+        """A-33 / CI-7: one invariant, one identity, independent of entry path.
+    
+        The defect this row exists to catch is the one OP-20 recorded: the same
+        argument was accepted by ``resolve_sigma_bounds`` and refused by
+        ``NumericalConfig``, so which answer a caller got depended on which door
+        they came through. Owners are compared to EACH OTHER before the text is
+        pinned to the single-sourced clause, so a future divergence fails here
+        whatever the wording.
+        """
+>       raised = [(name, _raised(fn)) for name, fn in _ci7_owners(value).items()]
+                         ^^^^^^^^^^^
+
+tests\test_lane_b_config_matrix.py:1110: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+fn = <function _ci7_owners.<locals>.<lambda> at 0x000001AB82A2D260>
+
+    def _raised(fn):
+        """Return the exception fn raises, or fail if it does not raise."""
+>       with pytest.raises(BaseException) as ei:  # noqa: PT011 - identity is asserted below
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE BaseException
+
+tests\test_lane_b_config_matrix.py:658: Failed
+______ test_lane_b_ci7_rejects_the_same_class_from_every_owner[np.int64] ______
+
+label = 'np.int64', value = 5
+
+    @pytest.mark.parametrize("label,value", _CI7_REJECTED,
+                             ids=[n for n, _ in _CI7_REJECTED])
+    def test_lane_b_ci7_rejects_the_same_class_from_every_owner(label, value):
+        """A-33 / CI-7: one invariant, one identity, independent of entry path.
+    
+        The defect this row exists to catch is the one OP-20 recorded: the same
+        argument was accepted by ``resolve_sigma_bounds`` and refused by
+        ``NumericalConfig``, so which answer a caller got depended on which door
+        they came through. Owners are compared to EACH OTHER before the text is
+        pinned to the single-sourced clause, so a future divergence fails here
+        whatever the wording.
+        """
+>       raised = [(name, _raised(fn)) for name, fn in _ci7_owners(value).items()]
+                         ^^^^^^^^^^^
+
+tests\test_lane_b_config_matrix.py:1110: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+fn = <function _ci7_owners.<locals>.<lambda> at 0x000001AB82BCE7A0>
+
+    def _raised(fn):
+        """Return the exception fn raises, or fail if it does not raise."""
+>       with pytest.raises(BaseException) as ei:  # noqa: PT011 - identity is asserted below
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE BaseException
+
+tests\test_lane_b_config_matrix.py:658: Failed
+_____ test_lane_b_ci7_rejects_the_same_class_from_every_owner[ndarray0d] ______
+
+label = 'ndarray0d', value = array(5.)
+
+    @pytest.mark.parametrize("label,value", _CI7_REJECTED,
+                             ids=[n for n, _ in _CI7_REJECTED])
+    def test_lane_b_ci7_rejects_the_same_class_from_every_owner(label, value):
+        """A-33 / CI-7: one invariant, one identity, independent of entry path.
+    
+        The defect this row exists to catch is the one OP-20 recorded: the same
+        argument was accepted by ``resolve_sigma_bounds`` and refused by
+        ``NumericalConfig``, so which answer a caller got depended on which door
+        they came through. Owners are compared to EACH OTHER before the text is
+        pinned to the single-sourced clause, so a future divergence fails here
+        whatever the wording.
+        """
+>       raised = [(name, _raised(fn)) for name, fn in _ci7_owners(value).items()]
+                         ^^^^^^^^^^^
+
+tests\test_lane_b_config_matrix.py:1110: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+fn = <function _ci7_owners.<locals>.<lambda> at 0x000001AB82BCE840>
+
+    def _raised(fn):
+        """Return the exception fn raises, or fail if it does not raise."""
+>       with pytest.raises(BaseException) as ei:  # noqa: PT011 - identity is asserted below
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE BaseException
+
+tests\test_lane_b_config_matrix.py:658: Failed
+________ test_lane_b_ci7_rejects_the_same_class_from_every_owner[str] _________
+
+label = 'str', value = '5'
+
+    @pytest.mark.parametrize("label,value", _CI7_REJECTED,
+                             ids=[n for n, _ in _CI7_REJECTED])
+    def test_lane_b_ci7_rejects_the_same_class_from_every_owner(label, value):
+        """A-33 / CI-7: one invariant, one identity, independent of entry path.
+    
+        The defect this row exists to catch is the one OP-20 recorded: the same
+        argument was accepted by ``resolve_sigma_bounds`` and refused by
+        ``NumericalConfig``, so which answer a caller got depended on which door
+        they came through. Owners are compared to EACH OTHER before the text is
+        pinned to the single-sourced clause, so a future divergence fails here
+        whatever the wording.
+        """
+>       raised = [(name, _raised(fn)) for name, fn in _ci7_owners(value).items()]
+                         ^^^^^^^^^^^
+
+tests\test_lane_b_config_matrix.py:1110: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+fn = <function _ci7_owners.<locals>.<lambda> at 0x000001AB82A2D300>
+
+    def _raised(fn):
+        """Return the exception fn raises, or fail if it does not raise."""
+>       with pytest.raises(BaseException) as ei:  # noqa: PT011 - identity is asserted below
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE BaseException
+
+tests\test_lane_b_config_matrix.py:658: Failed
+________ test_lane_b_ci7_rejects_the_same_class_from_every_owner[bool] ________
+
+label = 'bool', value = True
+
+    @pytest.mark.parametrize("label,value", _CI7_REJECTED,
+                             ids=[n for n, _ in _CI7_REJECTED])
+    def test_lane_b_ci7_rejects_the_same_class_from_every_owner(label, value):
+        """A-33 / CI-7: one invariant, one identity, independent of entry path.
+    
+        The defect this row exists to catch is the one OP-20 recorded: the same
+        argument was accepted by ``resolve_sigma_bounds`` and refused by
+        ``NumericalConfig``, so which answer a caller got depended on which door
+        they came through. Owners are compared to EACH OTHER before the text is
+        pinned to the single-sourced clause, so a future divergence fails here
+        whatever the wording.
+        """
+>       raised = [(name, _raised(fn)) for name, fn in _ci7_owners(value).items()]
+                         ^^^^^^^^^^^
+
+tests\test_lane_b_config_matrix.py:1110: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+fn = <function _ci7_owners.<locals>.<lambda> at 0x000001AB82BCEFC0>
+
+    def _raised(fn):
+        """Return the exception fn raises, or fail if it does not raise."""
+>       with pytest.raises(BaseException) as ei:  # noqa: PT011 - identity is asserted below
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE BaseException
+
+tests\test_lane_b_config_matrix.py:658: Failed
+______ test_lane_b_ci7_rejects_the_same_class_from_every_owner[Decimal] _______
+
+label = 'Decimal', value = Decimal('5')
+
+    @pytest.mark.parametrize("label,value", _CI7_REJECTED,
+                             ids=[n for n, _ in _CI7_REJECTED])
+    def test_lane_b_ci7_rejects_the_same_class_from_every_owner(label, value):
+        """A-33 / CI-7: one invariant, one identity, independent of entry path.
+    
+        The defect this row exists to catch is the one OP-20 recorded: the same
+        argument was accepted by ``resolve_sigma_bounds`` and refused by
+        ``NumericalConfig``, so which answer a caller got depended on which door
+        they came through. Owners are compared to EACH OTHER before the text is
+        pinned to the single-sourced clause, so a future divergence fails here
+        whatever the wording.
+        """
+>       raised = [(name, _raised(fn)) for name, fn in _ci7_owners(value).items()]
+                         ^^^^^^^^^^^
+
+tests\test_lane_b_config_matrix.py:1110: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+fn = <function _ci7_owners.<locals>.<lambda> at 0x000001AB82BCECA0>
+
+    def _raised(fn):
+        """Return the exception fn raises, or fail if it does not raise."""
+>       with pytest.raises(BaseException) as ei:  # noqa: PT011 - identity is asserted below
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE BaseException
+
+tests\test_lane_b_config_matrix.py:658: Failed
+______ test_lane_b_ci7_rejects_the_same_class_from_every_owner[Fraction] ______
+
+label = 'Fraction', value = Fraction(5, 1)
+
+    @pytest.mark.parametrize("label,value", _CI7_REJECTED,
+                             ids=[n for n, _ in _CI7_REJECTED])
+    def test_lane_b_ci7_rejects_the_same_class_from_every_owner(label, value):
+        """A-33 / CI-7: one invariant, one identity, independent of entry path.
+    
+        The defect this row exists to catch is the one OP-20 recorded: the same
+        argument was accepted by ``resolve_sigma_bounds`` and refused by
+        ``NumericalConfig``, so which answer a caller got depended on which door
+        they came through. Owners are compared to EACH OTHER before the text is
+        pinned to the single-sourced clause, so a future divergence fails here
+        whatever the wording.
+        """
+>       raised = [(name, _raised(fn)) for name, fn in _ci7_owners(value).items()]
+                         ^^^^^^^^^^^
+
+tests\test_lane_b_config_matrix.py:1110: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+fn = <function _ci7_owners.<locals>.<lambda> at 0x000001AB82BCF380>
+
+    def _raised(fn):
+        """Return the exception fn raises, or fail if it does not raise."""
+>       with pytest.raises(BaseException) as ei:  # noqa: PT011 - identity is asserted below
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE BaseException
+
+tests\test_lane_b_config_matrix.py:658: Failed
+___ test_lane_b_ci7_rejects_the_same_class_from_every_owner[obj.__float__] ____
+
+label = 'obj.__float__', value = <obj.__float__>
+
+    @pytest.mark.parametrize("label,value", _CI7_REJECTED,
+                             ids=[n for n, _ in _CI7_REJECTED])
+    def test_lane_b_ci7_rejects_the_same_class_from_every_owner(label, value):
+        """A-33 / CI-7: one invariant, one identity, independent of entry path.
+    
+        The defect this row exists to catch is the one OP-20 recorded: the same
+        argument was accepted by ``resolve_sigma_bounds`` and refused by
+        ``NumericalConfig``, so which answer a caller got depended on which door
+        they came through. Owners are compared to EACH OTHER before the text is
+        pinned to the single-sourced clause, so a future divergence fails here
+        whatever the wording.
+        """
+>       raised = [(name, _raised(fn)) for name, fn in _ci7_owners(value).items()]
+                         ^^^^^^^^^^^
+
+tests\test_lane_b_config_matrix.py:1110: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+fn = <function _ci7_owners.<locals>.<lambda> at 0x000001AB82BCEE80>
+
+    def _raised(fn):
+        """Return the exception fn raises, or fail if it does not raise."""
+>       with pytest.raises(BaseException) as ei:  # noqa: PT011 - identity is asserted below
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE BaseException
+
+tests\test_lane_b_config_matrix.py:658: Failed
+__________ test_lane_b_ci7_build_quad_table_type_change_is_declared ___________
+
+    def test_lane_b_ci7_build_quad_table_type_change_is_declared():
+        """A-33: at build_quad_table four classes were ALREADY rejected -- with a
+        bare TypeError from np.isfinite on the raw value, not an accept. Their
+        change is the identity, not the verdict, and NumericalConfigError is not a
+        TypeError subclass, so a caller catching TypeError IS affected.
+        """
+        for label, value in [("str", "5"), ("Decimal", Decimal("5")),
+                             ("Fraction", Fraction(5, 1)),
+                             ("obj.__float__", _HasFloat())]:
+            exc = _raised(_ci7_owners(value)["build_quad_table"])
+>           assert isinstance(exc, NumericalConfigError), label
+E           AssertionError: str
+E           assert False
+E            +  where False = isinstance(TypeError("ufunc 'isfinite' not supported for the input types, and the inputs could not be safely coerced to any supported types according to the casting rule ''safe''"), NumericalConfigError)
+
+tests\test_lane_b_config_matrix.py:1153: AssertionError
+_ test_lane_b_ci8_integral_arguments_rejected_at_the_builders[float 16.0-16.0] _
+
+label = 'float 16.0', value = 16.0
+
+    @pytest.mark.parametrize(
+        "label,value",
+        [("float 16.0", 16.0), ("float 16.7", 16.7), ("str", "16"),
+         ("bool", True), ("np.int64", np.int64(16))],
+    )
+    def test_lane_b_ci8_integral_arguments_rejected_at_the_builders(label, value):
+        """A-33 / CI-8: a bare int() on a quadrature order is a silent accuracy
+        change.
+    
+        ``int(16.7)`` truncates to 16 and ``int(True)`` is the order 1, both
+        without an error, and both were accepted at BOTH builders while
+        ``NumericalConfig.create`` rejected them. CI-8 is a distinct invariant from
+        CI-7 by the D-40 owners-by-quantity test: a float is a valid real and an
+        invalid gl_order, so the accept sets differ.
+        """
+        poly, ex, ey = (box(0.0, 0.0, 200.0, 200.0), np.array([10.0, 20.0]),
+                        np.array([10.0, 20.0]))
+        for name, fn in {
+            "prepare_polygon_mass_table": lambda: prepare_polygon_mass_table(
+                poly, ex, ey, min_sigma=5.0, max_sigma=40.0, panel_h_m=1.0,
+                gl_order=value),
+            "build_quad_table": lambda: build_quad_table(
+                poly, ex, ey, 5.0, 40.0, ws=None, h_panel=1.0, gl_order=value),
+            "NumericalConfig.create": lambda: NumericalConfig.create(
+                support_mode="rectangle", gl_order=value),
+        }.items():
+>           exc = _raised(fn)
+                  ^^^^^^^^^^^
+
+tests\test_lane_b_config_matrix.py:1183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+fn = <function test_lane_b_ci8_integral_arguments_rejected_at_the_builders.<locals>.<lambda> at 0x000001AB82BCFA60>
+
+    def _raised(fn):
+        """Return the exception fn raises, or fail if it does not raise."""
+>       with pytest.raises(BaseException) as ei:  # noqa: PT011 - identity is asserted below
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE BaseException
+
+tests\test_lane_b_config_matrix.py:658: Failed
+_ test_lane_b_ci8_integral_arguments_rejected_at_the_builders[float 16.7-16.7] _
+
+label = 'float 16.7', value = 16.7
+
+    @pytest.mark.parametrize(
+        "label,value",
+        [("float 16.0", 16.0), ("float 16.7", 16.7), ("str", "16"),
+         ("bool", True), ("np.int64", np.int64(16))],
+    )
+    def test_lane_b_ci8_integral_arguments_rejected_at_the_builders(label, value):
+        """A-33 / CI-8: a bare int() on a quadrature order is a silent accuracy
+        change.
+    
+        ``int(16.7)`` truncates to 16 and ``int(True)`` is the order 1, both
+        without an error, and both were accepted at BOTH builders while
+        ``NumericalConfig.create`` rejected them. CI-8 is a distinct invariant from
+        CI-7 by the D-40 owners-by-quantity test: a float is a valid real and an
+        invalid gl_order, so the accept sets differ.
+        """
+        poly, ex, ey = (box(0.0, 0.0, 200.0, 200.0), np.array([10.0, 20.0]),
+                        np.array([10.0, 20.0]))
+        for name, fn in {
+            "prepare_polygon_mass_table": lambda: prepare_polygon_mass_table(
+                poly, ex, ey, min_sigma=5.0, max_sigma=40.0, panel_h_m=1.0,
+                gl_order=value),
+            "build_quad_table": lambda: build_quad_table(
+                poly, ex, ey, 5.0, 40.0, ws=None, h_panel=1.0, gl_order=value),
+            "NumericalConfig.create": lambda: NumericalConfig.create(
+                support_mode="rectangle", gl_order=value),
+        }.items():
+>           exc = _raised(fn)
+                  ^^^^^^^^^^^
+
+tests\test_lane_b_config_matrix.py:1183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+fn = <function test_lane_b_ci8_integral_arguments_rejected_at_the_builders.<locals>.<lambda> at 0x000001AB82BCFB00>
+
+    def _raised(fn):
+        """Return the exception fn raises, or fail if it does not raise."""
+>       with pytest.raises(BaseException) as ei:  # noqa: PT011 - identity is asserted below
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE BaseException
+
+tests\test_lane_b_config_matrix.py:658: Failed
+_____ test_lane_b_ci8_integral_arguments_rejected_at_the_builders[str-16] _____
+
+label = 'str', value = '16'
+
+    @pytest.mark.parametrize(
+        "label,value",
+        [("float 16.0", 16.0), ("float 16.7", 16.7), ("str", "16"),
+         ("bool", True), ("np.int64", np.int64(16))],
+    )
+    def test_lane_b_ci8_integral_arguments_rejected_at_the_builders(label, value):
+        """A-33 / CI-8: a bare int() on a quadrature order is a silent accuracy
+        change.
+    
+        ``int(16.7)`` truncates to 16 and ``int(True)`` is the order 1, both
+        without an error, and both were accepted at BOTH builders while
+        ``NumericalConfig.create`` rejected them. CI-8 is a distinct invariant from
+        CI-7 by the D-40 owners-by-quantity test: a float is a valid real and an
+        invalid gl_order, so the accept sets differ.
+        """
+        poly, ex, ey = (box(0.0, 0.0, 200.0, 200.0), np.array([10.0, 20.0]),
+                        np.array([10.0, 20.0]))
+        for name, fn in {
+            "prepare_polygon_mass_table": lambda: prepare_polygon_mass_table(
+                poly, ex, ey, min_sigma=5.0, max_sigma=40.0, panel_h_m=1.0,
+                gl_order=value),
+            "build_quad_table": lambda: build_quad_table(
+                poly, ex, ey, 5.0, 40.0, ws=None, h_panel=1.0, gl_order=value),
+            "NumericalConfig.create": lambda: NumericalConfig.create(
+                support_mode="rectangle", gl_order=value),
+        }.items():
+>           exc = _raised(fn)
+                  ^^^^^^^^^^^
+
+tests\test_lane_b_config_matrix.py:1183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+fn = <function test_lane_b_ci8_integral_arguments_rejected_at_the_builders.<locals>.<lambda> at 0x000001AB82BCFF60>
+
+    def _raised(fn):
+        """Return the exception fn raises, or fail if it does not raise."""
+>       with pytest.raises(BaseException) as ei:  # noqa: PT011 - identity is asserted below
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE BaseException
+
+tests\test_lane_b_config_matrix.py:658: Failed
+___ test_lane_b_ci8_integral_arguments_rejected_at_the_builders[bool-True] ____
+
+label = 'bool', value = True
+
+    @pytest.mark.parametrize(
+        "label,value",
+        [("float 16.0", 16.0), ("float 16.7", 16.7), ("str", "16"),
+         ("bool", True), ("np.int64", np.int64(16))],
+    )
+    def test_lane_b_ci8_integral_arguments_rejected_at_the_builders(label, value):
+        """A-33 / CI-8: a bare int() on a quadrature order is a silent accuracy
+        change.
+    
+        ``int(16.7)`` truncates to 16 and ``int(True)`` is the order 1, both
+        without an error, and both were accepted at BOTH builders while
+        ``NumericalConfig.create`` rejected them. CI-8 is a distinct invariant from
+        CI-7 by the D-40 owners-by-quantity test: a float is a valid real and an
+        invalid gl_order, so the accept sets differ.
+        """
+        poly, ex, ey = (box(0.0, 0.0, 200.0, 200.0), np.array([10.0, 20.0]),
+                        np.array([10.0, 20.0]))
+        for name, fn in {
+            "prepare_polygon_mass_table": lambda: prepare_polygon_mass_table(
+                poly, ex, ey, min_sigma=5.0, max_sigma=40.0, panel_h_m=1.0,
+                gl_order=value),
+            "build_quad_table": lambda: build_quad_table(
+                poly, ex, ey, 5.0, 40.0, ws=None, h_panel=1.0, gl_order=value),
+            "NumericalConfig.create": lambda: NumericalConfig.create(
+                support_mode="rectangle", gl_order=value),
+        }.items():
+>           exc = _raised(fn)
+                  ^^^^^^^^^^^
+
+tests\test_lane_b_config_matrix.py:1183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+fn = <function test_lane_b_ci8_integral_arguments_rejected_at_the_builders.<locals>.<lambda> at 0x000001AB82BCFCE0>
+
+    def _raised(fn):
+        """Return the exception fn raises, or fail if it does not raise."""
+>       with pytest.raises(BaseException) as ei:  # noqa: PT011 - identity is asserted below
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE BaseException
+
+tests\test_lane_b_config_matrix.py:658: Failed
+_ test_lane_b_ci8_integral_arguments_rejected_at_the_builders[np.int64-value4] _
+
+label = 'np.int64', value = 16
+
+    @pytest.mark.parametrize(
+        "label,value",
+        [("float 16.0", 16.0), ("float 16.7", 16.7), ("str", "16"),
+         ("bool", True), ("np.int64", np.int64(16))],
+    )
+    def test_lane_b_ci8_integral_arguments_rejected_at_the_builders(label, value):
+        """A-33 / CI-8: a bare int() on a quadrature order is a silent accuracy
+        change.
+    
+        ``int(16.7)`` truncates to 16 and ``int(True)`` is the order 1, both
+        without an error, and both were accepted at BOTH builders while
+        ``NumericalConfig.create`` rejected them. CI-8 is a distinct invariant from
+        CI-7 by the D-40 owners-by-quantity test: a float is a valid real and an
+        invalid gl_order, so the accept sets differ.
+        """
+        poly, ex, ey = (box(0.0, 0.0, 200.0, 200.0), np.array([10.0, 20.0]),
+                        np.array([10.0, 20.0]))
+        for name, fn in {
+            "prepare_polygon_mass_table": lambda: prepare_polygon_mass_table(
+                poly, ex, ey, min_sigma=5.0, max_sigma=40.0, panel_h_m=1.0,
+                gl_order=value),
+            "build_quad_table": lambda: build_quad_table(
+                poly, ex, ey, 5.0, 40.0, ws=None, h_panel=1.0, gl_order=value),
+            "NumericalConfig.create": lambda: NumericalConfig.create(
+                support_mode="rectangle", gl_order=value),
+        }.items():
+>           exc = _raised(fn)
+                  ^^^^^^^^^^^
+
+tests\test_lane_b_config_matrix.py:1183: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+fn = <function test_lane_b_ci8_integral_arguments_rejected_at_the_builders.<locals>.<lambda> at 0x000001AB82C6C540>
+
+    def _raised(fn):
+        """Return the exception fn raises, or fail if it does not raise."""
+>       with pytest.raises(BaseException) as ei:  # noqa: PT011 - identity is asserted below
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE BaseException
+
+tests\test_lane_b_config_matrix.py:658: Failed
+=========================== short test summary info ===========================
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_ci7_rejects_the_same_class_from_every_owner[np.float32]
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_ci7_rejects_the_same_class_from_every_owner[np.int64]
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_ci7_rejects_the_same_class_from_every_owner[ndarray0d]
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_ci7_rejects_the_same_class_from_every_owner[str]
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_ci7_rejects_the_same_class_from_every_owner[bool]
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_ci7_rejects_the_same_class_from_every_owner[Decimal]
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_ci7_rejects_the_same_class_from_every_owner[Fraction]
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_ci7_rejects_the_same_class_from_every_owner[obj.__float__]
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_ci7_build_quad_table_type_change_is_declared
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_ci8_integral_arguments_rejected_at_the_builders[float 16.0-16.0]
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_ci8_integral_arguments_rejected_at_the_builders[float 16.7-16.7]
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_ci8_integral_arguments_rejected_at_the_builders[str-16]
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_ci8_integral_arguments_rejected_at_the_builders[bool-True]
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_ci8_integral_arguments_rejected_at_the_builders[np.int64-value4]
+14 failed, 3 passed, 59 deselected in 8.96s
+PYTEST_EXIT:1

@@ -118,6 +118,10 @@ CLAUSE_SAMPLES: dict[str, object] = {
     "ratio_ceil": 8.0,
     "tau_abs": 1e-5,
     "support_mode": "triangle",
+    # A-33 (CI-7 / CI-8): the argument-type clauses take the offending
+    # argument's NAME and VALUE. Both reach the message, so both are filled.
+    "name": "min_sigma",
+    "value": "5",
 }
 
 # Second pass: can a caller's own non-ASCII value reach the message through

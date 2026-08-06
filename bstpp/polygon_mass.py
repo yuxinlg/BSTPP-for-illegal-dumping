@@ -941,6 +941,8 @@ def build_quad_table(
     from .config import (
         raise_builder_max_sigma_violation,
         raise_polygon_min_sigma_violation,
+        require_config_integral,
+        require_config_real,
         validate_sigma_pair,
     )
     if sigma_min is None:
@@ -956,7 +958,17 @@ def build_quad_table(
                 "[sigma_min, sigma_max]; the top knot bounds the table and "
                 "evaluation beyond it is prohibited, so it cannot be chosen "
                 "for you."))
-    validate_sigma_pair(float(sigma_min), float(sigma_max))
+    # CI-7 / CI-8 (D-42). float() here accepted np.float32, np.int64,
+    # 0-d ndarray and bool; int(gl_order) accepted str, bool and
+    # 16.7, silently TRUNCATING a quadrature order to 16 and True to
+    # 1 -- an accuracy change with no error. The coerced values are
+    # validated but NOT rebound here; the raw arguments still reach
+    # log_knots and knot_count, which is the second instance of the
+    # validate-a-copy/use-the-original defect and is A-34's to fix.
+    validate_sigma_pair(require_config_real("sigma_min", sigma_min),
+                        require_config_real("sigma_max", sigma_max))
+    require_config_real("h_panel", h_panel)
+    require_config_integral("gl_order", gl_order)
 
     x = np.asarray(x, dtype=np.float64)
     y = np.asarray(y, dtype=np.float64)
@@ -1064,10 +1076,16 @@ def prepare_polygon_mass_table(
     """
     from .excitation_support import metres_to_crs_units
 
+    from .config import require_config_integral, require_config_real
+
+    # CI-7 / CI-8 (D-42): validate the caller's arguments before any
+    # unit conversion, so a rejected type cannot reach metres_to_crs_units.
+    panel_real = require_config_real("panel_h_m", panel_h_m)
+    require_config_integral("gl_order", gl_order)
     if crs is not None and not getattr(crs, "is_geographic", False):
-        h_panel = float(metres_to_crs_units(float(panel_h_m), crs))
+        h_panel = float(metres_to_crs_units(panel_real, crs))
     else:
-        h_panel = float(panel_h_m)
+        h_panel = panel_real
 
     # D-40: one identity per invariant. `min_sigma=None` used to die in
     # float(None) with a bare TypeError -- an unnamed error, failing Lane B
@@ -1083,7 +1101,7 @@ def prepare_polygon_mass_table(
                 "prepare_polygon_mass_table builds the table over "
                 "[min_sigma, max_sigma] and cannot choose the lower bound "
                 "for you."))
-    min_s = float(min_sigma)
+    min_s = require_config_real("min_sigma", min_sigma)
     if not (math.isfinite(min_s) and min_s > 0):
         raise_min_sigma_positive_violation(
             min_sigma=min_s,
@@ -1129,8 +1147,8 @@ def prepare_polygon_mass_table(
         domain_geom,
         np.asarray(event_x_real, dtype=np.float64),
         np.asarray(event_y_real, dtype=np.float64),
-        float(min_sigma),
-        float(max_sigma),
+        min_s,
+        require_config_real("max_sigma", max_sigma),
         ws=None if spatial_window is None else float(spatial_window),
         h_panel=h_panel,
         gl_order=int(gl_order),

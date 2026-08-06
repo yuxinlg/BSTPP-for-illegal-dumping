@@ -1,0 +1,16 @@
+=== A-33 four-config pins (API) ===
+expectation: the accept set is unchanged for int/float/np.float64, and the
+pin harness passes plain floats, so no traced value can move. Rejections
+are error paths and are not traced. Expected is not measured.
+ M bstpp/config.py
+ M bstpp/excitation_support.py
+ M bstpp/polygon_mass.py
+ M tests/test_lane_b_config_matrix.py
+PIN_GEN_EXIT:0
+cox_hawkes: MATCH
+hawkes: MATCH
+hawkes_nonsquare_4to1: MATCH
+lgcp: MATCH
+
+PIN_DIFFS 0 MATCH
+PIN_COMPARE_EXIT:0

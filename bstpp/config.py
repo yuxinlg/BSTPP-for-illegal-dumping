@@ -248,22 +248,83 @@ def validate_sigma_pair(min_sigma: float, max_sigma: float) -> None:
         raise_sigma_order_violation(min_sigma=min_sigma, max_sigma=max_sigma)
 
 
-def _require_int(name: str, value: object) -> int:
-    """Reject bool and non-ints; ``bool`` is an ``int`` subclass."""
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise NumericalConfigError(
-            f"{name} must be an int (bool rejected); got {value!r} "
-            f"({type(value).__name__})")
-    return value
+# ------------------------------------------- CI-7 / CI-8: argument types --
+# D-42. One policy for what a config-owned numeric argument may be, applied at
+# every factory rather than decided separately at each. Two invariants, not
+# one, by the D-40 owners-by-quantity test: CI-7's quantity is a REAL argument,
+# CI-8's is an INTEGRAL one, and their accept sets differ (a float is a valid
+# real and an invalid gl_order).
+#
+# The clause text of both is UNCHANGED from the `_require_real` / `_require_int`
+# messages it replaces, deliberately: the invariants existed and were correctly
+# enforced here, so this commit gives them a name, a single source and reach --
+# not new wording. Existing pins on the text stay green, which is why they are
+# evidence that the identity moved rather than the message.
+
+def config_real_invariant_clause(*, name: str, value: object) -> str:
+    """Render the canonical config real-argument clause (CI-7)."""
+    return (
+        f"{name} must be a real number (int or float; bool and str "
+        f"rejected); got {value!r} ({type(value).__name__})")
 
 
-def _require_real(name: str, value: object) -> float:
-    """Reject bool, str, and non-numeric types; accept only int/float."""
+def raise_config_real_violation(
+    *, name: str, value: object, remediation: str = "") -> NoReturn:
+    """Raise the single identity for the config real-argument invariant."""
+    msg = config_real_invariant_clause(name=name, value=value)
+    if remediation:
+        msg = f"{msg} {remediation}"
+    raise NumericalConfigError(msg)
+
+
+def config_integral_invariant_clause(*, name: str, value: object) -> str:
+    """Render the canonical config integral-argument clause (CI-8)."""
+    return (
+        f"{name} must be an int (bool rejected); got {value!r} "
+        f"({type(value).__name__})")
+
+
+def raise_config_integral_violation(
+    *, name: str, value: object, remediation: str = "") -> NoReturn:
+    """Raise the single identity for the config integral-argument invariant."""
+    msg = config_integral_invariant_clause(name=name, value=value)
+    if remediation:
+        msg = f"{msg} {remediation}"
+    raise NumericalConfigError(msg)
+
+
+def require_config_real(name: str, value: object) -> float:
+    """Validate a config-owned REAL argument; return it as a ``float`` (CI-7).
+
+    ``bool`` is rejected explicitly because it is an ``int`` subclass, and
+    ``np.float64`` is accepted because it is a ``float`` subclass -- the
+    asymmetry A-23 reason 3 already had, preserved here rather than silently
+    changed. The returned value is the coerced one; callers that use it get
+    normalisation for free, callers that keep the original do not (A-34).
+    """
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise NumericalConfigError(
-            f"{name} must be a real number (int or float; bool and str "
-            f"rejected); got {value!r} ({type(value).__name__})")
+        raise_config_real_violation(name=name, value=value)
     return float(value)
+
+
+def require_config_integral(name: str, value: object) -> int:
+    """Validate a config-owned INTEGRAL argument; return it as an ``int``
+    (CI-8).
+
+    Rejecting non-ints matters more here than for reals: a bare ``int()`` on a
+    quadrature order accepts ``16.7`` and silently truncates it to 16, and
+    accepts ``True`` as the order 1 -- an accuracy change with no error.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise_config_integral_violation(name=name, value=value)
+    return int(value)
+
+
+# Private spellings retained as the in-module names; they are now one
+# implementation behind the CI-7 / CI-8 raisers rather than a second spelling
+# of the same check (D-40).
+_require_int = require_config_integral
+_require_real = require_config_real
 
 
 @dataclass(frozen=True)

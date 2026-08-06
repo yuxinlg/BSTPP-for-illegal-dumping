@@ -1,0 +1,148 @@
+{
+ "int": {
+  "bool": {
+   "NumericalConfig.create/budget_reference_gl_order": "reject:NumericalConfigError",
+   "NumericalConfig.create/gl_order": "reject:NumericalConfigError"
+  },
+  "float": {
+   "NumericalConfig.create/budget_reference_gl_order": "reject:NumericalConfigError",
+   "NumericalConfig.create/gl_order": "reject:NumericalConfigError"
+  },
+  "int": {
+   "NumericalConfig.create/budget_reference_gl_order": "ACCEPT",
+   "NumericalConfig.create/gl_order": "ACCEPT"
+  },
+  "np.float64": {
+   "NumericalConfig.create/budget_reference_gl_order": "reject:NumericalConfigError",
+   "NumericalConfig.create/gl_order": "reject:NumericalConfigError"
+  },
+  "np.int64": {
+   "NumericalConfig.create/budget_reference_gl_order": "reject:NumericalConfigError",
+   "NumericalConfig.create/gl_order": "reject:NumericalConfigError"
+  },
+  "obj.__index__": {
+   "NumericalConfig.create/budget_reference_gl_order": "reject:NumericalConfigError",
+   "NumericalConfig.create/gl_order": "reject:NumericalConfigError"
+  },
+  "str": {
+   "NumericalConfig.create/budget_reference_gl_order": "reject:NumericalConfigError",
+   "NumericalConfig.create/gl_order": "reject:NumericalConfigError"
+  }
+ },
+ "real": {
+  "Decimal": {
+   "Hawkes_Model/min_sigma": "reject:NumericalConfigError",
+   "NumericalConfig.create/min_sigma": "reject:NumericalConfigError",
+   "NumericalConfig.create/panel_h_m": "reject:NumericalConfigError",
+   "build_quad_table/sigma_min": "reject:NumericalConfigError",
+   "prepare_polygon_mass_table/min_sigma": "reject:NumericalConfigError",
+   "resolve_sigma_bounds/min_sigma": "reject:NumericalConfigError"
+  },
+  "Fraction": {
+   "Hawkes_Model/min_sigma": "reject:NumericalConfigError",
+   "NumericalConfig.create/min_sigma": "reject:NumericalConfigError",
+   "NumericalConfig.create/panel_h_m": "reject:NumericalConfigError",
+   "build_quad_table/sigma_min": "reject:NumericalConfigError",
+   "prepare_polygon_mass_table/min_sigma": "reject:NumericalConfigError",
+   "resolve_sigma_bounds/min_sigma": "reject:NumericalConfigError"
+  },
+  "bool": {
+   "Hawkes_Model/min_sigma": "reject:NumericalConfigError",
+   "NumericalConfig.create/min_sigma": "reject:NumericalConfigError",
+   "NumericalConfig.create/panel_h_m": "reject:NumericalConfigError",
+   "build_quad_table/sigma_min": "reject:NumericalConfigError",
+   "prepare_polygon_mass_table/min_sigma": "reject:NumericalConfigError",
+   "resolve_sigma_bounds/min_sigma": "reject:NumericalConfigError"
+  },
+  "float": {
+   "Hawkes_Model/min_sigma": "ACCEPT",
+   "NumericalConfig.create/min_sigma": "ACCEPT",
+   "NumericalConfig.create/panel_h_m": "ACCEPT",
+   "build_quad_table/sigma_min": "ACCEPT",
+   "prepare_polygon_mass_table/min_sigma": "ACCEPT",
+   "resolve_sigma_bounds/min_sigma": "ACCEPT"
+  },
+  "int": {
+   "Hawkes_Model/min_sigma": "ACCEPT",
+   "NumericalConfig.create/min_sigma": "ACCEPT",
+   "NumericalConfig.create/panel_h_m": "ACCEPT",
+   "build_quad_table/sigma_min": "ACCEPT",
+   "prepare_polygon_mass_table/min_sigma": "ACCEPT",
+   "resolve_sigma_bounds/min_sigma": "ACCEPT"
+  },
+  "ndarray0d": {
+   "Hawkes_Model/min_sigma": "reject:NumericalConfigError",
+   "NumericalConfig.create/min_sigma": "reject:NumericalConfigError",
+   "NumericalConfig.create/panel_h_m": "reject:NumericalConfigError",
+   "build_quad_table/sigma_min": "reject:NumericalConfigError",
+   "prepare_polygon_mass_table/min_sigma": "reject:NumericalConfigError",
+   "resolve_sigma_bounds/min_sigma": "reject:NumericalConfigError"
+  },
+  "np.float32": {
+   "Hawkes_Model/min_sigma": "reject:NumericalConfigError",
+   "NumericalConfig.create/min_sigma": "reject:NumericalConfigError",
+   "NumericalConfig.create/panel_h_m": "reject:NumericalConfigError",
+   "build_quad_table/sigma_min": "reject:NumericalConfigError",
+   "prepare_polygon_mass_table/min_sigma": "reject:NumericalConfigError",
+   "resolve_sigma_bounds/min_sigma": "reject:NumericalConfigError"
+  },
+  "np.float64": {
+   "Hawkes_Model/min_sigma": "ACCEPT",
+   "NumericalConfig.create/min_sigma": "ACCEPT",
+   "NumericalConfig.create/panel_h_m": "ACCEPT",
+   "build_quad_table/sigma_min": "ACCEPT",
+   "prepare_polygon_mass_table/min_sigma": "ACCEPT",
+   "resolve_sigma_bounds/min_sigma": "ACCEPT"
+  },
+  "np.int64": {
+   "Hawkes_Model/min_sigma": "reject:NumericalConfigError",
+   "NumericalConfig.create/min_sigma": "reject:NumericalConfigError",
+   "NumericalConfig.create/panel_h_m": "reject:NumericalConfigError",
+   "build_quad_table/sigma_min": "reject:NumericalConfigError",
+   "prepare_polygon_mass_table/min_sigma": "reject:NumericalConfigError",
+   "resolve_sigma_bounds/min_sigma": "reject:NumericalConfigError"
+  },
+  "obj.__float__": {
+   "Hawkes_Model/min_sigma": "reject:NumericalConfigError",
+   "NumericalConfig.create/min_sigma": "reject:NumericalConfigError",
+   "NumericalConfig.create/panel_h_m": "reject:NumericalConfigError",
+   "build_quad_table/sigma_min": "reject:NumericalConfigError",
+   "prepare_polygon_mass_table/min_sigma": "reject:NumericalConfigError",
+   "resolve_sigma_bounds/min_sigma": "reject:NumericalConfigError"
+  },
+  "str": {
+   "Hawkes_Model/min_sigma": "reject:NumericalConfigError",
+   "NumericalConfig.create/min_sigma": "reject:NumericalConfigError",
+   "NumericalConfig.create/panel_h_m": "reject:NumericalConfigError",
+   "build_quad_table/sigma_min": "reject:NumericalConfigError",
+   "prepare_polygon_mass_table/min_sigma": "reject:NumericalConfigError",
+   "resolve_sigma_bounds/min_sigma": "reject:NumericalConfigError"
+  }
+ },
+ "stored_types": {
+  "all float args": {
+   "gl_order": "int",
+   "max_panel_to_min_sigma_ratio": "float",
+   "max_sigma": "float",
+   "min_sigma": "float",
+   "panel_h_m": "float",
+   "production_tau_abs": "float"
+  },
+  "int args": {
+   "gl_order": "int",
+   "max_panel_to_min_sigma_ratio": "float",
+   "max_sigma": "int",
+   "min_sigma": "int",
+   "panel_h_m": "int",
+   "production_tau_abs": "float"
+  },
+  "np.float64 args": {
+   "gl_order": "int",
+   "max_panel_to_min_sigma_ratio": "float",
+   "max_sigma": "float64",
+   "min_sigma": "float64",
+   "panel_h_m": "float64",
+   "production_tau_abs": "float"
+  }
+ }
+}
