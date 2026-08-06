@@ -1,0 +1,77 @@
+{
+  "args_keys": [
+    "S",
+    "T",
+    "cov_ind",
+    "decoder_params_seasonal",
+    "decoder_params_spatial",
+    "decoder_params_temporal",
+    "dumping_report_hawkes_design",
+    "dumping_report_indices_t",
+    "dumping_report_indices_xy",
+    "dumping_report_log_cleanup_cost",
+    "hawkes_design",
+    "hidden_dim1_seasonal",
+    "hidden_dim1_spatial",
+    "hidden_dim2_seasonal",
+    "hidden_dim2_spatial",
+    "hidden_dim_temporal",
+    "indices_a",
+    "indices_t",
+    "indices_xy",
+    "int_df",
+    "litter_hawkes_design",
+    "litter_indices_t",
+    "litter_indices_xy",
+    "litter_score",
+    "n_s",
+    "n_t",
+    "n_xy",
+    "offset_coef_prior",
+    "priors",
+    "sp_trig",
+    "sp_var_mu",
+    "spatial_cov",
+    "spatial_grid_cells",
+    "spatial_offset",
+    "t_events",
+    "t_trig",
+    "x_max",
+    "x_min",
+    "xy_events",
+    "y_max",
+    "y_min",
+    "z_dim_seasonal",
+    "z_dim_spatial",
+    "z_dim_temporal"
+  ],
+  "copied_at": {
+    "commit": "192a599",
+    "date": "2026-02-03"
+  },
+  "copied_from": "bstpp.cox_hawkes_shared.spatiotemporal_hawkes_model_shared",
+  "ctor_kwargs": [
+    "spatial_offset",
+    "offset_coef_prior",
+    "*args",
+    "**kwargs"
+  ],
+  "file": "replication/cox_hawkes_offset.py",
+  "imports_from_absent_module": [
+    "Cox_Hawkes_Shared",
+    "hawkes_intensity_sum"
+  ],
+  "lines": 367,
+  "prior_subkeys": [
+    "a_0",
+    "alpha",
+    "w"
+  ],
+  "self_attrs": [
+    "args",
+    "model",
+    "spatial_cov"
+  ],
+  "upstream": "https://github.com/yuxinlg/Illegal-Dumping.git",
+  "upstream_head": "f5f138210186c8baf742808021c095cd05d3b896"
+}

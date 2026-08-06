@@ -33,10 +33,16 @@ def _run():
 
 
 def _field(out, key):
+    """The raw right-hand side, population label and all."""
     for line in out.splitlines():
         if line.strip().startswith(key):
             return line.split(":", 1)[1].strip()
     raise AssertionError(f"no {key} line in output:\n{out}")
+
+
+def _value(out, key):
+    """The value with its trailing [POPULATION] label removed (A-41)."""
+    return _field(out, key).split("[")[0].strip()
 
 
 def test_corpus_is_one_content_group_equal_to_the_baseline():
@@ -45,7 +51,7 @@ def test_corpus_is_one_content_group_equal_to_the_baseline():
     pins have drifted -- pin_compare.py is what says that.
     """
     code, out = _run()
-    distinct = int(_field(out, "DISTINCT_CANONICAL_HASHES"))
+    distinct = int(_value(out, "DISTINCT_CANONICAL_HASHES"))
     assert distinct == 1, (
         f"the pin candidate corpus now holds {distinct} distinct content "
         "groups. A-38's retroactive rescue of the 24 historical PIN_DIFFS 0 "
@@ -53,7 +59,7 @@ def test_corpus_is_one_content_group_equal_to_the_baseline():
         "forward it applies only to commits before this one. Re-baseline and "
         "record the expiry. If this is OP-24's polygon-mode pin, it is the "
         "expected trigger and the correct response is still to record it.")
-    assert _field(out, "IDENTITY_HOLDS") == "True"
+    assert _value(out, "IDENTITY_HOLDS") == "True"
     assert code == 0
 
 
@@ -65,7 +71,7 @@ def test_the_gate_reports_the_distinct_count_whether_or_not_it_passes():
     _, out = _run()
     assert "DISTINCT_CANONICAL_HASHES" in out
     assert "IDENTITY_HOLDS" in out
-    assert int(_field(out, "candidates on disk")) > 0
+    assert int(_value(out, "population ON_DISK").split()[0]) > 0
     # The population must be stated, not implied: an identity over an
     # unstated set of files is not a measurement.
     assert "pattern" in out and "baseline canonical hash" in out
@@ -75,6 +81,28 @@ def test_population_is_a_superset_of_the_tracked_set():
     """The stronger-claim argument depends on this, so it is measured."""
     _, out = _run()
     assert _field(out, "tracked but not on disk").startswith("none")
+
+
+def test_the_gate_names_which_population_it_measured():
+    """A-41. The gate reads the working tree, so a clone measures the tracked
+
+    subset and reports a smaller denominator for the SAME property. Both
+    numbers are right; a run that printed one unlabelled would make a CI line
+    and a local line look like a disagreement. Same discipline as the ASCII
+    sweep's raise-site denominator (A-39).
+    """
+    _, out = _run()
+    assert _field(out, "VERDICT_POPULATION") == "ON_DISK"
+    on_disk = int(_value(out, "population ON_DISK").split()[0])
+    tracked = int(_value(out, "population TRACKED").split()[0])
+    assert on_disk >= tracked > 0
+    # The property, not just the count, is reported for both.
+    assert _value(out, "DISTINCT_CANONICAL_HASHES_TRACKED").isdigit()
+    assert _value(out, "IDENTITY_HOLDS_TRACKED") == "True"
+    # Every count carries its population label, so no bare number can be
+    # read against the wrong denominator.
+    for key in ("DISTINCT_CANONICAL_HASHES", "IDENTITY_HOLDS"):
+        assert "[ON_DISK]" in _field(out, key + " ")
 
 
 def test_a_second_content_group_makes_the_gate_fail(tmp_path, monkeypatch):

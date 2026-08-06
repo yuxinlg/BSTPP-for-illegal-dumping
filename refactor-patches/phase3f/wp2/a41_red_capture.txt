@@ -1,0 +1,163 @@
+A-41 RED CAPTURE -- the population-naming row, against a REAL pre-change state.
+
+Unlike A-40's State B, no pre-change state has to be constructed here: the
+gate exists at HEAD (63ba7e1) in its A-40 shape, which reports ONE count
+and does not name the population it measured. That is the minimal revert
+under D-41 clause 2 and it is an actual ancestor, not a reconstruction.
+
+Machine-local, this repo, run 2026-08-06T09:29:18Z.
+git rev-parse --short HEAD: 63ba7e1
+
+================================================================
+GREEN REFERENCE -- gate as edited by this commit
+================================================================
+.....                                                                    [100%]
+5 passed in 2.57s
+PYTEST_EXIT:0
+
+================================================================
+RED -- refactor-patches/pin_corpus_identity.py reverted to HEAD (63ba7e1)
+================================================================
+-- the gate still runs and still gets the property right --
+PIN_CORPUS_IDENTITY
+  pattern                        : results/*pins*candidate*.json
+  candidates on disk             : 31
+  candidates tracked by git      : 19
+  tracked but not on disk        : none (population is a superset)
+  (the on-disk set is the population: superset of the tracked set,
+   so the identity claim over it is the stronger one)
+  baseline                       : pins.json
+  baseline canonical hash        : 2905490ca3f7afea
+  DISTINCT_CANONICAL_HASHES      : 1
+    2905490ca3f7afea  == BASELINE  n=31
+  IDENTITY_HOLDS                 : True
+  A-38's retroactive rescue of the 24 historical PIN_DIFFS 0
+  claims still stands: one content group, so the candidate-side
+  ambiguity could not have changed a verdict.
+GATE_EXIT:0
+
+-- the rows, against HEAD's gate --
+.F.F.                                                                    [100%]
+================================== FAILURES ===================================
+______ test_the_gate_reports_the_distinct_count_whether_or_not_it_passes ______
+
+    def test_the_gate_reports_the_distinct_count_whether_or_not_it_passes():
+        """A gate that printed only on failure would make 'not printed' and 'not
+    
+        run' the same observable (the A-35 lesson). The count is the artifact.
+        """
+        _, out = _run()
+        assert "DISTINCT_CANONICAL_HASHES" in out
+        assert "IDENTITY_HOLDS" in out
+>       assert int(_value(out, "population ON_DISK").split()[0]) > 0
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_pin_corpus_identity.py:74: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_pin_corpus_identity.py:45: in _value
+    return _field(out, key).split("[")[0].strip()
+           ^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+out = 'PIN_CORPUS_IDENTITY\n  pattern                        : results/*pins*candidate*.json\n  candidates on disk          ...FS 0\n  claims still stands: one content group, so the candidate-side\n  ambiguity could not have changed a verdict.\n'
+key = 'population ON_DISK'
+
+    def _field(out, key):
+        """The raw right-hand side, population label and all."""
+        for line in out.splitlines():
+            if line.strip().startswith(key):
+                return line.split(":", 1)[1].strip()
+>       raise AssertionError(f"no {key} line in output:\n{out}")
+E       AssertionError: no population ON_DISK line in output:
+E       PIN_CORPUS_IDENTITY
+E         pattern                        : results/*pins*candidate*.json
+E         candidates on disk             : 31
+E         candidates tracked by git      : 19
+E         tracked but not on disk        : none (population is a superset)
+E         (the on-disk set is the population: superset of the tracked set,
+E          so the identity claim over it is the stronger one)
+E         baseline                       : pins.json
+E         baseline canonical hash        : 2905490ca3f7afea
+E         DISTINCT_CANONICAL_HASHES      : 1
+E           2905490ca3f7afea  == BASELINE  n=31
+E         IDENTITY_HOLDS                 : True
+E         A-38's retroactive rescue of the 24 historical PIN_DIFFS 0
+E         claims still stands: one content group, so the candidate-side
+E         ambiguity could not have changed a verdict.
+
+tests\test_pin_corpus_identity.py:40: AssertionError
+______________ test_the_gate_names_which_population_it_measured _______________
+
+    def test_the_gate_names_which_population_it_measured():
+        """A-41. The gate reads the working tree, so a clone measures the tracked
+    
+        subset and reports a smaller denominator for the SAME property. Both
+        numbers are right; a run that printed one unlabelled would make a CI line
+        and a local line look like a disagreement. Same discipline as the ASCII
+        sweep's raise-site denominator (A-39).
+        """
+        _, out = _run()
+>       assert _field(out, "VERDICT_POPULATION") == "ON_DISK"
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_pin_corpus_identity.py:95: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+out = 'PIN_CORPUS_IDENTITY\n  pattern                        : results/*pins*candidate*.json\n  candidates on disk          ...FS 0\n  claims still stands: one content group, so the candidate-side\n  ambiguity could not have changed a verdict.\n'
+key = 'VERDICT_POPULATION'
+
+    def _field(out, key):
+        """The raw right-hand side, population label and all."""
+        for line in out.splitlines():
+            if line.strip().startswith(key):
+                return line.split(":", 1)[1].strip()
+>       raise AssertionError(f"no {key} line in output:\n{out}")
+E       AssertionError: no VERDICT_POPULATION line in output:
+E       PIN_CORPUS_IDENTITY
+E         pattern                        : results/*pins*candidate*.json
+E         candidates on disk             : 31
+E         candidates tracked by git      : 19
+E         tracked but not on disk        : none (population is a superset)
+E         (the on-disk set is the population: superset of the tracked set,
+E          so the identity claim over it is the stronger one)
+E         baseline                       : pins.json
+E         baseline canonical hash        : 2905490ca3f7afea
+E         DISTINCT_CANONICAL_HASHES      : 1
+E           2905490ca3f7afea  == BASELINE  n=31
+E         IDENTITY_HOLDS                 : True
+E         A-38's retroactive rescue of the 24 historical PIN_DIFFS 0
+E         claims still stands: one content group, so the candidate-side
+E         ambiguity could not have changed a verdict.
+
+tests\test_pin_corpus_identity.py:40: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_pin_corpus_identity.py::test_the_gate_reports_the_distinct_count_whether_or_not_it_passes
+FAILED tests/test_pin_corpus_identity.py::test_the_gate_names_which_population_it_measured
+2 failed, 3 passed in 3.31s
+PYTEST_EXIT:1
+
+READING. 2 failed, 3 passed, PYTEST_EXIT:1 -- and GATE_EXIT:0 above, i.e.
+the reverted gate RUNS, reads both file sets, and reports the property
+correctly (DISTINCT_CANONICAL_HASHES 1, IDENTITY_HOLDS True). The two
+failures are 'no VERDICT_POPULATION line' and the ON_DISK/TRACKED counts
+not being separately named. Nothing here is 'the gate is broken' or 'the
+gate is missing'; the property is right and the DENOMINATOR IS UNSTATED,
+which is precisely what the new row enforces.
+
+The three survivors are the A-40 rows -- the expiry assertion, the
+superset measurement, and the capability-to-fail construction. They pass
+on both sides, so per D-41 clause 3 they are NON-DISCRIMINATING for this
+change and are not offered as evidence for it.
+
+================================================================
+RESTORED
+================================================================
+git status --porcelain refactor-patches/pin_corpus_identity.py :
+ M refactor-patches/pin_corpus_identity.py
+( M above = this commit's own edit, which is expected; the revert left
+  nothing extra behind -- the green re-run below is byte-identical to the
+  GREEN REFERENCE at the top )
+
+.....                                                                    [100%]
+5 passed in 3.22s
+PYTEST_EXIT:0

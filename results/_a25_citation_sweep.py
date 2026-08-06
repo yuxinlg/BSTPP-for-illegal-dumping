@@ -33,6 +33,16 @@ ALLOWED = {
         "as above.",
     "refactor-patches/test_sbc_smoke_v3.py":
         "as above.",
+    "bstpp/cox_hawkes_shared.py":
+        "A-39/A-41: named precisely BECAUSE it is absent. It looks like a path in THIS "
+        "repo and is not one: it is untracked in a downstream working checkout on "
+        "another machine, and the scope limit A-40 records is exactly that no claim "
+        "here covers it. A reader who could reach it would be reading a different file.",
+    "replication/cox_hawkes_offset.py":
+        "A-41: a path in yuxinlg/Illegal-Dumping at f5f1382, read from a read-only "
+        "clone that was discarded. Its measured dependency surface is committed as "
+        "refactor-patches/phase3f/wp2/a41_vendored_dependency_extract.json, which IS "
+        "tracked, so the citation's evidence is reachable even though the file is not.",
     "Illegal-Dumping/replication/README.md":
         "A-40: a path in yuxinlg/Illegal-Dumping, a DIFFERENT repository. Cited to "
         "flag a defect that is theirs to fix (the README installs from this fork's "

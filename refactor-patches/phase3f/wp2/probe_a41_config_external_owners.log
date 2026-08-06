@@ -1,0 +1,125 @@
+PROBE_PROVENANCE
+  repo           : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor
+  bstpp.__file__ : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+  sources parsed : 15 files under bstpp/
+
+SCOPE OF THE A-40 DENOMINATOR, restated so the gap is visible
+  config-anchored population (A-40)   : 11 fields of NumericalConfig
+  every A-40 member has ONE owner that is a config field
+  config-EXTERNAL population           : NOT MEASURED (see below)
+
+  module-level UPPER_CASE constants under bstpp/ : 40
+
+H1 -- the same constant NAME bound in more than one module
+  H1_COUNT=0
+
+H2 -- a constant's value re-appearing as a bare literal in another module
+  cutoffs.py:34 literal 5.0  <-> DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  data_contracts.py:182 literal 25  <-> N_XY (preparation.py:50)
+  data_contracts.py:366 literal 1e-10  <-> SLIVER_AREA_INTERNAL (preparation.py:55)
+  excitation_support.py:45 literal 5.0  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34)
+  inference_functions.py:308 literal 4  <-> DEFAULT_SPATIAL_SCALE_MULTIPLE (cutoffs.py:35)
+  inference_functions.py:336 literal 4  <-> DEFAULT_SPATIAL_SCALE_MULTIPLE (cutoffs.py:35)
+  main.py:173 literal 4  <-> DEFAULT_SPATIAL_SCALE_MULTIPLE (cutoffs.py:35)
+  main.py:229 literal 8  <-> MAX_PANEL_TO_MIN_SIGMA_RATIO (polygon_mass.py:59)
+  main.py:338 literal 50  <-> T_INTERNAL (preparation.py:45), N_T (preparation.py:48)
+  main.py:339 literal 24  <-> S_INTERNAL (preparation.py:46), N_S (preparation.py:49)
+  main.py:365 literal 365  <-> S_DAYS (preparation.py:47)
+  main.py:392 literal 24  <-> S_INTERNAL (preparation.py:46), N_S (preparation.py:49)
+  main.py:394 literal 8  <-> MAX_PANEL_TO_MIN_SIGMA_RATIO (polygon_mass.py:59)
+  main.py:398 literal 50  <-> T_INTERNAL (preparation.py:45), N_T (preparation.py:48)
+  main.py:399 literal 20  <-> DEFAULT_PANEL_H_M (polygon_mass.py:51)
+  main.py:415 literal 4  <-> DEFAULT_SPATIAL_SCALE_MULTIPLE (cutoffs.py:35)
+  main.py:415 literal 4  <-> DEFAULT_SPATIAL_SCALE_MULTIPLE (cutoffs.py:35)
+  main.py:620 literal 4  <-> DEFAULT_SPATIAL_SCALE_MULTIPLE (cutoffs.py:35)
+  main.py:637 literal 500  <-> VALIDATED_SIGMA_MAX_M (polygon_mass.py:44)
+  main.py:905 literal 16  <-> DEFAULT_GL_ORDER (polygon_mass.py:52)
+  main.py:979 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  main.py:979 literal 16  <-> DEFAULT_GL_ORDER (polygon_mass.py:52)
+  main.py:1068 literal 50  <-> T_INTERNAL (preparation.py:45), N_T (preparation.py:48)
+  main.py:1075 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  main.py:1146 literal 50  <-> T_INTERNAL (preparation.py:45), N_T (preparation.py:48)
+  main.py:1153 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  main.py:1280 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  main.py:1290 literal 8  <-> MAX_PANEL_TO_MIN_SIGMA_RATIO (polygon_mass.py:59)
+  main.py:1359 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  main.py:1420 literal 8  <-> MAX_PANEL_TO_MIN_SIGMA_RATIO (polygon_mass.py:59)
+  main.py:1467 literal 50  <-> T_INTERNAL (preparation.py:45), N_T (preparation.py:48)
+  main.py:1482 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  main.py:1482 literal 8  <-> MAX_PANEL_TO_MIN_SIGMA_RATIO (polygon_mass.py:59)
+  main.py:1547 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  main.py:1565 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  main.py:1579 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  main.py:2498 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  main.py:2498 literal 8  <-> MAX_PANEL_TO_MIN_SIGMA_RATIO (polygon_mass.py:59)
+  main.py:2506 literal 4  <-> DEFAULT_SPATIAL_SCALE_MULTIPLE (cutoffs.py:35)
+  main.py:2506 literal 8  <-> MAX_PANEL_TO_MIN_SIGMA_RATIO (polygon_mass.py:59)
+  main.py:2531 literal 50  <-> T_INTERNAL (preparation.py:45), N_T (preparation.py:48)
+  main.py:2577 literal 50  <-> T_INTERNAL (preparation.py:45), N_T (preparation.py:48)
+  main.py:2624 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  main.py:2639 literal 20  <-> DEFAULT_PANEL_H_M (polygon_mass.py:51)
+  main.py:2649 literal 20  <-> DEFAULT_PANEL_H_M (polygon_mass.py:51)
+  main.py:2659 literal 20  <-> DEFAULT_PANEL_H_M (polygon_mass.py:51)
+  main.py:2669 literal 20  <-> DEFAULT_PANEL_H_M (polygon_mass.py:51)
+  main.py:2682 literal 50  <-> T_INTERNAL (preparation.py:45), N_T (preparation.py:48)
+  polygon_mass.py:150 literal 4  <-> DEFAULT_SPATIAL_SCALE_MULTIPLE (cutoffs.py:35)
+  polygon_mass.py:187 literal 4  <-> DEFAULT_SPATIAL_SCALE_MULTIPLE (cutoffs.py:35)
+  polygon_mass.py:192 literal 4  <-> DEFAULT_SPATIAL_SCALE_MULTIPLE (cutoffs.py:35)
+  preparation.py:55 literal 1e-10  <-> COVERAGE_SLIVER_TOL (data_contracts.py:366)
+  preparation.py:212 literal 5.0  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  preparation.py:213 literal 5.0  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  preparation.py:378 literal 1e-06  <-> BUDGET_REFERENCE_ORACLE_BOUND (polygon_mass.py:79), SLOPE_FD_EPS (polygon_mass.py:89)
+  spatial_grid_helpers.py:263 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  spatial_grid_helpers.py:263 literal 8  <-> MAX_PANEL_TO_MIN_SIGMA_RATIO (polygon_mass.py:59)
+  spatial_grid_helpers.py:472 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  spatial_grid_helpers.py:473 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  spatial_grid_helpers.py:486 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  spatial_grid_helpers.py:509 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  spatial_grid_helpers.py:513 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  spatial_grid_helpers.py:520 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  spatial_grid_helpers.py:543 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  spatial_grid_helpers.py:547 literal 5  <-> DEFAULT_TEMPORAL_SCALE_MULTIPLE (cutoffs.py:34), DEFAULT_MAX_SIGMA_KM (excitation_support.py:45)
+  trigger.py:208 literal 8  <-> MAX_PANEL_TO_MIN_SIGMA_RATIO (polygon_mass.py:59)
+  trigger.py:213 literal 50  <-> T_INTERNAL (preparation.py:45), N_T (preparation.py:48)
+  utils.py:30 literal 1e-06  <-> BUDGET_REFERENCE_ORACLE_BOUND (polygon_mass.py:79), SLOPE_FD_EPS (polygon_mass.py:89)
+  H2_CANDIDATES=68   <-- CANDIDATES, NOT A BOUND
+  Demonstrating the imprecision rather than asserting it: DEFAULT_TEMPORAL_SCALE_MULTIPLE
+  and DEFAULT_MAX_SIGMA_KM are both 5.0 and are unrelated quantities, so every
+  bare 5 in the package matches both. Most of the rows above are that.
+
+ADJUDICATED -- the internal-units family, read rather than matched
+  args['T']    literal site(s) main.py:[338]  value(s)=[50]
+    named owner   : preparation.T_INTERNAL = 50
+    agree today   : True
+    reconciled by : nothing -- no comparison, no raise
+  args['S']    literal site(s) main.py:[339]  value(s)=[24]
+    named owner   : preparation.S_INTERNAL = 24
+    agree today   : True
+    reconciled by : nothing -- no comparison, no raise
+  self.S       literal site(s) main.py:[365]  value(s)=[365]
+    named owner   : preparation.S_DAYS = 365
+    agree today   : True
+    reconciled by : nothing -- no comparison, no raise
+  main.py imports T_INTERNAL and uses it elsewhere : True
+  ADJUDICATED_MEMBERS=3  ["args['T']", "args['S']", 'self.S']
+  These are LIVE in the sense that matters: change preparation.T_INTERNAL and
+  cutoffs.py's real<->internal conversions follow it while args['T'] does not,
+  and the internal-units invariant breaks with nothing raising. (The decoder-
+  pinned cells N_T=50 N_S=24 N_XY=25 are the same shape.)
+
+VERDICT
+  H1 (name collisions)                 : 0
+  H2 (literal candidates, NOT a bound)  : 68
+  adjudicated genuine members           : 3
+  => THE CONFIG-EXTERNAL POPULATION IS NOT EMPTY. Its SIZE is UNMEASURED,
+     and this probe does not claim to bound it in either direction.
+
+  RECORDED CONCLUSION: OP-27's denominator of 11 is the population of
+  CONFIG-ANCHORED two-owner quantities and is complete over THAT
+  population. The config-external half is a second population, known
+  non-empty and unmeasured, and its members become census rows. It
+  becomes measurable in the same motion that makes it smaller: every
+  quantity WP2 and WP5 pull into a config object gains a named second
+  owner and moves into the measurable half.
+EXIT:0
+EXIT:0

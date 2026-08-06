@@ -1,0 +1,20 @@
+PIN_CORPUS_IDENTITY
+  pattern                        : results/*pins*candidate*.json
+  VERDICT_POPULATION             : ON_DISK
+  population ON_DISK             : 32 (working tree; includes uncommitted captures)
+  population TRACKED             : 20 (git ls-files; what a fresh clone sees)
+  tracked but not on disk        : none (ON_DISK is a superset)
+  (the verdict is taken on ON_DISK because it is the superset and
+   therefore the stronger claim; TRACKED is reported beside it so a
+   clone and a working tree do not appear to disagree)
+  baseline                       : pins.json
+  baseline canonical hash        : 2905490ca3f7afea
+  DISTINCT_CANONICAL_HASHES      : 1   [ON_DISK]
+  DISTINCT_CANONICAL_HASHES_TRACKED : 1   [TRACKED]
+    2905490ca3f7afea  == BASELINE  n=32
+  IDENTITY_HOLDS                 : True   [ON_DISK]
+  IDENTITY_HOLDS_TRACKED         : True   [TRACKED]
+  A-38's retroactive rescue of the 24 historical PIN_DIFFS 0
+  claims still stands: one content group, so the candidate-side
+  ambiguity could not have changed a verdict.
+EXIT:0

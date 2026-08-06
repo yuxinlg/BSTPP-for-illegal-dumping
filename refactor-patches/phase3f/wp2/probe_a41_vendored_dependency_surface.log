@@ -1,0 +1,99 @@
+EXTRACT_READ (external source not required for this run)
+
+PROBE_PROVENANCE
+  repo             : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor
+  bstpp.__file__   : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+  upstream         : https://github.com/yuxinlg/Illegal-Dumping.git
+  upstream_head    : f5f138210186c8baf742808021c095cd05d3b896
+  file             : replication/cox_hawkes_offset.py  (367 lines)
+  copied from      : bstpp.cox_hawkes_shared.spatiotemporal_hawkes_model_shared
+  copied at        : {'commit': '192a599', 'date': '2026-02-03'}
+  imports from bstpp.cox_hawkes_shared (ABSENT HERE): ['Cox_Hawkes_Shared', 'hawkes_intensity_sum']
+
+DEPENDENCY SURFACE, classified against THIS fork's live args
+  args key                         owner     kind
+  S                                OURS      ModelConfig-kind
+  T                                OURS      ModelConfig-kind
+  cov_ind                          OURS      -
+  decoder_params_seasonal          OURS      -
+  decoder_params_spatial           OURS      -
+  decoder_params_temporal          OURS      -
+  dumping_report_hawkes_design     FOREIGN   -
+  dumping_report_indices_t         FOREIGN   -
+  dumping_report_indices_xy        FOREIGN   -
+  dumping_report_log_cleanup_cost  FOREIGN   -
+  hawkes_design                    FOREIGN   -
+  hidden_dim1_seasonal             OURS      ModelConfig-kind
+  hidden_dim1_spatial              OURS      ModelConfig-kind
+  hidden_dim2_seasonal             OURS      ModelConfig-kind
+  hidden_dim2_spatial              OURS      ModelConfig-kind
+  hidden_dim_temporal              OURS      ModelConfig-kind
+  indices_a                        OURS      -
+  indices_t                        OURS      -
+  indices_xy                       OURS      -
+  int_df                           OURS      -
+  litter_hawkes_design             FOREIGN   -
+  litter_indices_t                 FOREIGN   -
+  litter_indices_xy                FOREIGN   -
+  litter_score                     FOREIGN   -
+  n_s                              OURS      ModelConfig-kind
+  n_t                              OURS      ModelConfig-kind
+  n_xy                             OURS      ModelConfig-kind
+  offset_coef_prior                FOREIGN   -
+  priors                           OURS      PriorConfig-kind
+  sp_trig                          OURS      ModelConfig-kind
+  sp_var_mu                        OURS      ModelConfig-kind
+  spatial_cov                      OURS      -
+  spatial_grid_cells               OURS      -
+  spatial_offset                   FOREIGN   -
+  t_events                         OURS      -
+  t_trig                           OURS      ModelConfig-kind
+  x_max                            OURS      -
+  x_min                            OURS      -
+  xy_events                        OURS      -
+  y_max                            OURS      -
+  y_min                            OURS      -
+  z_dim_seasonal                   OURS      ModelConfig-kind
+  z_dim_spatial                    OURS      ModelConfig-kind
+  z_dim_temporal                   OURS      ModelConfig-kind
+
+  args keys read      : 44  (33 OURS, 11 FOREIGN)
+  self attributes     : ['args', 'model', 'spatial_cov']
+  ctor keyword surface: ['spatial_offset', 'offset_coef_prior', '*args', '**kwargs']
+  args['priors'][...] : ['a_0', 'alpha', 'w']
+    of which absent from this fork's priors dict: none
+
+WP2-KIND DEPENDENCIES WE OWN (the reason 'not required' was the wrong entry)
+  S                                ModelConfig-kind
+  T                                ModelConfig-kind
+  hidden_dim1_seasonal             ModelConfig-kind
+  hidden_dim1_spatial              ModelConfig-kind
+  hidden_dim2_seasonal             ModelConfig-kind
+  hidden_dim2_spatial              ModelConfig-kind
+  hidden_dim_temporal              ModelConfig-kind
+  n_s                              ModelConfig-kind
+  n_t                              ModelConfig-kind
+  n_xy                             ModelConfig-kind
+  priors                           PriorConfig-kind
+  sp_trig                          ModelConfig-kind
+  sp_var_mu                        ModelConfig-kind
+  t_trig                           ModelConfig-kind
+  z_dim_seasonal                   ModelConfig-kind
+  z_dim_spatial                    ModelConfig-kind
+  z_dim_temporal                   ModelConfig-kind
+  count : 17
+  These are OUR surface, read directly out of args by a copy that
+  does not follow this repository. A WP2 change to any of them is
+  invisible to every gate this repository runs.
+
+WHAT REMAINS UNMEASURABLE, AND WHY
+  (1) bstpp/cox_hawkes_shared.py is in NO reachable tree: the base
+      class, hawkes_intensity_sum, and the function this file
+      copies. Its own args reads cannot be enumerated at all.
+  (2) WP2's change set does not exist. 'No WP2-scope change alters
+      a signature this depends on' is a claim about an unenumerated
+      set; C4 is what enumerates it. The confirmation is NOT YET A
+      STATEMENT, which is different from being true.
+  VERDICT: UNMEASURABLE at round six -- not NOT-REQUIRED.
+EXIT:0
+EXIT:0
