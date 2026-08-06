@@ -39,7 +39,7 @@ class NumericalConfigError(ValueError):
 # raise UnicodeEncodeError while the traceback carrying it is printed to a
 # cp1252 console, i.e. an error path that fails while failing.
 
-def _ascii_safe(text: str) -> str:
+def ascii_safe(text: str) -> str:
     """Escape any non-ASCII that reached a clause through INTERPOLATION (OP-22).
 
     D-40 requires raised messages to be ASCII. The literal halves of every
@@ -53,8 +53,19 @@ def _ascii_safe(text: str) -> str:
     individual field would also re-quote the plain ``{name}`` slots, changing
     the text of messages that are already correct. For ASCII input this returns
     the string unchanged, so no existing message moves.
+
+    Public since A-37: ``data_contracts.enforce`` is a second D-40 owner of the
+    encoding corollary and must render the identical escaping. A second
+    spelling of this one line elsewhere in the package is the split D-40 exists
+    to forbid, so it is imported rather than copied.
     """
     return text.encode("ascii", "backslashreplace").decode("ascii")
+
+
+# Private spelling retained as the in-module name (same pattern as
+# _require_real / require_config_real): one implementation, two names, never
+# two implementations.
+_ascii_safe = ascii_safe
 
 
 def panel_ratio_invariant_clause(

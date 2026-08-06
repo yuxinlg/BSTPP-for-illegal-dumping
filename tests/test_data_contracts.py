@@ -509,3 +509,82 @@ def test_heldout_nan_rows_rejected_in_reject_mode():
     with_nan.loc[len(with_nan)] = {"X": np.nan, "Y": 7.0, "T": 50.0}
     with pytest.raises(DataContractError, match="nonfinite X/Y/T|nonfinite"):
         m.log_expected_likelihood(with_nan)
+
+
+# ------------------------------------------- D-40 ASCII corollary at the raise
+# A-37. `raise DataContractError(report.summary())` (data_contracts.py) is the
+# one raise site the ASCII sweep cannot scan: its message is assembled at
+# runtime and has no literal. It is NOT ASCII-safe by construction --
+# summary() interpolates caller-supplied covariate column labels ({name!r})
+# and CRS strings ({A_crs}, {spatial_cov.crs}). These two rows fire the two
+# reachable non-ASCII sources on a PUBLIC path.
+#
+# RED at 65e2708 with the MINIMAL revert (bstpp/data_contracts.py only;
+# bstpp/config.py keeps ascii_safe so the red is the assertion, not an
+# ImportError at collection): both fail, the raised message carrying
+# U+00E9 and U+00FC / U+00E4 verbatim. Capture:
+# refactor-patches/phase3f/wp2/a37_red_capture.txt, PYTEST_EXIT:1.
+#
+# The sibling `warnings.warn` in the same function is NOT covered here and is
+# opened as OP-25: report mode renders the same summary() to the same console,
+# so the same UnicodeEncodeError is reachable there. D-40's corollary names
+# raised messages, and the ASCII sweep's population is raise sites; widening
+# either is a decision, not a detail, so it is recorded rather than taken.
+
+def _nonascii_message(exc) -> str:
+    return str(exc)
+
+
+def test_data_contract_error_is_ascii_with_nonascii_covariate_label():
+    """A user's non-ASCII column label must not reach a raised message.
+
+    D-40's encoding corollary: a non-ASCII character can raise
+    UnicodeEncodeError while the traceback carrying it is printed to a
+    cp1252 console -- an error path that fails while failing.
+    """
+    tri = _triangle_gdf(crs="EPSG:2272")
+    data = _triangle_data()
+    with pytest.raises(DataContractError) as ei:
+        _model(
+            data, A=tri, mode="reject",
+            spatial_cov=_tabular_cov_df(), cov_names=["précipitation_moyenne"],
+            cov_grid_size=COV_GRID,
+            spatial_cov_crs="EPSG:2272",
+        )
+    msg = _nonascii_message(ei.value)
+    assert "covariate_column_missing" in msg
+    # The label must still be identifiable -- ESCAPED, not dropped. The
+    # expected text is the six characters \, x, e, 9 in place of U+00E9, so
+    # the literal below is doubled; an undoubled \xe9 here would be the
+    # character itself and would assert the opposite of the requirement.
+    assert "pr\\xe9cipitation_moyenne" in msg
+    bad = [c for c in msg if ord(c) > 127]
+    assert not bad, f"non-ASCII in raised message: {bad!r}"
+    msg.encode("ascii")  # would raise UnicodeEncodeError before the fix
+
+
+def test_data_contract_error_is_ascii_with_nonascii_crs_string():
+    """A non-ASCII CRS description must not reach a raised message.
+
+    ``spatial_cov_crs`` is documented as parsed by ``CRS.from_user_input``,
+    which accepts a proj string; a ``+title=`` carries arbitrary text into
+    ``str(crs)`` and from there into the crs_mismatch clause. Measured: the
+    EPSG registry names in this pyproj build are all ASCII, so this path --
+    not the registry -- is the reachable one.
+    """
+    tri = _triangle_gdf(crs="EPSG:2272")
+    data = _triangle_data()
+    exotic = ("+proj=tmerc +lat_0=0 +lon_0=0 +k=1 +x_0=0 +y_0=0 "
+              "+datum=WGS84 +units=m +no_defs +title=Gr\u00fcnfl\u00e4che")
+    with pytest.raises(DataContractError) as ei:
+        _model(
+            data, A=tri, mode="reject",
+            spatial_cov=_tabular_cov_df(), cov_names=["v"],
+            cov_grid_size=COV_GRID,
+            spatial_cov_crs=exotic,
+        )
+    msg = _nonascii_message(ei.value)
+    assert "crs_mismatch" in msg
+    bad = [c for c in msg if ord(c) > 127]
+    assert not bad, f"non-ASCII in raised message: {bad!r}"
+    msg.encode("ascii")

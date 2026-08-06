@@ -59,12 +59,38 @@ def _non_ascii(text: str) -> str | None:
 
 
 # ------------------------------------------------------ population 1 and 2 --
+def _is_ascii_safe_wrapped(exc: ast.AST) -> bool:
+    """True when the raised expression is wrapped in ``ascii_safe(...)``.
+
+    A-37. The last residual blind spot was
+    ``raise DataContractError(report.summary())``: no literal to scan, because
+    the message is ASSEMBLED AT RUNTIME from caller state (covariate column
+    labels, CRS strings). Scanning cannot cover it and never will.
+
+    Wrapping the argument in ``ascii_safe`` covers it by a STRONGER guarantee
+    than the scan gives anywhere else: a literal scan proves only that the
+    literal halves are ASCII, whereas the wrapper proves the whole ASSEMBLED
+    string is. So this is counted as covered, not exempted -- the sweep would
+    be understating itself to call it a blind spot.
+    """
+    for node in ast.walk(exc):
+        if (isinstance(node, ast.Call) and (
+                (isinstance(node.func, ast.Name)
+                 and node.func.id in ("ascii_safe", "_ascii_safe"))
+                or (isinstance(node.func, ast.Attribute)
+                    and node.func.attr in ("ascii_safe", "_ascii_safe")))):
+            return True
+    return False
+
+
 def scan_module(path: Path):
     """Return (hits, n_raise, n_raise_seen, blind, n_delegated).
 
     Population 1: string literals inside `raise` statements.
     Population 2: string literals at `raise_*_violation(...)` call sites --
     the remediation clauses, which are Call nodes and were never scanned.
+    Population 2b (A-37): raises whose argument is `ascii_safe(...)`-wrapped;
+    guaranteed rather than scanned, and counted as covered.
     """
     tree = ast.parse(path.read_text(encoding="utf-8"))
     hits: list[tuple[int, str, str, str] ] = []
@@ -86,6 +112,8 @@ def scan_module(path: Path):
             parts = list(_string_parts(node.exc))
             if parts:
                 n_seen += 1
+            elif _is_ascii_safe_wrapped(node.exc):
+                blind.append((node.lineno, "ascii-safe-wrapped"))
             else:
                 kind = ("delegated-raiser" if node.lineno in raiser_lines
                         else "UNCOVERED")
@@ -217,17 +245,28 @@ def main() -> int:
     print(f"    literal text scanned                : {tot_seen}  ({pct:.0f}%)")
     uncovered = [b for b in all_blind if b[2] == "UNCOVERED"]
     delegated_blind = [b for b in all_blind if b[2] == "delegated-raiser"]
+    wrapped = [b for b in all_blind if b[2] == "ascii-safe-wrapped"]
     print(f"    no literal, text from a clause fn   : {len(delegated_blind)}"
           f"  (covered below by evaluation)")
+    print(f"    no literal, ascii_safe()-wrapped    : {len(wrapped)}"
+          f"  (covered BY CONSTRUCTION -- listed below)")
     print(f"    no literal, text built at runtime   : {len(uncovered)}"
           f"  (NOT covered -- listed below)")
     print(f"  delegated raise_*() call sites        : {tot_deleg}"
           f"  (remediation literals scanned)")
     print(f"  *_invariant_clause functions          : {len(clauses)} evaluated,"
           f" {len(unevaluated)} unevaluated")
-    covered = tot_seen + len(delegated_blind)
+    covered = tot_seen + len(delegated_blind) + len(wrapped)
     print(f"  => raise sites whose text is checked  : {covered}/{tot_raise}"
           f"  ({100.0 * covered / tot_raise:.0f}%)")
+    print()
+
+    # Always printed, at zero if empty -- the A-35 lesson about the hazard
+    # section: a section that vanishes when empty makes "found nothing" and
+    # "did not run" satisfy the same grep.
+    print(f"ASCII-SAFE-WRAPPED RAISES (guaranteed, not scanned): {len(wrapped)}")
+    for rel, lineno, _ in wrapped:
+        print(f"  {rel}:{lineno}")
     print()
 
     if uncovered:

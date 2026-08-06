@@ -1,0 +1,71 @@
+=== D-41 RED capture: A-37, tests/test_data_contracts.py ASCII rows ===
+tip: 65e2708
+MINIMAL REVERT: bstpp/data_contracts.py reverted to HEAD; bstpp/config.py keeps ascii_safe, so collection succeeds and the red is the assertion, not an ImportError.
+ M bstpp/config.py
+ M tests/test_data_contracts.py
+--- pytest ---
+FF                                                                       [100%]
+================================== FAILURES ===================================
+_______ test_data_contract_error_is_ascii_with_nonascii_covariate_label _______
+
+    def test_data_contract_error_is_ascii_with_nonascii_covariate_label():
+        """A user's non-ASCII column label must not reach a raised message.
+    
+        D-40's encoding corollary: a non-ASCII character can raise
+        UnicodeEncodeError while the traceback carrying it is printed to a
+        cp1252 console -- an error path that fails while failing.
+        """
+        tri = _triangle_gdf(crs="EPSG:2272")
+        data = _triangle_data()
+        with pytest.raises(DataContractError) as ei:
+            _model(
+                data, A=tri, mode="reject",
+                spatial_cov=_tabular_cov_df(), cov_names=["précipitation_moyenne"],
+                cov_grid_size=COV_GRID,
+                spatial_cov_crs="EPSG:2272",
+            )
+        msg = _nonascii_message(ei.value)
+        assert "covariate_column_missing" in msg
+        # The label must still be identifiable -- ESCAPED, not dropped. The
+        # expected text is the six characters \, x, e, 9 in place of U+00E9, so
+        # the literal below is doubled; an undoubled \xe9 here would be the
+        # character itself and would assert the opposite of the requirement.
+>       assert "pr\\xe9cipitation_moyenne" in msg
+E       assert 'pr\\xe9cipitation_moyenne' in "BSTPP data-contract report: 1 violation check(s), 0 diagnostic(s) over 30 events (mode=reject).\n  VIOLATION covariate_column_missing: covariate column 'précipitation_moyenne' absent from spatial_cov"
+
+tests\test_data_contracts.py:551: AssertionError
+_________ test_data_contract_error_is_ascii_with_nonascii_crs_string __________
+
+    def test_data_contract_error_is_ascii_with_nonascii_crs_string():
+        """A non-ASCII CRS description must not reach a raised message.
+    
+        ``spatial_cov_crs`` is documented as parsed by ``CRS.from_user_input``,
+        which accepts a proj string; a ``+title=`` carries arbitrary text into
+        ``str(crs)`` and from there into the crs_mismatch clause. Measured: the
+        EPSG registry names in this pyproj build are all ASCII, so this path --
+        not the registry -- is the reachable one.
+        """
+        tri = _triangle_gdf(crs="EPSG:2272")
+        data = _triangle_data()
+        exotic = ("+proj=tmerc +lat_0=0 +lon_0=0 +k=1 +x_0=0 +y_0=0 "
+                  "+datum=WGS84 +units=m +no_defs +title=Gr\u00fcnfl\u00e4che")
+        with pytest.raises(DataContractError) as ei:
+            _model(
+                data, A=tri, mode="reject",
+                spatial_cov=_tabular_cov_df(), cov_names=["v"],
+                cov_grid_size=COV_GRID,
+                spatial_cov_crs=exotic,
+            )
+        msg = _nonascii_message(ei.value)
+        assert "crs_mismatch" in msg
+        bad = [c for c in msg if ord(c) > 127]
+>       assert not bad, f"non-ASCII in raised message: {bad!r}"
+E       AssertionError: non-ASCII in raised message: ['ü', 'ä']
+E       assert not ['ü', 'ä']
+
+tests\test_data_contracts.py:580: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_data_contracts.py::test_data_contract_error_is_ascii_with_nonascii_covariate_label
+FAILED tests/test_data_contracts.py::test_data_contract_error_is_ascii_with_nonascii_crs_string
+2 failed, 46 deselected in 15.93s
+PYTEST_EXIT:1

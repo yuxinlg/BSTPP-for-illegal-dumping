@@ -480,13 +480,25 @@ def enforce(checks, n_events, mode) -> DataContractReport:
     reject: raise DataContractError on any violation.
     report: emit one UserWarning listing violations; never raise.
     """
+    # Deferred: bstpp.config reaches jax through polygon_mass, and this module
+    # is importable standalone today (measured: importing bstpp.data_contracts
+    # loads neither jax nor bstpp.config). A top-level import would spend that
+    # property to reach one function.
+    from .config import ascii_safe
+
     if mode not in ("report", "reject"):
         raise ValueError(
             f"data_contracts must be 'report' or 'reject', got {mode!r}")
     report = DataContractReport(list(checks), int(n_events), mode)
     if not report.ok:
         if mode == "reject":
-            raise DataContractError(report.summary())
+            # D-40 encoding corollary at the one raise site the ASCII sweep
+            # cannot scan. summary() has no literal to scan BECAUSE it is
+            # assembled at runtime -- and what it assembles is caller state:
+            # covariate column labels ({name!r}) and CRS strings ({A_crs},
+            # {spatial_cov.crs}). Not ASCII-safe by construction, so the
+            # guarantee is applied here instead of asserted upstream.
+            raise DataContractError(ascii_safe(report.summary()))
         warnings.warn(
             "BSTPP data-contract violations detected (report mode; these "
             "are rejected under the default data_contracts='reject'):\n"
