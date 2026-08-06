@@ -3175,4 +3175,36 @@ The brief specified \texttt{!r} $\rightarrow$ \texttt{ascii()} across all seven 
 \paragraph{Gates.}
 Fast lane \textbf{587 passed, 1 skipped, 12 deselected, 1 xfailed}, \texttt{EXIT:0}, 504.05\,s --- \textbf{selected} 584 $\rightarrow$ 589, \textbf{collected} 596 $\rightarrow$ 601. \textbf{\texttt{PIN\_DIFFS 0 MATCH}} on all four configurations, which is the SC rebaseline record: the three retyped fields have zero production reads (Step 1b) and every accepted input coerces to the same float64, so a diff would have meant a stored field feeds computation somewhere the trace missed. \texttt{ruff} \texttt{EXIT:0}. ASCII sweep \textbf{PASS} 183/184, 9 clauses, \textbf{no hazard section}. Content checks \textbf{PASS}, 42 rows. \texttt{\textbackslash hypertarget} \textbf{34/34}. Citation and label sweeps \textbf{PASS}. RED \textbf{3 failed, 2 passed} with production reverted and the clause API intact; both passes non-discriminating by construction. Verified under D-41 clause~5.
 
+\hypertarget{a-35}{%
+\subsection{A-35 --- Corrections to A-33 and A-34, and what the provenance audit actually found}\label{a-35}}
+
+\textbf{Opened} 2026-08-05. \textbf{Class} \textbf{DOC/IV} --- register corrections plus one gate-output change; no production file is touched. \textbf{Amends} A-33 (provenance audit, counts) and A-34 (OP-22 closure claim, scope). \textbf{Establishes no decision.} \textbf{Commit} \texttt{WP2.0c}.
+
+\paragraph{The provenance audit found a different answer, not a narrower one.}
+A-33 records the audit as ``real but narrow''. That undersells it and is corrected here. CI-8's unauditability statement is that a \emph{truncated} value is indistinguishable from a \emph{chosen} one. What the audit found is that for the sixteen shootout \texttt{.npz} tables, \texttt{pins.json}, and the SBC stage artifacts, \textbf{there is no recorded value to be indistinguishable from} --- the provenance surface does not exist. The correct statement is: \textbf{the audit was attempted; the provenance surface is absent for most artifacts; the single positive covers one run config} (\texttt{oracle.gl\_order = 20}).
+
+\paragraph{And the unauditable quantity is larger than \texttt{gl\_order}.}
+Before A-33 the builder accept set included \texttt{np.float32} --- the fact that made A-34's rebinding discriminating before A-33 and inert after it. So what is unrecorded for a historical table is not \texttt{gl\_order} truncation alone but \textbf{which member of the pre-A-33 accept set it was built with}. float32 knots are almost certainly immaterial at the interpolation tolerances in play; \textbf{``almost certainly immaterial'' and ``unrecorded'' are different claims, and only the second is established.}
+
+\paragraph{\texttt{pins.json} carrying no builder metadata is correct, not a gap.}
+Read rather than assumed (\texttt{refactor-patches/\allowbreak{}pin\_check\_v2.py}): all four pinned configurations construct from \emph{array} domains (\texttt{A = [[0,1],[0,1]]} and the 4:1 non-square), pass no \texttt{excitation\_support=} and no \texttt{mass\_table=}, and therefore resolve to \textbf{rectangle} mode. \textbf{No pinned configuration ever builds a polygon mass table}, so the pins have no quadrature dependency and there is no \texttt{gl\_order} for them to record. The absence has a reason, which is a different object from an absence.
+
+\paragraph{Counts: three quantities, all now defined.}
+A-34's gate line reported \textbf{587 passed} against \textbf{589 selected}, and the two were unexplained. They reconcile exactly: \textbf{587 passed + 1 skipped + 1 xfailed = 589 selected}, and \textbf{589 selected + 12 deselected = 601 collected}. The identity is stated in gate lines from here on rather than leaving a reader to find it. Likewise the ASCII sweep's \textbf{183/184}: the one is \texttt{data\_contracts.py:489}, \texttt{raise DataContractError(report.summary())}, whose message is assembled at runtime and has no literal to scan --- named in the sweep's own output and now in the gate line too.
+
+\paragraph{OP-22's closure claim, qualified and then sharpened by measurement.}
+The claim should read \textbf{zero \emph{non-ASCII} propagating slots}. \texttt{\_ascii\_safe} escapes non-ASCII and not ASCII control characters, where \texttt{ascii()} would escape both. \textbf{The general form of that residual is wrong, which measurement established}: every \texttt{!r} slot is already safe because \texttt{repr()} escapes a newline itself. The residual is confined to the \textbf{plain \texttt{\{name\}} slots} of the CI-7/CI-8 clauses, and \texttt{name} is a call-site literal that no caller supplies --- reachable only by calling the clause function directly. Recorded at its measured size rather than its assumed one.
+
+\paragraph{The hazard section is now printed at zero.}
+Previously it was omitted when empty, so \textbf{a sweep that failed to run satisfied the same grep as a sweep that found nothing}. It now always prints, with a machine-readable \texttt{NON\_ASCII\_PROPAGATING\_SLOTS=$n$}. An explicit zero is a different observable from a missing section --- the same distinction this amendment makes about \texttt{pins.json}.
+
+\paragraph{Scope: the third surface, declared.}
+A-34 fixed \texttt{prepare\_polygon\_mass\_table} as a sub-bullet of the \texttt{build\_quad\_table} item. It is a \textbf{third surface} and should have been declared. The three config factories are now enumerated explicitly, and all three are covered: \textbf{(1) \texttt{NumericalConfig.\_\_post\_init\_\_}}, normalised by \texttt{object.\_\_setattr\_\_}; \textbf{(2) \texttt{build\_quad\_table}}, by local rebinding; \textbf{(3) \texttt{prepare\_polygon\_mass\_table}}, by rebinding \texttt{panel\_real} before \texttt{metres\_to\_crs\_units} and \texttt{gl\_order} before the delegation, with \texttt{min\_s} and the coerced \texttt{max\_sigma} passed onward --- verified by reading the flow, so no raw argument reaches computation on any of the three. This matters because the prior finding was that CI-8's census covered one factory of three; the fix now demonstrably covers all three.
+
+\paragraph{Register placement of A-33's amendment.}
+A-33's final text --- the CI-8 severity declaration, the unauditability statement and the provenance audit --- \textbf{lives in \texttt{e1c343c}}, the commit classed A-33. It was amended in before the push, so a bisector reading \texttt{e1c343c} finds the amendment that names it. No A-33 declaration lives in a later commit.
+
+\paragraph{Gates.}
+Documentation plus one gate-output change; no file under \texttt{bstpp/} or \texttt{tests/}, so \textbf{pins and suite are recorded as not run}, with A-34's \textbf{587 passed} and \textbf{\texttt{PIN\_DIFFS 0 MATCH}} standing as the measurements for identical production and test bytes. ASCII sweep \textbf{PASS} 183/184 (the one being \texttt{data\_contracts.py:489}), 9 clauses, \texttt{NON\_ASCII\_PROPAGATING\_SLOTS=0}. \texttt{ruff} \texttt{EXIT:0}. \texttt{\textbackslash hypertarget} \textbf{35/35}. Content checks \textbf{PASS}, 42 rows. Citation and label sweeps \textbf{PASS}.
+
 \end{document}

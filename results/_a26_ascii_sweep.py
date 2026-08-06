@@ -244,14 +244,27 @@ def main() -> int:
             print(f"      {ascii(text[:70])}")
     print()
 
-    if propagating:
-        print("INTERPOLATION HAZARD (informational, not a failure)")
-        print("  These clauses render a caller-supplied value without numeric")
-        print("  coercion, so a non-ASCII argument reaches the message. Not the")
-        print("  clause's fault and not gated here; see OP-22.")
-        for name in propagating:
-            print(f"    {name}")
-        print()
+    # A-35: printed ALWAYS, including at zero, with a machine-readable count.
+    # Previously this section was omitted when empty, so a sweep that failed to
+    # run satisfied the same grep as a sweep that found nothing -- absence and
+    # absence-of-hazard were the same observable. An explicit zero is a
+    # different object from a missing section.
+    print("INTERPOLATION HAZARD (informational, not a failure)")
+    print(f"  NON_ASCII_PROPAGATING_SLOTS={len(propagating)}")
+    print("  Slots rendering a caller-supplied value without numeric coercion,")
+    print("  where a NON-ASCII argument reaches the message (OP-22).")
+    print("  RESIDUAL, not covered by this count: _ascii_safe escapes non-ASCII")
+    print("  but NOT ASCII control characters. Measured, because the general")
+    print("  form of that claim is wrong: every !r slot is already safe, since")
+    print("  repr() escapes a newline itself. The residual is confined to the")
+    print("  PLAIN {name} slots of the CI-7/CI-8 clauses, and `name` is a")
+    print("  call-site literal, never caller-supplied -- so it is reachable")
+    print("  only by calling the clause function directly.")
+    for name in propagating:
+        print(f"    {name}")
+    if not propagating:
+        print("    (none)")
+    print()
 
     if args.census:
         print("CENSUS (reconciles the two definitions in circulation)")
