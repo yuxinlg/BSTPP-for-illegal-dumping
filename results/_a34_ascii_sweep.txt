@@ -1,0 +1,32 @@
+### git status
+ M bstpp/config.py
+ M bstpp/polygon_mass.py
+ M tests/test_lane_b_config_matrix.py
+### ASCII
+scanned 17 modules under bstpp/
+
+COVERAGE (D-39: a gate states its own coverage)
+  direct raise sites                    : 184
+    literal text scanned                : 174  (95%)
+    no literal, text from a clause fn   : 9  (covered below by evaluation)
+    no literal, text built at runtime   : 1  (NOT covered -- listed below)
+  delegated raise_*() call sites        : 22  (remediation literals scanned)
+  *_invariant_clause functions          : 9 evaluated, 0 unevaluated
+  => raise sites whose text is checked  : 183/184  (99%)
+
+RESIDUAL BLIND SPOTS (text assembled at runtime; stated, not hidden)
+  bstpp\data_contracts.py:489
+
+CLAUSE EVALUATION (population 3)
+  ASCII      builder_max_sigma_invariant_clause
+  ASCII      config_integral_invariant_clause
+  ASCII      config_real_invariant_clause
+  ASCII      min_sigma_positive_invariant_clause
+  ASCII      panel_ratio_invariant_clause
+  ASCII      polygon_min_sigma_invariant_clause
+  ASCII      rectangle_bounds_invariant_clause
+  ASCII      sigma_order_invariant_clause
+  ASCII      support_mode_invariant_clause
+
+PASS - 183/184 raise sites' text checked (99%); 9 clause functions evaluated, all ASCII
+EXIT:0

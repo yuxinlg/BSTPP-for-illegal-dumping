@@ -1,0 +1,16 @@
+=== A-34 four-config pins (SC) ===
+expectation: CI-7 bounds inputs to {int,float,np.float64}, all coercing to
+the same float64, and the three retyped fields have zero production reads.
+A diff means something reads a stored field that neither the brief nor the
+Step 1b trace found. Expected is not measured.
+ M bstpp/config.py
+ M bstpp/polygon_mass.py
+ M tests/test_lane_b_config_matrix.py
+PIN_GEN_EXIT:0
+cox_hawkes: MATCH
+hawkes: MATCH
+hawkes_nonsquare_4to1: MATCH
+lgcp: MATCH
+
+PIN_DIFFS 0 MATCH
+PIN_COMPARE_EXIT:0

@@ -39,6 +39,24 @@ class NumericalConfigError(ValueError):
 # raise UnicodeEncodeError while the traceback carrying it is printed to a
 # cp1252 console, i.e. an error path that fails while failing.
 
+def _ascii_safe(text: str) -> str:
+    """Escape any non-ASCII that reached a clause through INTERPOLATION (OP-22).
+
+    D-40 requires raised messages to be ASCII. The literal halves of every
+    clause are swept statically, but a caller-supplied value reaches the
+    message through ``{value!r}`` and is not the clause's to control -- a
+    non-ASCII ``support_mode`` or ``min_sigma`` produced a non-ASCII message,
+    which can raise UnicodeEncodeError while the traceback carrying it is
+    printed to a cp1252 console.
+
+    Applied once to the assembled clause rather than per slot: ``ascii()`` on an
+    individual field would also re-quote the plain ``{name}`` slots, changing
+    the text of messages that are already correct. For ASCII input this returns
+    the string unchanged, so no existing message moves.
+    """
+    return text.encode("ascii", "backslashreplace").decode("ascii")
+
+
 def panel_ratio_invariant_clause(
     *,
     panel_h_m: float,
@@ -54,7 +72,7 @@ def panel_ratio_invariant_clause(
     """
     h = float(panel_h_m)
     s = float(min_sigma)
-    return (
+    return _ascii_safe(
         "panel_h_m / min_sigma exceeds max_panel_to_min_sigma_ratio: "
         f"panel_h_m={h}, min_sigma={s}, ratio={h / s}, "
         f"max_panel_to_min_sigma_ratio={float(ratio_ceil)}. This resolution "
@@ -117,7 +135,7 @@ def raise_panel_ratio_violation(
 def rectangle_bounds_invariant_clause(
     *, min_sigma: object, max_sigma: object) -> str:
     """Render the canonical rectangle both-or-neither clause (CI-1)."""
-    return (
+    return _ascii_safe(
         "support-mode compatibility (rectangle): min_sigma and max_sigma must "
         f"both be supplied or both omitted; got min_sigma={min_sigma!r}, "
         f"max_sigma={max_sigma!r}. Omitting both leaves the sigmax_2 prior "
@@ -137,7 +155,7 @@ def raise_rectangle_bounds_violation(
 
 def polygon_min_sigma_invariant_clause() -> str:
     """Render the canonical polygon-requires-min_sigma clause (CI-2)."""
-    return (
+    return _ascii_safe(
         "support-mode compatibility (polygon): min_sigma is required and has "
         "no default; supply an explicit finite positive min_sigma in "
         "domain-coordinate units.")
@@ -172,7 +190,7 @@ def builder_max_sigma_invariant_clause() -> str:
     either: that default needs a projected CRS, and ``crs`` is optional at the
     builder.
     """
-    return (
+    return _ascii_safe(
         "mass-table build range (polygon): max_sigma is required by the "
         "mass-table builder and has no default there; supply an explicit "
         "finite max_sigma in domain-coordinate units.")
@@ -188,7 +206,7 @@ def raise_builder_max_sigma_violation(*, remediation: str = "") -> NoReturn:
 
 def min_sigma_positive_invariant_clause(*, min_sigma: float) -> str:
     """Render the canonical min_sigma positivity clause (CI-3)."""
-    return f"min_sigma must be finite and positive; got {float(min_sigma)}"
+    return _ascii_safe(f"min_sigma must be finite and positive; got {float(min_sigma)}")
 
 
 def raise_min_sigma_positive_violation(
@@ -203,7 +221,7 @@ def raise_min_sigma_positive_violation(
 def sigma_order_invariant_clause(
     *, min_sigma: float, max_sigma: float) -> str:
     """Render the canonical sigma-bound ordering clause (CI-4)."""
-    return (
+    return _ascii_safe(
         "sigma-bound coherence requires min_sigma < max_sigma; got "
         f"min_sigma={float(min_sigma)}, max_sigma={float(max_sigma)}")
 
@@ -220,7 +238,7 @@ def raise_sigma_order_violation(
 
 def support_mode_invariant_clause(*, support_mode: object) -> str:
     """Render the canonical excitation-support-mode clause (CI-5)."""
-    return (
+    return _ascii_safe(
         "excitation support mode must be 'rectangle' or 'polygon'; got "
         f"{support_mode!r}")
 
@@ -263,7 +281,7 @@ def validate_sigma_pair(min_sigma: float, max_sigma: float) -> None:
 
 def config_real_invariant_clause(*, name: str, value: object) -> str:
     """Render the canonical config real-argument clause (CI-7)."""
-    return (
+    return _ascii_safe(
         f"{name} must be a real number (int or float; bool and str "
         f"rejected); got {value!r} ({type(value).__name__})")
 
@@ -279,7 +297,7 @@ def raise_config_real_violation(
 
 def config_integral_invariant_clause(*, name: str, value: object) -> str:
     """Render the canonical config integral-argument clause (CI-8)."""
-    return (
+    return _ascii_safe(
         f"{name} must be an int (bool rejected); got {value!r} "
         f"({type(value).__name__})")
 
@@ -460,6 +478,29 @@ class NumericalConfig:
                 raise_panel_ratio_violation(
                     panel_h_m=h, min_sigma=lo_f,
                     ratio_ceil=ratio_ceil, tau_abs=tau)
+
+        # A-34 / D-42: normalise on store. Until now _require_real returned
+        # float(value) and NOTHING wrote it back, so a frozen object designated
+        # the single source of numeric policy held whatever type the caller
+        # happened to type -- int for an int argument, np.float64 for a
+        # np.float64 one. Validate a coerced copy, store the original.
+        # CI-7 now bounds the input to {int, float, np.float64}, so every
+        # accepted value coerces to the same float64 and this write-back cannot
+        # change a number; it only makes the stored type honest.
+        object.__setattr__(self, "panel_h_m", h)
+        object.__setattr__(self, "gl_order", gl)
+        object.__setattr__(self, "production_tau_abs", tau)
+        object.__setattr__(self, "budget_reference_gl_order", ref_gl)
+        object.__setattr__(self, "budget_reference_oracle_bound", oracle)
+        object.__setattr__(self, "max_panel_to_min_sigma_ratio", ratio_ceil)
+        object.__setattr__(
+            self, "default_temporal_tol", float(self.default_temporal_tol))
+        object.__setattr__(
+            self, "default_spatial_tol", float(self.default_spatial_tol))
+        if self.min_sigma is not None:
+            object.__setattr__(self, "min_sigma", float(self.min_sigma))
+        if self.max_sigma is not None:
+            object.__setattr__(self, "max_sigma", float(self.max_sigma))
 
     @classmethod
     def create(

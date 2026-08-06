@@ -3158,4 +3158,21 @@ Fast lane (A-32 per-commit) \textbf{582 passed, 1 skipped, 12 deselected, 1 xfai
 \paragraph{OP-22 is now closer to earning its gate.}
 The interpolation-hazard census grew from three slots to \textbf{seven}: CI-7 and CI-8 render both the argument \emph{name} and \emph{value} with \texttt{!r}. That is the trigger condition recorded at A-29 --- the reported-not-gated argument weakens as the slots multiply --- reached before \texttt{ModelConfig} rather than after it.
 
+\hypertarget{a-34}{%
+\subsection{A-34 --- Normalise on store, and OP-22 closed}\label{a-34}}
+
+\textbf{Opened} 2026-08-05. \textbf{Class} \textbf{SC} --- a declared change to stored field types; not behaviour-preserving. \textbf{Implements} D-42's second half. \textbf{Closes} OP-22. \textbf{Commit} \texttt{WP2.0b}.
+
+\paragraph{Two instances of one defect, both closed.}
+The class is \emph{validate a coerced copy, then use the original}. \texttt{NumericalConfig.\_\_post\_init\_\_} validated \texttt{float(value)} and wrote nothing back, so the object designated the single source of numeric policy held \texttt{int} for an int argument and \texttt{np.float64} for a np.float64 one --- \textbf{heterogeneous field types determined by what the caller happened to type}. Fixed by \texttt{object.\_\_setattr\_\_} write-back for all ten numeric fields. \texttt{build\_quad\_table} had the same defect by a different mechanism: it is not a dataclass, so \texttt{\_\_setattr\_\_} does not reach it, and A-33's validation left the raw arguments to reach \texttt{log\_knots} and \texttt{knot\_count}. Fixed by rebinding the locals. \textbf{Closing one and leaving the other would have made this commit's own claim false.}
+
+\paragraph{The builder rebinding is inert, and that is stated rather than sold.}
+\texttt{test\_lane\_b\_builder\_computes\_on\_normalised\_values\_not\_raw} \textbf{passes on both sides of this change} and is recorded as \textbf{non-discriminating by construction}. The reason is A-33: with the accept set bounded to \texttt{\{int, float, np.float64\}}, all three coerce to the same float64 and compute identically, so nothing the builder can now receive produces a different array. It \emph{would} have discriminated before A-33, when \texttt{np.float32} was accepted there. The rebinding is therefore \textbf{defensive, not corrective} --- its value is that if the accept set ever widens again, the computation is already normalised. Offering it as evidence of a fixed defect would be false; it is offered as a guard.
+
+\paragraph{OP-22 closed, one surface rather than seven slots.}
+The brief specified \texttt{!r} $\rightarrow$ \texttt{ascii()} across all seven propagating slots. \textbf{Implemented instead as a single \texttt{\_ascii\_safe} wrapper on each clause's assembled return}, because \texttt{ascii()} applied per slot would also re-quote the plain \texttt{\{name\}} slots --- \texttt{min\_sigma} would render as \texttt{'min\_sigma'} --- changing the text of messages that are already correct and breaking the equality pin in \texttt{test\_numerical\_config.py}. The wrapper is identical to \texttt{ascii()} in effect for the \texttt{!r} slots, correct for the plain ones, and returns ASCII input unchanged, so \textbf{no existing message moves}. The A-29 sweep now reports \textbf{zero} propagating slots and its interpolation-hazard section is absent.
+
+\paragraph{Gates.}
+Fast lane \textbf{587 passed, 1 skipped, 12 deselected, 1 xfailed}, \texttt{EXIT:0}, 504.05\,s --- \textbf{selected} 584 $\rightarrow$ 589, \textbf{collected} 596 $\rightarrow$ 601. \textbf{\texttt{PIN\_DIFFS 0 MATCH}} on all four configurations, which is the SC rebaseline record: the three retyped fields have zero production reads (Step 1b) and every accepted input coerces to the same float64, so a diff would have meant a stored field feeds computation somewhere the trace missed. \texttt{ruff} \texttt{EXIT:0}. ASCII sweep \textbf{PASS} 183/184, 9 clauses, \textbf{no hazard section}. Content checks \textbf{PASS}, 42 rows. \texttt{\textbackslash hypertarget} \textbf{34/34}. Citation and label sweeps \textbf{PASS}. RED \textbf{3 failed, 2 passed} with production reverted and the clause API intact; both passes non-discriminating by construction. Verified under D-41 clause~5.
+
 \end{document}

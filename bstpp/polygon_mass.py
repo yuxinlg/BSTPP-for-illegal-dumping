@@ -965,10 +965,17 @@ def build_quad_table(
     # validated but NOT rebound here; the raw arguments still reach
     # log_knots and knot_count, which is the second instance of the
     # validate-a-copy/use-the-original defect and is A-34's to fix.
-    validate_sigma_pair(require_config_real("sigma_min", sigma_min),
-                        require_config_real("sigma_max", sigma_max))
-    require_config_real("h_panel", h_panel)
-    require_config_integral("gl_order", gl_order)
+    # A-34 / D-42: REBIND to the coerced values. A-33 validated a coerced copy
+    # and left the raw arguments to reach log_knots and knot_count below --
+    # the same validate-a-copy/use-the-original defect as the config's missing
+    # write-back, in a function that is not a dataclass, so object.__setattr__
+    # does not reach it. Fixing one and leaving the other would make this
+    # commit's own claim false.
+    sigma_min = require_config_real("sigma_min", sigma_min)
+    sigma_max = require_config_real("sigma_max", sigma_max)
+    validate_sigma_pair(sigma_min, sigma_max)
+    h_panel = require_config_real("h_panel", h_panel)
+    gl_order = require_config_integral("gl_order", gl_order)
 
     x = np.asarray(x, dtype=np.float64)
     y = np.asarray(y, dtype=np.float64)
@@ -1081,7 +1088,7 @@ def prepare_polygon_mass_table(
     # CI-7 / CI-8 (D-42): validate the caller's arguments before any
     # unit conversion, so a rejected type cannot reach metres_to_crs_units.
     panel_real = require_config_real("panel_h_m", panel_h_m)
-    require_config_integral("gl_order", gl_order)
+    gl_order = require_config_integral("gl_order", gl_order)
     if crs is not None and not getattr(crs, "is_geographic", False):
         h_panel = float(metres_to_crs_units(panel_real, crs))
     else:
@@ -1151,7 +1158,7 @@ def prepare_polygon_mass_table(
         require_config_real("max_sigma", max_sigma),
         ws=None if spatial_window is None else float(spatial_window),
         h_panel=h_panel,
-        gl_order=int(gl_order),
+        gl_order=gl_order,
         extra_provenance=extra_provenance,
     )
 

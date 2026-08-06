@@ -1188,6 +1188,92 @@ def test_lane_b_ci8_integral_arguments_rejected_at_the_builders(label, value):
         str(exc).encode("ascii")
 
 
+_NUMERIC_FIELDS = {
+    "panel_h_m": float, "gl_order": int, "default_temporal_tol": float,
+    "default_spatial_tol": float, "production_tau_abs": float,
+    "budget_reference_gl_order": int, "budget_reference_oracle_bound": float,
+    "max_panel_to_min_sigma_ratio": float, "min_sigma": float,
+    "max_sigma": float,
+}
+
+
+@pytest.mark.parametrize(
+    "label,kw",
+    [
+        ("int args", dict(min_sigma=5, max_sigma=40, panel_h_m=20, gl_order=16)),
+        ("float args", dict(min_sigma=5.0, max_sigma=40.0, panel_h_m=20.0,
+                            gl_order=16)),
+        ("np.float64 args", dict(min_sigma=np.float64(5.0),
+                                 max_sigma=np.float64(40.0),
+                                 panel_h_m=np.float64(20.0), gl_order=16)),
+    ],
+)
+def test_lane_b_config_normalises_every_numeric_field_on_store(label, kw):
+    """A-34 / D-42: the frozen object holds builtins, whatever the caller typed.
+
+    Before this, ``_require_real`` returned ``float(value)`` and nothing wrote
+    it back, so the object designated the single source of numeric policy held
+    ``int`` for an int argument and ``np.float64`` for a np.float64 one.
+    """
+    cfg = NumericalConfig.create(support_mode="rectangle", **kw)
+    for field, want in _NUMERIC_FIELDS.items():
+        got = getattr(cfg, field)
+        if got is None:
+            continue
+        assert type(got) is want, (
+            f"{label}: {field} stored as {type(got).__name__}, want "
+            f"{want.__name__} -- validated value was not written back")
+
+
+def test_lane_b_builder_computes_on_normalised_values_not_raw():
+    """A-34: the second instance of the defect, and the one storage cannot show.
+
+    ``build_quad_table`` is not a dataclass, so ``object.__setattr__`` does not
+    reach it; A-33 validated a coerced copy and let the RAW arguments reach
+    ``log_knots`` and ``knot_count``. Asserting the table's recorded fields
+    would not catch that, because those were already written through
+    ``float()``. This asserts the COMPUTED arrays instead: a np.float64 build
+    must be byte-identical to the float build it normalises to.
+    """
+    poly = box(0.0, 0.0, 200.0, 200.0)
+    ex, ey = np.array([10.0, 20.0]), np.array([10.0, 20.0])
+    plain = build_quad_table(poly, ex, ey, 5.0, 40.0, ws=None, h_panel=1.0,
+                             gl_order=16)
+    boxed = build_quad_table(poly, ex, ey, np.float64(5.0), np.float64(40.0),
+                             ws=None, h_panel=np.float64(1.0), gl_order=16)
+    assert np.array_equal(plain.log_knots, boxed.log_knots)
+    assert np.array_equal(plain.values, boxed.values)
+    assert np.array_equal(plain.slopes, boxed.slopes)
+    assert type(plain.provenance["sigma_min"]) is float
+    assert type(plain.provenance["gl_order"]) is int
+
+
+def test_lane_b_op22_clauses_are_ascii_under_non_ascii_arguments():
+    """OP-22 closed (A-34): a caller's value can no longer carry non-ASCII into
+    a raised message.
+
+    D-40 requires raised messages to be ASCII. The literal halves were swept
+    statically from A-26, but a value reaching the message through ``{value!r}``
+    was not the clause's to control -- and A-33 took the propagating-slot count
+    from three to seven, which is the trigger condition A-29 recorded.
+    """
+    bad = "triangléé"
+    for clause in (
+        lambda: support_mode_invariant_clause(support_mode=bad),
+        lambda: rectangle_bounds_invariant_clause(min_sigma=bad, max_sigma=1.0),
+        lambda: rectangle_bounds_invariant_clause(min_sigma=1.0, max_sigma=bad),
+        lambda: config_real_invariant_clause(name="min_sigma", value=bad),
+        lambda: config_integral_invariant_clause(name="gl_order", value=bad),
+    ):
+        text = clause()
+        text.encode("ascii")  # must not raise
+
+    # And end to end, through a real rejection.
+    exc = _raised(lambda: resolve_sigma_bounds(
+        mode=bad, min_sigma=5.0, max_sigma=40.0, crs=None))
+    str(exc).encode("ascii")
+
+
 def test_lane_b_resolve_sigma_bounds_validates_mode():
     """A-27: an invalid mode was silently treated as polygon and resolved.
 

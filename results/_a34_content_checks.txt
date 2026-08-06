@@ -1,0 +1,67 @@
+### git status
+ M bstpp/config.py
+ M bstpp/polygon_mass.py
+ M phase3_record.tex
+ M refactor-patches/pre-3f-stabilization/traceability_matrix.md
+ M tests/test_lane_b_config_matrix.py
+### content
+COLUMN1_COUNT 8
+COL1: Prep (freeze)
+COL1: 3a
+COL1: 3b
+COL1: 3c
+COL1: 3d
+COL1: 3e
+COL1: 3f
+COL1: 3g / exit
+
+LONGTABLE FIELD COUNTS
+  line   137: 2 cols, 5 body rows -> OK
+  line   174: 2 cols, 7 body rows -> OK
+  line   325: 4 cols, 7 body rows -> OK
+  line   360: 2 cols, 8 body rows -> OK
+  line   385: 3 cols, 9 body rows -> OK
+  line   414: 2 cols, 6 body rows -> OK
+  line   439: 3 cols, 4 body rows -> OK
+  line   463: 8 cols, 5 body rows -> OK
+  line   533: 3 cols, 8 body rows -> OK
+  line   562: 3 cols, 3 body rows -> OK
+  line   585: 3 cols, 3 body rows -> OK
+  line   608: 3 cols, 3 body rows -> OK
+  line   631: 3 cols, 4 body rows -> OK
+  line   655: 3 cols, 5 body rows -> OK
+  line   680: 3 cols, 6 body rows -> OK
+  line   706: 3 cols, 4 body rows -> OK
+  line   730: 3 cols, 5 body rows -> OK
+  line   755: 3 cols, 7 body rows -> OK
+  line   782: 3 cols, 6 body rows -> OK
+  line   808: 3 cols, 3 body rows -> OK
+  line   831: 3 cols, 3 body rows -> OK
+  line   854: 3 cols, 4 body rows -> OK
+  line   878: 3 cols, 3 body rows -> OK
+  line   985: 2 cols, 10 body rows -> OK
+  line  1014: 3 cols, 23 body rows -> OK
+  line  1059: 4 cols, 43 body rows -> OK
+  line  1187: 3 cols, 10 body rows -> OK
+  line  1271: 3 cols, 6 body rows -> OK
+  line  1335: 3 cols, 5 body rows -> OK
+  line  1472: 13 cols, 9 body rows -> OK
+  line  1531: 4 cols, 2 body rows -> OK
+  line  1652: 3 cols, 15 body rows -> OK
+  line  1726: 7 cols, 19 body rows -> OK
+  line  1814: 3 cols, 28 body rows -> OK
+  line  1917: 4 cols, 28 body rows -> OK
+  line  2238: 5 cols, 7 body rows -> OK
+  line  2695: 4 cols, 11 body rows -> OK
+  line  2724: 3 cols, 11 body rows -> OK
+  line  2751: 5 cols, 12 body rows -> OK
+
+PART I DECISION-ROW MONOTONICITY
+  42 decision rows: D-1 .. D-42
+  strictly increasing, no duplicates, no gaps -> OK
+
+KNOWN-PREEXISTING 1  (frozen Part I; reported, not suppressed)
+  longtable at line 414: row has 1 fields, expected 2: 'same suite command/result as §1.2.1; artifact \\texttt{freeze-476c2a0/f'
+
+ALL CONTENT CHECKS PASS
+EXIT:0

@@ -1,0 +1,20 @@
+### A-34 RED capture
+### minimal revert: config.py + polygon_mass.py to HEAD (A-33).
+### The clause functions already exist at HEAD, so no ImportError masks
+### the measurement (D-41 clause 2).
+ M tests/test_lane_b_config_matrix.py
+            lambda: config_real_invariant_clause(name="min_sigma", value=bad),
+            lambda: config_integral_invariant_clause(name="gl_order", value=bad),
+        ):
+            text = clause()
+>           text.encode("ascii")  # must not raise
+            ^^^^^^^^^^^^^^^^^^^^
+E           UnicodeEncodeError: 'ascii' codec can't encode characters in position 70-71: ordinal not in range(128)
+
+tests\test_lane_b_config_matrix.py:1269: UnicodeEncodeError
+=========================== short test summary info ===========================
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_config_normalises_every_numeric_field_on_store[int args-kw0]
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_config_normalises_every_numeric_field_on_store[np.float64 args-kw2]
+FAILED tests/test_lane_b_config_matrix.py::test_lane_b_op22_clauses_are_ascii_under_non_ascii_arguments
+3 failed, 2 passed, 76 deselected in 7.00s
+PYTEST_EXIT:1

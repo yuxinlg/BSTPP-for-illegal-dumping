@@ -1,0 +1,13 @@
+### fast lane (A-32 per-commit)
+ M bstpp/config.py
+ M bstpp/polygon_mass.py
+ M tests/test_lane_b_config_matrix.py
+
+tests/test_ingestion_contract.py::test_geographic_crs_contract_warning_is_nonvacuous
+  C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\preparation.py:332: UserWarning: Geometry is in a geographic CRS. Results from 'area' are likely incorrect. Use 'GeoSeries.to_crs()' to re-project geometries to a projected CRS before this operation.
+  
+    clipped['area'] = clipped.area / rect_area
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+587 passed, 1 skipped, 12 deselected, 1 xfailed, 3 warnings in 504.05s (0:08:24)
+PYTEST_EXIT:0
