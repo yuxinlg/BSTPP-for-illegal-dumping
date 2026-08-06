@@ -21,6 +21,19 @@ instrument. Source files are excluded: a script that can PRINT "FAIL" is not a
 capture of it having done so, and counting one would be the same category
 error as counting a docstring as a test.
 
+THE POPULATION IS NOW D-46's, AND THIS PROBE NO LONGER DEFINES IT (A-46). The
+listing comes from ``results/_a46_capture_population.census_population()``,
+which removes the declared capture root
+(``refactor-patches/captures/``) with a ``git ls-files`` pathspec -- so
+capture-root files are never enumerated here, rather than filtered out after
+the fact. The reason is the fourth C2 reading: it moved because a preserved
+capture had been staged into the tree this probe searches, and under D-45 that
+happens at EVERY red. A census whose population grows with every red gives a
+different answer each time it is asked the same question. The count is now
+stationary by construction. **This does not re-open C2 and is not a fifth
+reading** -- the seven-round cap forbids one, and stationarity is what replaces
+it.
+
 TWO SELF-CORRECTIONS, RECORDED BECAUSE EACH CHANGED THE ANSWER.
 
 (2) The run taken after staging this commit reported **GATED 5 / UNGATED 2**,
@@ -56,6 +69,12 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, REPO)
+sys.path.insert(0, os.path.join(REPO, "results"))
+
+from _a46_capture_population import (  # noqa: E402
+    CAPTURE_ROOT,
+    census_population,
+)
 
 # entry -> (instruments, failure signatures, note)
 # A signature is a regex looked for in tracked NON-SOURCE files.
@@ -97,9 +116,8 @@ CAPTURE_SUFFIXES = (".txt", ".log", ".json")
 
 
 def tracked_files():
-    out = subprocess.run(["git", "ls-files"], cwd=REPO, text=True,
-                         capture_output=True, check=True).stdout
-    return [p for p in out.splitlines() if p.strip()]
+    """D-46: the census population, capture root excluded at the enumeration."""
+    return census_population(REPO)
 
 
 print("PROBE_PROVENANCE")
@@ -125,6 +143,9 @@ print("  (.py excluded: printing 'FAIL' is not evidence of having. .md/.tex")
 print("   excluded: PROSE ABOUT a gate having failed is not a capture of it")
 print("   failing -- the register and the WP2 proposal both describe the very")
 print("   reds this probe is looking for.)")
+print(f"  D-46: {CAPTURE_ROOT}/ is excluded AT THE ENUMERATION, so this")
+print("   population does not move as D-45 preserves captures. Stationary by")
+print("   construction; NOT a re-reading of C2, which the cap forbids.")
 print()
 
 texts = {}

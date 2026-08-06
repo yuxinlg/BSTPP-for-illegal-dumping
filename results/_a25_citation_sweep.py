@@ -6,16 +6,34 @@ sweep extracts every path-like citation from the findings ledger, the traceabili
 and Part II of the register, and reports which are not tracked by git.
 
 Exit 1 if any untracked citation is not on the ALLOWED list below.
+
+D-46 (A-46) AND THE TWO SETS THIS SWEEP USES. The SOURCE set -- the documents
+searched for citations -- comes from ``_a46_capture_population`` as a closed
+enumeration that cannot acquire a capture-root member. The RESOLUTION set --
+what a citation is checked against -- is the full ``git ls-files`` and
+DELIBERATELY INCLUDES the capture root, because an amendment that cites a
+capture preserved under D-45 must be able to reach it. Excluding the root from
+the resolution set would turn every preserved capture into an unreachable
+citation: a rule adopted to stop one instrument moving would have broken this
+one. The asymmetry is the point, so it is stated rather than left to be
+inferred from two function names.
 """
 from __future__ import annotations
 
 import re
-import subprocess
+import sys
 from pathlib import Path
 
-LEDGER = "refactor-patches/pre-3f-stabilization/findings_ledger.md"
-MATRIX = "refactor-patches/pre-3f-stabilization/traceability_matrix.md"
-RECORD = "phase3_record.tex"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from _a46_capture_population import (  # noqa: E402
+    CAPTURE_ROOT,
+    CITATION_SOURCE_PATHS,
+    citation_resolution_set,
+    citation_sources,
+)
+
+LEDGER, MATRIX, RECORD = CITATION_SOURCE_PATHS
 
 # Citations that are deliberately to objects NOT in the repository. Each is legitimate only
 # because the surrounding text says so; the reason is recorded here so the exemption is not
@@ -64,22 +82,25 @@ def de_latex(text: str) -> str:
 
 
 def main() -> int:
-    tracked = {
-        line.strip()
-        for line in subprocess.run(
-            ["git", "ls-files"], capture_output=True, text=True, check=True
-        ).stdout.splitlines()
-        if line.strip()
-    }
+    # Resolution set: the FULL listing, capture root included. See the module
+    # docstring -- a preserved capture must stay citable.
+    tracked = citation_resolution_set()
 
-    record = de_latex(Path(RECORD).read_text(encoding="utf-8"))
+    raw = citation_sources()
+    record = de_latex(raw[RECORD])
     part_ii = record[record.index("\\hypertarget{a-1}{%"):]
 
+    # Source set: a closed enumeration, so it cannot acquire a capture-root
+    # member as captures accumulate.
     sources = {
-        LEDGER: de_latex(Path(LEDGER).read_text(encoding="utf-8")),
-        MATRIX: de_latex(Path(MATRIX).read_text(encoding="utf-8")),
+        LEDGER: de_latex(raw[LEDGER]),
+        MATRIX: de_latex(raw[MATRIX]),
         f"{RECORD} (Part II)": part_ii,
     }
+    print(f"D-46 populations: {len(sources)} closed source document(s); "
+          f"resolution set {len(tracked)} tracked file(s), "
+          f"{CAPTURE_ROOT}/ INCLUDED so captures stay citable.")
+    print()
 
     unresolved: list[tuple[str, str]] = []
     for name, text in sources.items():
