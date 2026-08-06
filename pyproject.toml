@@ -2,6 +2,16 @@
 requires = ['setuptools>=42']
 build-backend = 'setuptools.build_meta'
 
+[tool.ruff.lint.per-file-ignores]
+# E402 (import not at top of file) is REQUIRED by this file's mechanism, not
+# tolerated in spite of it. pin_check_v2.py imports `bstpp` from a tree named
+# on its own command line, so `sys.path.insert(0, sys.argv[1])` must run
+# before any import that resolves it -- an import moved above that line would
+# silently read whichever bstpp is on the default path, which is the stale-
+# site-packages hazard AGENTS.md warns about. Declared here rather than left
+# as eight recurring findings whose shared justification lives nowhere (A-48).
+"refactor-patches/pin_check_v2.py" = ["E402"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [

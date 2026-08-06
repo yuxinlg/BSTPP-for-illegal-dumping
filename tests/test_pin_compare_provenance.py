@@ -177,3 +177,116 @@ def test_missing_file_is_an_error_not_a_silent_match(tmp_path):
     assert code == 1
     assert "PIN_COMPARE_ERROR" in out
     assert "PIN_DIFFS 0 MATCH" not in out
+
+
+# --------------------------------------------------------------------------
+# A-48 / OP-31: the verdict line must carry its own POPULATION.
+#
+# A-37's defect was a verdict that did not say which FILES it read. This is
+# the same defect one axis over: a verdict that does not say how many
+# CONFIGURATIONS it compared. The walker treats a key present on one side only
+# as no diff, so a six-configuration candidate read against the four-
+# configuration canonical baseline compared four, found nothing, and printed
+# the same `PIN_DIFFS 0 MATCH` a complete comparison prints. `NEW IN
+# CANDIDATE` appeared above the verdict, where a runbook grepping the verdict
+# line never sees it.
+# --------------------------------------------------------------------------
+
+
+def _variant(tmp_path, name, mutate):
+    """A candidate derived from the canonical baseline by one key-set edit."""
+    with open(CANONICAL, encoding="utf-8-sig") as fh:
+        payload = json.load(fh)
+    mutate(payload)
+    path = tmp_path / name
+    path.write_text(json.dumps(payload, indent=0, sort_keys=True),
+                    encoding="utf-8")
+    return path
+
+
+def test_a_complete_comparison_states_its_population_on_the_verdict_line():
+    """The population is unconditional: it is on clean lines too.
+
+    A field printed only in the interesting case makes 'not printed' and 'not
+    run' the same observable, which is the A-35 lesson this file already
+    applies to the provenance block.
+    """
+    with open(CANONICAL, encoding="utf-8-sig") as fh:
+        n = len(json.load(fh))
+    _, out = _run(CANONICAL)
+    line = _verdict_line(out)
+    assert f"compared={n}/{n}" in line
+    assert "candidate_only=[]" in line
+    assert "baseline_only=[]" in line
+
+
+def test_a_candidate_key_the_baseline_lacks_is_not_an_unqualified_match(
+        tmp_path):
+    """THE FIRING ROW for OP-31. This is the A-47 situation exactly.
+
+    Pin 5 added two configurations the canonical baseline does not carry. Run
+    against that baseline the comparison covers four of six and is silent on
+    the other two -- which is the polygon regime, i.e. the whole reason pin 5
+    was built. The line must not be readable as covering six.
+    """
+    with open(CANONICAL, encoding="utf-8-sig") as fh:
+        n = len(json.load(fh))
+    cand = _variant(tmp_path, "wider_pins.json",
+                    lambda p: p.update({"zz_new_config": {"loglik": "1.0"}}))
+    code, out = _run(str(cand))
+    line = _verdict_line(out)
+
+    assert "MATCH" not in line, (
+        "a comparison that did not compare every configuration must not print "
+        "the word a complete comparison prints; this is OP-31")
+    assert "PARTIAL" in line
+    assert f"compared={n}/{n + 1}" in line
+    assert "candidate_only=[zz_new_config]" in line
+    # Surfaced IN the verdict, not only above it (the per-config lines stay).
+    assert "zz_new_config: NEW IN CANDIDATE" in out
+    # Exit status is deliberately unchanged: an expected re-baseline must not
+    # make this gate permanently red. The verdict WORD carries the fact.
+    assert code == 0
+
+
+def test_a_baseline_key_the_candidate_lacks_is_named_in_the_verdict(tmp_path):
+    """The mirror hole, which is worse and was equally silent.
+
+    A harness that stopped emitting a configuration loses that coverage
+    entirely, and the walker counted that as no diff too.
+    """
+    with open(CANONICAL, encoding="utf-8-sig") as fh:
+        dropped = sorted(json.load(fh))[0]
+    cand = _variant(tmp_path, "narrower_pins.json",
+                    lambda p: p.pop(dropped))
+    _, out = _run(str(cand))
+    line = _verdict_line(out)
+    assert "MATCH" not in line
+    assert f"baseline_only=[{dropped}]" in line
+    assert "compared=3/4" in line
+
+
+def test_the_real_six_config_candidate_is_partial_against_canonical():
+    """Not a fixture -- the committed A-47 capture, against the real baseline.
+
+    A synthetic key proves the walker's arithmetic. This proves the thing the
+    runbook actually does, and it is the line AGENTS.md now requires be read
+    twice, once per baseline.
+    """
+    cand = os.path.join(REPO, "results", "_a47_pins_candidate.json")
+    if not os.path.isfile(cand):
+        pytest.skip("A-47 capture absent; machine-local artifact")
+    _, out = _run(cand)
+    line = _verdict_line(out)
+    assert "compared=4/6" in line
+    assert "MATCH" not in line
+    for key in ("hawkes_notched_4to1_polygon_mode",
+                "hawkes_notched_4to1_rectangle_mode"):
+        assert key in line
+
+    forward = os.path.join(REPO, "refactor-patches",
+                           "baselines-2026-08-polygon", "pins.json")
+    _, out_fwd = _run(cand, "--baseline", forward)
+    fwd_line = _verdict_line(out_fwd)
+    assert "compared=6/6" in fwd_line
+    assert "PIN_DIFFS 0 MATCH" in fwd_line

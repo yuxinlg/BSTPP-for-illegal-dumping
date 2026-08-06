@@ -1,0 +1,16 @@
+cox_hawkes: MATCH
+hawkes: MATCH
+hawkes_nonsquare_4to1: MATCH
+hawkes_notched_4to1_polygon_mode: NEW IN CANDIDATE
+hawkes_notched_4to1_rectangle_mode: NEW IN CANDIDATE
+lgcp: MATCH
+
+PIN_PROVENANCE
+  candidate : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\results\_a47_pins_candidate.json
+  candidate_sha256 : e8ade72f7947ec350abe96c7f0d09c3fa9641940708964beff5c47cda1509e81
+  baseline  : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\refactor-patches\baselines-2026-07\pins.json
+  baseline_sha256  : f2141fd558704057c87c8c20a3f2b9516c8815f232b6eaafc8f71baa0864e7eb
+  baseline_source  : CANONICAL
+
+PIN_DIFFS 0 PARTIAL compared=4/6 candidate_only=[hawkes_notched_4to1_polygon_mode,hawkes_notched_4to1_rectangle_mode] baseline_only=[] candidate=_a47_pins_candidate.json:e8ade72f7947 baseline=pins.json:f2141fd55870 canonical
+PIN_COMPARE_CANONICAL_EXIT:0

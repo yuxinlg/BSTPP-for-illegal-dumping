@@ -27,12 +27,31 @@ declared event, so it should cost a flag and announce itself in the output
 rather than being reachable by editing a string. Runs that omit the flag get
 the canonical baseline and say so.
 
+A VERDICT ALSO DESCRIBES ITS POPULATION (A-48, closing OP-31). The same defect
+one axis over: the verdict said which files it read and not how many
+CONFIGURATIONS it compared. The walker treats a key present on one side only
+as no diff, so once pin 5 added two configurations the canonical baseline does
+not carry, the routine run compared four of six, found nothing, and printed
+the six characters a complete comparison prints -- silent about the polygon
+regime, which is the one pin 5 was built to cover. `NEW IN CANDIDATE` was
+printed above the verdict, where a runbook grepping the verdict line does not
+look. Every verdict line therefore now carries `compared=n/m`,
+`candidate_only=[...]` and `baseline_only=[...]`, on clean lines too, and the
+word `MATCH` is reserved for a comparison that covered the whole union.
+Anything short of that reads `PARTIAL`, so a gate line written when the corpus
+had four configurations stops reporting success rather than quietly narrowing.
+
 Usage:
     python refactor-patches/pin_compare.py results/_aNN_pins_candidate.json
     python refactor-patches/pin_compare.py <candidate> --baseline <other>
 
-Exit status is 0 on MATCH and 1 on DRIFT or on a missing file, so a capture
-records the comparison's own verdict rather than a shell's (D-41).
+Exit status is 0 when no compared value differs and 1 on DRIFT or a missing
+file, so a capture records the comparison's own verdict rather than a shell's
+(D-41). A PARTIAL exits 0 ON PURPOSE: adding configurations is a legitimate
+declared event, and making it nonzero would leave a per-commit gate red on
+every commit after a re-baseline -- the failure mode A-47 had to undo one
+gate over. The incompleteness is carried by the verdict word, which is read
+by the same eye and does not decay into background noise.
 """
 from __future__ import annotations
 
@@ -55,8 +74,15 @@ def load(path: Path):
     return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
-def compare(candidate: dict, baseline: dict) -> tuple[list, list]:
-    """Return (per-config verdict lines, diffs). Walker unchanged from A-28."""
+def compare(candidate: dict, baseline: dict) -> tuple[list, list, dict]:
+    """Return (per-config lines, diffs, population). Walker unchanged from A-28.
+
+    The third return value is A-48's addition and the walker's own admission:
+    a configuration present on one side only is **not compared**, and counting
+    it as no diff is what let a four-of-six comparison print the word a
+    complete one prints. The walker is not changed to treat it as a diff --
+    a re-baseline legitimately adds keys -- so the count is reported instead.
+    """
     diffs: list = []
 
     def walk(x, y, path=""):
@@ -82,16 +108,22 @@ def compare(candidate: dict, baseline: dict) -> tuple[list, list]:
                 diffs.append((path, x, y))
 
     lines = []
-    for cfg in sorted(set(candidate) | set(baseline)):
+    union = sorted(set(candidate) | set(baseline))
+    population = {"union": len(union), "compared": 0,
+                  "candidate_only": [], "baseline_only": []}
+    for cfg in union:
         if cfg not in candidate:
             lines.append(f"{cfg}: MISSING FROM CANDIDATE")
+            population["baseline_only"].append(cfg)
         elif cfg not in baseline:
             lines.append(f"{cfg}: NEW IN CANDIDATE")
+            population["candidate_only"].append(cfg)
         else:
             before = len(diffs)
             walk(candidate[cfg], baseline[cfg], cfg)
             lines.append(f"{cfg}: {'MATCH' if len(diffs) == before else 'DRIFT'}")
-    return lines, diffs
+            population["compared"] += 1
+    return lines, diffs, population
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -113,7 +145,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"PIN_COMPARE_ERROR {label} not found: {p}")
             return 1
 
-    lines, diffs = compare(load(cand_path), load(base_path))
+    lines, diffs, pop = compare(load(cand_path), load(base_path))
     for line in lines:
         print(line)
 
@@ -132,8 +164,23 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  canonical_would_be : {CANONICAL_BASELINE}")
     print()
 
-    verdict = "MATCH" if not diffs else "DRIFT"
+    # THE VERDICT WORD IS ABOUT THE WHOLE POPULATION, NOT THE COMPARED SUBSET.
+    # `MATCH` is reserved for a comparison that covered every configuration on
+    # both sides; anything else is PARTIAL, and the word is what a runbook
+    # grepping for `PIN_DIFFS 0 MATCH` will fail to find. That failure is the
+    # feature: a gate line written when the corpus had four configurations
+    # must stop reporting success once it covers four of six.
+    one_sided = pop["candidate_only"] + pop["baseline_only"]
+    if diffs:
+        verdict = "DRIFT"
+    elif one_sided:
+        verdict = "PARTIAL"
+    else:
+        verdict = "MATCH"
     print(f"PIN_DIFFS {len(diffs)} {verdict} "
+          f"compared={pop['compared']}/{pop['union']} "
+          f"candidate_only=[{','.join(pop['candidate_only'])}] "
+          f"baseline_only=[{','.join(pop['baseline_only'])}] "
           f"candidate={cand_path.name}:{sha256_of(cand_path)[:12]} "
           f"baseline={base_path.name}:{sha256_of(base_path)[:12]} "
           f"{'canonical' if canonical else 'NON-CANONICAL'}")

@@ -33,6 +33,12 @@ the harness already captures beside the JSON as `*_pins_stderr.txt`.
 import os, sys, json, hashlib, subprocess
 os.environ.setdefault("JAX_PLATFORM_NAME", "cpu")
 import warnings; warnings.filterwarnings("ignore")
+# Every import below resolves against the tree named on THIS harness's command
+# line, so it cannot precede the insert: moved above it, `bstpp` would come
+# from whatever is on the default path and the capture would describe another
+# object. Ruff's E402 is switched off for this file in pyproject.toml with
+# that reason attached (A-48); it is a requirement of the mechanism, not an
+# inherited untidiness.
 sys.path.insert(0, sys.argv[1])
 import geopandas as gpd
 import numpy as np, pandas as pd, jax
