@@ -1,0 +1,28 @@
+........................................................................ [ 12%]
+........................................................................ [ 24%]
+........................................................................ [ 36%]
+..............x......................................................... [ 48%]
+........................................................................ [ 60%]
+........................................................................ [ 72%]
+........................................................................ [ 84%]
+.......................................................................s [ 96%]
+....................                                                     [100%]
+============================== warnings summary ===============================
+tests/test_caller_state_ownership.py::test_run_mcmc_with_key_does_not_touch_np_random
+  C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\main.py:667: UserWarning: Skipping MCMC print_summary: retained per-chain sample count (2) is below NumPyro's diagnostic minimum of 4 (split Gelman-Rubin). Samples are preserved; increase num_samples or decrease thinning for a summary.
+    self.mcmc = run_mcmc(rng_key_post, self.model, self.args)
+
+tests/test_heldout_polygon_mass.py::test_heldout_cov_ind_length_validated
+  C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\main.py:2015: UserWarning: BSTPP data-contract violations detected (report mode; these are rejected under the default data_contracts='reject'):
+  BSTPP data-contract report: 1 violation check(s), 0 diagnostic(s) over 4 events (mode=report).
+    VIOLATION covariate_gap: the covariate layer leaves 50.0000% of the model domain A uncovered (legacy behavior: silent zero-valued covariate region); geometry exported
+    super().__init__(name, data, A, T, **kwargs)
+
+tests/test_ingestion_contract.py::test_geographic_crs_contract_warning_is_nonvacuous
+  C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\preparation.py:332: UserWarning: Geometry is in a geographic CRS. Results from 'area' are likely incorrect. Use 'GeoSeries.to_crs()' to re-project geometries to a projected CRS before this operation.
+  
+    clipped['area'] = clipped.area / rect_area
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+594 passed, 1 skipped, 12 deselected, 1 xfailed, 3 warnings in 506.63s (0:08:26)
+SUITE_EXIT:0

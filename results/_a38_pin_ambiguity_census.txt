@@ -1,0 +1,92 @@
+A-38 -- historical PIN_DIFFS 0 ambiguity bound (git-history read)
+commits carrying a PIN_DIFFS 0 claim: 24
+
+commit   date         baselines  candidates  verdict
+----------------------------------------------------
+938e32b  2026-07-29           1           0  NO CANDIDATE IN TREE
+e0d7e43  2026-07-29           1           0  NO CANDIDATE IN TREE
+cd62288  2026-07-30           1           0  NO CANDIDATE IN TREE
+13a8525  2026-08-03           1           0  NO CANDIDATE IN TREE
+6ba2194  2026-08-03           1           0  NO CANDIDATE IN TREE
+86ca179  2026-08-03           1           0  NO CANDIDATE IN TREE
+296bdf5  2026-08-04           1           0  NO CANDIDATE IN TREE
+f88ac29  2026-08-04           1           0  NO CANDIDATE IN TREE
+5fc83a6  2026-08-04           1           0  NO CANDIDATE IN TREE
+4e7b8e2  2026-08-04           1           0  NO CANDIDATE IN TREE
+560524d  2026-08-04           1           0  NO CANDIDATE IN TREE
+5a3710d  2026-08-04           1           0  NO CANDIDATE IN TREE
+beb0482  2026-08-04           1           0  NO CANDIDATE IN TREE
+f70ac7d  2026-08-04           1          10  AMBIGUOUS
+426d60a  2026-08-05           1          11  AMBIGUOUS
+e1b110f  2026-08-05           1          12  AMBIGUOUS
+54ad943  2026-08-05           1          13  AMBIGUOUS
+29058dc  2026-08-05           1          13  AMBIGUOUS
+a0db775  2026-08-05           1          14  AMBIGUOUS
+e1c343c  2026-08-05           1          15  AMBIGUOUS
+b46ee0d  2026-08-05           1          16  AMBIGUOUS
+459e985  2026-08-05           1          16  AMBIGUOUS
+65e2708  2026-08-06           1          16  AMBIGUOUS
+8cf19fb  2026-08-06           1          17  AMBIGUOUS
+
+UNAMBIGUOUS=0  AMBIGUOUS=11  NO_CANDIDATE_IN_TREE=13
+
+NO CANDIDATE COMMITTED IN THE TREE AT THAT COMMIT
+  The claim is in the message with no committed artifact beside it,
+  so there is nothing to be ambiguous BETWEEN -- and nothing to
+  re-read either. Weaker than unambiguous, not stronger.
+  938e32b  2026-07-29  Pre-3f: correctness/API freeze before architectural 3f.
+  e0d7e43  2026-07-29  docs(pre-3f): A-21 continuation on tip 04799d9
+  cd62288  2026-07-30  docs(pre-3f): A-21 continuation on tip e0d7e437 and audit record
+  13a8525  2026-08-03  fix(pre-3f): GREEN -- table build settings authoritative; budget vs min_sigma 
+  6ba2194  2026-08-03  ﻿fix(pre-3f): ownership boundary for caller-supplied state (CF, B2/B3/B4)
+  86ca179  2026-08-03  fix(pre-3f): measure mass-table residual vs PRODUCTION_TAU_ABS (CF)
+  296bdf5  2026-08-04  feat(3f): introduce NumericalConfig behind args adapter (BP)
+  f88ac29  2026-08-04  feat(3f): route mass-table validation through NumericalConfig (BP)
+  5fc83a6  2026-08-04  test(3f): NumericalConfig Lane B rows and traceability matrix (IV/DOC)
+  4e7b8e2  2026-08-04  fix(3f): NumericalConfig factory type discipline (CF)
+  560524d  2026-08-04  fix(3f): rebuild NumericalConfig on set_window mass_table install (CF)
+  5a3710d  2026-08-04  docs(pre-3f): commit closeout protocol artifacts and repair A-22/A-23 hypertar
+  beb0482  2026-08-04  docs(register): adopt closeout decisions as A-24 / D-36-D-39 (DOC)
+
+AMBIGUOUS -- more than one candidate existed in the tree, and the
+artifacts do not record which was read. NAMED, not resolved:
+  f70ac7d  2026-08-04  10 candidates, 1 baseline(s)
+      fix(3f): unify the panel/min_sigma error identity (A-26 / D-40) (SC)
+  426d60a  2026-08-05  11 candidates, 1 baseline(s)
+      fix(3f): one identity for the five sigma/mode invariants (A-27 / D-40) (SC)
+  e1b110f  2026-08-05  12 candidates, 1 baseline(s)
+      fix(3f): max_sigma at the mass-table builder is a sixth invariant (A-28 / D-40) (CF)
+  54ad943  2026-08-05  13 candidates, 1 baseline(s)
+      docs(3f): one config-invariant sequence, CI-1..CI-6 (A-30) (DOC/IV)
+  29058dc  2026-08-05  13 candidates, 1 baseline(s)
+      docs(3f): the evidence-and-provenance standard (A-31 / D-41) (DOC)
+  a0db775  2026-08-05  14 candidates, 1 baseline(s)
+      test(3f): two-lane suite, and a timing diagnosis corrected (A-32) (IV)
+  e1c343c  2026-08-05  15 candidates, 1 baseline(s)
+      feat(3f)!: CI-7/CI-8 argument-type policy for config factories (A-33 / D-42) (API)
+  b46ee0d  2026-08-05  16 candidates, 1 baseline(s)
+      refactor(3f)!: normalise validated values on store; close OP-22 (A-34 / D-42) (SC)
+  459e985  2026-08-05  16 candidates, 1 baseline(s)
+      docs(3f): corrections to A-33/A-34; what the provenance audit found (A-35) (DOC/IV)
+  65e2708  2026-08-06  16 candidates, 1 baseline(s)
+      docs(3f): D-43 landed; the register's own unregistered citations (A-36) (DOC/IV)
+  8cf19fb  2026-08-06  17 candidates, 1 baseline(s)
+      fix(3f): ASCII at the unscannable raise site; sweep reaches 184/184 (A-37) (CF)
+
+SECTION 4 -- WHY THE CANDIDATE COLUMN IS A LOWER BOUND (demonstrated)
+  A-25's WP1 table names results/_pins_3f_wp11_candidate.json as the
+  capture for 296bdf5. When did that file first enter git?
+    first tracked at: e9c605a 2026-08-04 docs(register): A-25 WP1 execution record; correct WP1.4c suite figures (DOC)
+    the commit it is the capture FOR: 296bdf5 2026-08-04
+  So the file existed on disk at 296bdf5 and the tree shows zero.
+  Untracked files leave no record, so NO commit in this series can be
+  recorded as unambiguous by this method. The UNAMBIGUOUS count above
+  is 0 and that is the honest answer, not a null result to explain away.
+
+BASELINE SIDE
+  distinct baseline paths across the whole series: 1
+    refactor-patches/baselines-2026-07/pins.json
+  A single baseline path over the series means the BASELINE side was
+  never ambiguous. The A-37 defect was on the CANDIDATE side, which is
+  the column that grows.
+EXIT:0

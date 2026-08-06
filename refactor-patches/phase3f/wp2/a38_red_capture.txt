@@ -1,0 +1,107 @@
+=== D-41 RED capture: A-38, tests/test_pin_compare_provenance.py ===
+tip: 8cf19fb
+
+MINIMAL REVERT: refactor-patches/pin_compare.py removed. That file IS the
+change; nothing else is touched. All five rows red, but for ONE COARSE
+REASON -- the instrument is absent -- so the pytest red below is recorded
+as weak evidence and the sharp evidence is the constructed demonstration
+in results/_a38_corpus_and_defect_demo.txt, which reproduces the A-37
+failure mode against the OLD comparator with a candidate that genuinely
+drifts. Stated rather than left for a reader to notice.
+
+--- git status --porcelain (tracked only) ---
+--- pytest ---
+FFFFF                                                                    [100%]
+================================== FAILURES ===================================
+________ test_match_against_canonical_names_the_files_and_their_hashes ________
+
+    def test_match_against_canonical_names_the_files_and_their_hashes():
+        code, out = _run(CANONICAL)
+>       assert code == 0
+E       assert 2 == 0
+
+tests\test_pin_compare_provenance.py:61: AssertionError
+___________ test_match_against_a_wrong_baseline_is_distinguishable ____________
+
+twin_baselines = WindowsPath('C:/Users/Terhi/AppData/Local/Temp/pytest-of-Terhi/pytest-114/test_match_against_a_wrong_bas0/decoy_pins.json')
+
+    def test_match_against_a_wrong_baseline_is_distinguishable(twin_baselines):
+        """THE FIRING ROW. Same verdict, different file -- and the output says so.
+    
+        Without the provenance block these two runs are the same six characters.
+        """
+        code_ok, out_ok = _run(CANONICAL)
+        code_bad, out_bad = _run(CANONICAL, "--baseline", str(twin_baselines))
+    
+        # Both are MATCH: the decoy is byte-equivalent content in another file.
+>       assert code_ok == 0 and code_bad == 0
+E       assert (2 == 0)
+
+tests\test_pin_compare_provenance.py:82: AssertionError
+___________ test_candidate_side_is_identified_not_only_the_baseline ___________
+
+twin_baselines = WindowsPath('C:/Users/Terhi/AppData/Local/Temp/pytest-of-Terhi/pytest-114/test_candidate_side_is_identif0/decoy_pins.json')
+
+    def test_candidate_side_is_identified_not_only_the_baseline(twin_baselines):
+        """A-37's stale read was of a CANDIDATE path, so that side must speak too.
+    
+        Two runs sharing one baseline and differing only in candidate must have
+        different verdict lines.
+        """
+        _, out_a = _run(CANONICAL)
+        _, out_b = _run(str(twin_baselines))
+>       assert _verdict_line(out_a) != _verdict_line(out_b)
+               ^^^^^^^^^^^^^^^^^^^^
+
+tests\test_pin_compare_provenance.py:103: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+out = ''
+
+    def _verdict_line(out):
+        for line in out.splitlines():
+            if line.startswith("PIN_DIFFS "):
+                return line
+>       raise AssertionError(f"no PIN_DIFFS line in output:\n{out}")
+E       AssertionError: no PIN_DIFFS line in output:
+
+tests\test_pin_compare_provenance.py:40: AssertionError
+____________ test_drift_exits_nonzero_and_still_prints_provenance _____________
+
+tmp_path = WindowsPath('C:/Users/Terhi/AppData/Local/Temp/pytest-of-Terhi/pytest-114/test_drift_exits_nonzero_and_s0')
+
+    def test_drift_exits_nonzero_and_still_prints_provenance(tmp_path):
+        """A capture records the comparison's own status (D-41), and a DRIFT is
+        as much in need of provenance as a MATCH."""
+        with open(CANONICAL, encoding="utf-8-sig") as fh:
+            payload = json.load(fh)
+        cfg = sorted(payload)[0]
+        payload[cfg]["loglik"] = "0.0"  # pins store repr() strings
+        moved = tmp_path / "moved_pins.json"
+        moved.write_text(json.dumps(payload, indent=0, sort_keys=True),
+                         encoding="utf-8")
+    
+        code, out = _run(str(moved))
+>       assert code == 1, "DRIFT must not exit 0"
+E       AssertionError: DRIFT must not exit 0
+E       assert 2 == 1
+
+tests\test_pin_compare_provenance.py:119: AssertionError
+______________ test_missing_file_is_an_error_not_a_silent_match _______________
+
+tmp_path = WindowsPath('C:/Users/Terhi/AppData/Local/Temp/pytest-of-Terhi/pytest-114/test_missing_file_is_an_error_0')
+
+    def test_missing_file_is_an_error_not_a_silent_match(tmp_path):
+        code, out = _run(str(tmp_path / "does_not_exist.json"))
+>       assert code == 1
+E       assert 2 == 1
+
+tests\test_pin_compare_provenance.py:127: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_pin_compare_provenance.py::test_match_against_canonical_names_the_files_and_their_hashes
+FAILED tests/test_pin_compare_provenance.py::test_match_against_a_wrong_baseline_is_distinguishable
+FAILED tests/test_pin_compare_provenance.py::test_candidate_side_is_identified_not_only_the_baseline
+FAILED tests/test_pin_compare_provenance.py::test_drift_exits_nonzero_and_still_prints_provenance
+FAILED tests/test_pin_compare_provenance.py::test_missing_file_is_an_error_not_a_silent_match
+5 failed in 1.82s
+PYTEST_EXIT:1

@@ -1,0 +1,32 @@
+SECTION 1 -- THE CANDIDATE CORPUS
+  committed candidates            : 29
+  distinct RAW byte hashes        : 4   (BOM / line endings)
+  distinct CANONICAL JSON hashes  : 1
+  baseline canonical hash         : 2905490ca3f7afea
+    2905490ca3f7afea  == BASELINE  n=29
+  CORPUS_CONTENT_HOMOGENEOUS_AND_EQUAL_TO_BASELINE=True
+  => every historical candidate yields PIN_DIFFS 0 MATCH, so the
+     candidate-side ambiguity cannot have changed a verdict, AND the
+     corpus cannot exhibit the stale-read defect at all.
+
+SECTION 2 -- THE DEFECT, CONSTRUCTED (the corpus cannot show it)
+  right candidate (drifted) sha256 : 509d858240e518be
+  stale candidate (clean)   sha256 : 0c989a56e3837b36
+  These DIFFER, which no pair in the real corpus does.
+
+  OLD comparator (results/_a37_pin_compare.py pattern: paths hard-coded)
+    reading stale (the mistake)  -> exit 0  PIN_DIFFS 0 MATCH
+    reading right (drifted)      -> exit 0  PIN_DIFFS 1 DRIFT
+    OLD_REPORTS_MATCH_ON_THE_WRONG_FILE=True
+    and its verdict line names no file, so a capture cannot be audited.
+
+  NEW comparator (refactor-patches/pin_compare.py)
+    reading stale (the mistake)  -> exit 0
+      PIN_DIFFS 0 MATCH candidate=_a38_stale_candidate.json:0c989a56e383 baseline=pins.json:f2141fd55870 canonical
+    reading right (drifted)      -> exit 1
+      PIN_DIFFS 1 DRIFT candidate=_a38_right_candidate.json:509d858240e5 baseline=pins.json:f2141fd55870 canonical
+    NEW_VERDICT_LINES_DIFFER=True
+    Each line carries the candidate's name and content hash, so the
+    two are distinguishable even though both were 'a MATCH' to the
+    operator who ran them.
+EXIT:0
