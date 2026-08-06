@@ -432,21 +432,23 @@ def attach_covariate_partitions(partitions: PreparedPartitions,
     # standardize covariates. Standardization is always REPORTED (D-10).
     # Settled pre-3f (OP-3/OP-4): default off (None); accepted values are
     # None and "domain_area"; legacy Booleans are rejected explicitly.
-    if isinstance(standardize_cov, bool):
-        raise ValueError(
-            "standardize_cov no longer accepts booleans; pass None (off, "
-            "default) or 'domain_area' (area-weighted over |C_c intersect A|). "
-            f"Got {standardize_cov!r}.")
+    # CI-9 / D-40: one clause, rendered byte-for-byte wherever the violation is
+    # detected. Deferred import because `config` reaches `preparation` through
+    # `cutoffs` (T_INTERNAL), so a module-level import here would be a cycle --
+    # the same reason `config` defers `polygon_mass`.
+    from .config import validate_standardize_cov
+    validate_standardize_cov(standardize_cov)
     if standardize_cov is None:
         partitions.cov_values = X_s
         partitions.standardization = {
             'method': 'none', 'columns': list(cov_names),
             'mean': None, 'scale': None}
-    elif isinstance(standardize_cov, str):
-        if standardize_cov != 'domain_area':
-            raise ValueError(
-                "standardize_cov must be None (off) or 'domain_area' "
-                f"(area-weighted over |C_c intersect A|); got {standardize_cov!r}")
+    else:
+        # validate_standardize_cov above has already rejected everything that
+        # is not None or 'domain_area', so this is the 'domain_area' leg. The
+        # two checks below are DATA-dependent (they need the clipped areas and
+        # the covariate values), so by D-43 clause 3 they stay here and are not
+        # part of CI-9.
         if w_area.sum() <= 0.0:
             raise ValueError(
                 "standardize_cov='domain_area': the covariate layer has "
@@ -465,10 +467,6 @@ def attach_covariate_partitions(partitions: PreparedPartitions,
         partitions.standardization = {
             'method': 'domain_area', 'columns': list(cov_names),
             'mean': mean, 'scale': scale}
-    else:
-        raise ValueError(
-            "standardize_cov must be None (off) or 'domain_area'; "
-            f"got {standardize_cov!r}")
 
     if model in ['lgcp', 'cox_hawkes']:
         # Prefer set_crs over deprecated GeoDataFrame.crs attribute assignment.

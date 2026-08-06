@@ -263,6 +263,57 @@ def raise_support_mode_violation(
     raise NumericalConfigError(msg)
 
 
+def standardize_cov_invariant_clause(*, standardize_cov: object) -> str:
+    """Render the canonical ``standardize_cov`` enumerated-value clause (CI-9).
+
+    One clause, two branches on the SAME text: the legacy-boolean prefix is
+    kept because OP-3/OP-4 settled that booleans are rejected *explicitly* and
+    never silently reinterpreted, so a migrating user must be told what
+    happened to their argument rather than only what the accepted values are.
+    """
+    legacy = ("standardize_cov no longer accepts booleans; "
+              if isinstance(standardize_cov, bool) else "")
+    return _ascii_safe(
+        f"{legacy}standardize_cov must be None (off, default) or "
+        "'domain_area' (area-weighted over |C_c intersect A|); got "
+        f"{standardize_cov!r}")
+
+
+def raise_standardize_cov_violation(
+    *, standardize_cov: object, remediation: str = "") -> NoReturn:
+    """Raise the single identity for the ``standardize_cov`` value invariant.
+
+    ``ValueError``, not ``NumericalConfigError``: the quantity belongs to
+    ``ModelConfig``, which has not landed, and borrowing another object's
+    error type would assert an ownership D-40 has not assigned. The type is
+    also what every existing caller already catches, so only the site and the
+    text move.
+    """
+    msg = standardize_cov_invariant_clause(standardize_cov=standardize_cov)
+    if remediation:
+        msg = f"{msg} {remediation}"
+    raise ValueError(msg)
+
+
+def validate_standardize_cov(standardize_cov: object) -> None:
+    """CI-9: the enumerated value is valid, whatever else does or does not run.
+
+    Called at construction unconditionally AND from the covariate leg. Two
+    sites, one clause, byte-for-byte (D-40) -- the second is not redundant:
+    ``attach_covariate_partitions`` is public and reachable without going
+    through a model constructor.
+    """
+    if standardize_cov is None:
+        return
+    # `type(...) is str` rather than a `!=` comparison: `!=` on an ndarray
+    # returns an array and the `if` then raises "truth value ambiguous" -- a
+    # ValueError with the wrong message, which is exactly the split identity
+    # D-40 forbids. Accept-by-construction, reject everything else.
+    if type(standardize_cov) is str and standardize_cov == 'domain_area':
+        return
+    raise_standardize_cov_violation(standardize_cov=standardize_cov)
+
+
 def validate_sigma_pair(min_sigma: float, max_sigma: float) -> None:
     """The single implementation of the resolved-bound invariants (CI-3, CI-4).
 

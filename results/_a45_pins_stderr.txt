@@ -1,0 +1,12 @@
+PIN_CAPTURE_PROVENANCE
+  repo_under_test  : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor
+  bstpp.__file__   : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+  git_rev          : b98e91d
+  tracked_dirty    : 4
+    M bstpp/config.py
+     M bstpp/main.py
+     M bstpp/preparation.py
+     M results/_a26_ascii_sweep.py
+  canonical_baseline        : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\refactor-patches\baselines-2026-07\pins.json
+  canonical_baseline_sha256 : f2141fd558704057c87c8c20a3f2b9516c8815f232b6eaafc8f71baa0864e7eb
+  (this script emits no verdict; compare with refactor-patches/pin_compare.py)

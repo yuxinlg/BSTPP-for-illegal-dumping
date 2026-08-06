@@ -39,7 +39,7 @@ from .data_contracts import (validate_events, validate_covariates,
 from .preparation import (ModelData, prepare_domain, prepare_partitions,
                           attach_covariate_partitions,
                           finalize_integration_arrays, T_INTERNAL)
-from .config import NumericalConfig
+from .config import NumericalConfig, validate_standardize_cov
 from .excitation_support import (
     build_excitation_support,
     resolve_excitation_support_mode,
@@ -316,6 +316,13 @@ class Point_Process_Model:
         self._data_contracts_mode = data_contracts
         self.data_contract_report = enforce(
             validate_events(data, A, T), len(data), data_contracts)
+
+        # CI-9: the enumerated value is validated HERE, unconditionally, before
+        # anything is reported -- not in the covariate leg, which runs only when
+        # spatial_cov is supplied. Without this a rejected value constructs and
+        # then reports the well-formed 'none' record below, which is
+        # indistinguishable from a legitimate standardize_cov=None.
+        validate_standardize_cov(standardize_cov)
 
         # D-10: always report whether/how covariates were standardized;
         # overwritten by the covariate leg when covariates are supplied.

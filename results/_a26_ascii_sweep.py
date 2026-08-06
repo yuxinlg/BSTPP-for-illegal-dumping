@@ -150,6 +150,13 @@ CLAUSE_SAMPLES: dict[str, object] = {
     # argument's NAME and VALUE. Both reach the message, so both are filled.
     "name": "min_sigma",
     "value": "5",
+    # A-45 (CI-9): the enumerated-value clause renders the offending value
+    # with !r, so the slot is caller-supplied and the hazard census below
+    # probes it like any other. Added because the sweep FAILED when the clause
+    # landed without it -- an unevaluated clause is an uncovered clause, and
+    # that red is preserved at refactor-patches/phase3f/wp2/a45_red_capture.txt
+    # rather than being erased by this line (D-45).
+    "standardize_cov": "area",
 }
 
 # Second pass: can a caller's own non-ASCII value reach the message through
