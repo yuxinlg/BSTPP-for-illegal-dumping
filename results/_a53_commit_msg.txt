@@ -1,0 +1,138 @@
+WP2.8 [SC/API]: CI-7 enforced at the sp_var_mu site -- the same invariant at a second unenforcing site
+
+A-53. Implements CI-7 at a second site. Opens no new invariant number.
+Class SC/API: the accepted configuration space narrows and previously accepted
+values stop being accepted. NOT behaviour-preserving. No decision is added --
+the register stays at 52 rows, D-1..D-52 -- and next free stays CI-11.
+
+THE NUMBER QUESTION, VERIFIED AGAINST THE REGISTER'S TEXT AND REPORTED
+WHICHEVER WAY IT FELL. D-42 supports reuse, explicitly: "A config-owned
+numeric argument -- any value a config factory validates or stores -- is
+checked at the point where the caller's argument still exists, NOT AFTER A
+float() HAS ERASED WHAT THEY PASSED. CI-7 (real): int or float only; bool
+rejected as an int subclass, np.float64 accepted as a float subclass."
+sp_var_mu is config-owned (a ModelConfig quantity under the S_WP2 declared at
+A-52), it is a real, and main.py stored it as literally `float(sp_var_mu)` --
+the coercion D-42 names as the defect. D-42 further anticipates this exact
+case: "the four remaining config objects inherit this rather than each
+deciding; answering it separately five times is how the sigma family
+happened." SO THIS IS CI-7 AT A SECOND SITE AND CI-11 IS NOT OPENED -- a new
+number would present one invariant as two, the failure D-40 exists to prevent.
+
+THE HARM IS NOT CI-9's AND THIS COMMIT DOES NOT BORROW ITS JUSTIFICATION.
+CI-9's defect was a value accepted and IGNORED, leaving a misleading
+provenance record. CI-10's was a value accepted and ACTED ON opposite to what
+it said. This one is different again. exp(sp_var_mu) is a PAIRED GAIN --
+decode_spatial_field's own docstring says it "restores the log-amplitude
+factored out of the spatial draws during VAE training", so the gain is paired
+with those decoder parameters. sp_var_mu=True coerces to 1.0 and applies
+exp(1.0) ~ 2.72 where the calibrated default gives exp(2.0) ~ 7.39: the
+spatial log-intensity field comes out at the wrong amplitude by a factor of
+~2.7, the fit runs, every diagnostic is well formed, and nothing reports a
+problem. THAT IS A DIFFERENT MODEL, NOT A MISLABELLED ONE -- and the
+distinction matters, because a provenance defect can be repaired after the
+fact from the record and this cannot.
+  '2.0' IS THE SUBTLER ACCEPT and the reason a TYPE check is required rather
+  than a range check. float('2.0') == 2.0, so the string yields the CORRECT
+  NUMBER BY COINCIDENCE. No inspection of results can ever catch it, because
+  there is nothing wrong with the results -- until someone passes '2,0', or a
+  value read from a CSV column, and the coincidence stops holding. A range
+  check on the coerced value would pass it forever.
+
+TYPE, NOT FLOATABILITY -- AND bool IS THE ROW NEEDING MOST CARE.
+isinstance(True, int) is True, so a guard written as isinstance(v,(int,float))
+ADMITS PRECISELY THE VALUE MOST NEEDING REJECTION. require_config_real tests
+isinstance(value, bool) FIRST and rejects, then tests (int, float) -- which is
+why it is REUSED rather than reimplemented. The incidental TypeError from
+float(None) IS NOT ENFORCEMENT and is not counted as such: the test rows match
+on the CANONICAL CLAUSE TEXT, not on an exception type, so an accident could
+not have satisfied them.
+  ONE IDENTITY, DELIBERATELY, INCLUDING THE EXCEPTION CLASS.
+  require_config_real raises NumericalConfigError. A ModelConfig-owned sibling
+  raising bare ValueError was CONSIDERED AND REJECTED: it would split CI-7 in
+  two, and D-40 requires one invariant, one identity, one clause rendered
+  byte-for-byte wherever detected. The class name asserts more ownership than
+  D-42's own scope implies -- D-42 says all five config objects inherit the
+  policy -- and that is RECORDED AS A NAMING OBSERVATION, not acted on as a
+  reason to fork the identity. NumericalConfigError subclasses ValueError, so
+  no caller's except clause changes. A test row asserts the constructor and
+  the standalone validator render BYTE-IDENTICAL text.
+  ONE ENFORCEMENT SITE, AND THE COUNT IS STATED RATHER THAN PADDED TO A
+  PATTERN. sp_var_mu is assigned exactly once, in
+  Point_Process_Model.__init__; Hawkes_Model and LGCP_Model both forward
+  **kwargs to it; there is no mutator. So the canonical clause lives in
+  config.py and the single detection site is the base constructor. No second
+  site is manufactured to match CI-9's shape and no deferred import is needed,
+  because no cycle arises. The validation runs on paths where the CONSUMER
+  never does -- a cox_background=False model never calls decode_spatial_field
+  -- which is CI-9's property inherited, and a test row pins it.
+
+CAN CI-7 MAKE EITHER PIN-5 LEG UNCONSTRUCTIBLE? MEASURED: NO, and for a
+different reason than CI-10. THE A-50 PROBE WAS EXTENDED, NOT DUPLICATED --
+parametrised by argument name, because CI-7 asks the identical question and a
+fresh probe would be a second implementation of one measurement, free to
+drift. ALL SIX CONSTRUCTION SITES PASS NO sp_var_mu AT ALL, so every one takes
+the shipped default 2.0, which is a float and passes. And UNLIKE CI-10 THE
+DEFAULT DOES NOT MOVE in this commit, so no pinned value can move for that
+reason either. THE LITERAL-VS-VARIABLE SPLIT IS REPORTED BY NAME AND READS 0,
+which is load-bearing rather than a formality: A-50's live failure arrived
+through a parametrised VARIABLE that no source sweep over `sp_var_mu=` could
+see, so a non-zero count would have meant the AST answer was incomplete and
+the harness had to be RUN to settle it. The gates were run regardless.
+
+S_WP2, DECLARED AT A-52 -- DOES THIS SITE FALL INSIDE IT? YES. sp_var_mu is
+listed in docs/seam_sets.md as a ModelConfig quantity. The OBJECT does not
+exist, so the enforcement lands at the quantity's current pre-object site in
+the constructor -- exactly the situation A-52 recorded when it said WP2's
+enforcement commits "act on the quantities S_WP2 will own, at their current
+pre-object sites". rho_WP2 remains `N/A (empty seam set)` under D-48 clause 1
+as amended; this commit does not change that and does not claim to.
+
+WP5 DOES NOT OPEN, and its list is corrected for D-48's status. (1) OP-23's
+text still does not exist. (2) Gap G-A, three ungated document gates. (3) Gap
+G-B, standardize_cov's bind-time relocation, held until OP-28 is answered;
+OP-28 STAYS ESCALATED. (4) D-48's precondition, AND ITS BLOCKER HAS MOVED: no
+longer the undefined coverage unit -- defined at A-51 -- but the absence of a
+declared S_WP5, which under D-48 clause 3 as amended is itself an opening
+precondition. UNLIKE WP2's, WP5's SEAM SET IS NOT EMPTY: excitation_support.py
+and polygon_mass.py exist and are pinned by both pin-5 legs, so rho_WP5 is
+GENUINELY MEASURABLE once the set is declared -- the first work package for
+which that is true. C4 stays 2 of 4. main.py:338 stays WP10's.
+
+GATES. Populations first.
+  PIN-COMPARISON POPULATION: 6 configurations in the candidate. Canonical
+  2026-07: PIN_DIFFS 0 PARTIAL compared=4/6, both candidate_only keys named,
+  baseline_only=[]. Forward 2026-08-polygon: PIN_DIFFS 0 MATCH compared=6/6.
+  THE CANDIDATE WAS RE-CAPTURED, since bstpp/main.py changes on every
+  construction path the harness uses -- and it re-captured BYTE-IDENTICALLY,
+  sha256 e8ade72f7947..., which is this commit's entire behaviour-preservation
+  claim: the accept set narrows and NO PINNED VALUE MOVES.
+  RUFF POPULATION: 3 files -- 2 MODIFIED against their own HEAD under HEAD's
+  config, 1 NEW against baseline: NONE. Introduced 0, inherited 0, 0 in the
+  new file.
+  FULL SUITE, TWO INVOCATIONS, because SC/API narrows a public constructor's
+  accept set and every slow test that builds a model goes through it. Fast
+  lane 653 passed, 1 skipped, 1 xfailed, 12 deselected, PYTEST_FAST_EXIT:0.
+  Slow lane 11 passed, 1 skipped, 655 deselected, PYTEST_SLOW_EXIT:0. THE
+  LANES PARTITION EXACTLY: 655 + 12 = 667 collected on both sides. Selected
+  rises by 18 over A-50's 637 -- the 18 CI-7 rows and no other movement.
+  TARGETED RED AND GREEN: captures/a53_ci7_red.log (11 failed, 7 passed,
+  PYTEST_EXIT:1 at db55ee1) and results/_a53_ci7_green.txt (18 passed). THE
+  SEVEN ROWS THAT PASS IN THE RED ARE RECORDED AS NON-DISCRIMINATING BY
+  CONSTRUCTION and are not offered as evidence (D-41 clause 3): the accept-set
+  rows, the default row, and the clause-identity row -- THE LAST PASSES
+  BECAUSE CI-7's CLAUSE ALREADY EXISTED, which is this commit's claim about
+  the number, demonstrated rather than asserted.
+  hypertarget 53/53. Content checks PASS, 52 rows D-1..D-52, checks 4a-4d and
+  5 clean. ASCII sweep PASS 183/183, 11 clauses. Label sweep PASS. APPARATUS
+  CHECKS A AND B PASS -- their first use as a per-commit gate rather than at
+  their own adoption. PIN_CORPUS_IDENTITY: UNDECLARED_GROUPS 0,
+  IDENTITY_HOLDS True on both ON_DISK and TRACKED. Citation sweep red then
+  PASS, capture preserved, all three unreachable citations this commit's own
+  unstaged evidence. Census taken at the A-52-declared point (post-staging,
+  pre-commit) with the git ls-files cross-check. Verified under D-41 clause 5
+  against a pre-stated file list (results/_a53_file_list.txt).
+
+Next free: A-54, D-53, CI-11, OP-32.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

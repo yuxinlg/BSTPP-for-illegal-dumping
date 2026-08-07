@@ -1,0 +1,59 @@
+bstpp.__file__ : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+harness        : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\refactor-patches\pin_check_v2.py
+
+CONSTRUCTIBILITY OF THE PINNED CONFIGURATIONS (CI-10, CI-7)
+  question : can a rejection-at-construction make any config in
+             pin_check_v2.py fail to CONSTRUCT? (a rejection is
+             invisible to a comparison over what still builds)
+  method   : AST read of the argument actually passed at each
+             construction site, then validate_cox_background on it
+
+-- CI-10: cox_background ------------------------------------
+  line  121  Hawkes_Model   cox_background=False (bool) accepted
+  line  126  Hawkes_Model   cox_background=True (bool) accepted
+  line  131  LGCP_Model     cox_background NOT APPLICABLE (no such parameter)
+  line  149  Hawkes_Model   cox_background=False (bool) accepted
+  line  224  Hawkes_Model   cox_background=False (bool) accepted
+  line  232  Hawkes_Model   cox_background=False (bool) accepted
+
+-- CI-7: sp_var_mu (A-53) -----------------------------------
+  NOTE: sp_var_mu is accepted by BOTH model classes, so unlike
+  cox_background there is no NOT APPLICABLE row here.
+  line  121  Hawkes_Model   sp_var_mu NOT PASSED -- takes the shipped default <-- DEFAULT-DEPENDENT
+  line  126  Hawkes_Model   sp_var_mu NOT PASSED -- takes the shipped default <-- DEFAULT-DEPENDENT
+  line  131  LGCP_Model     sp_var_mu NOT PASSED -- takes the shipped default <-- DEFAULT-DEPENDENT
+  line  149  Hawkes_Model   sp_var_mu NOT PASSED -- takes the shipped default <-- DEFAULT-DEPENDENT
+  line  224  Hawkes_Model   sp_var_mu NOT PASSED -- takes the shipped default <-- DEFAULT-DEPENDENT
+  line  232  Hawkes_Model   sp_var_mu NOT PASSED -- takes the shipped default <-- DEFAULT-DEPENDENT
+
+LITERAL vs VARIABLE, split by name: 0 site(s) pass something this
+  probe cannot read statically. A ZERO here is the load-bearing
+  number, not a formality: A-50's live failure arrived through a
+  parametrised VARIABLE that no source sweep over `argument=` could
+  see, so a non-zero count would mean the AST answer is incomplete
+  and the harness would have to be RUN to settle the question.
+
+THE TWO PIN-5 LEGS, NAMED (the brief's question, answered directly)
+  hawkes_notched_4to1_polygon_mode   : cox_background=False, sp_var_mu NOT PASSED (default 2.0)
+  hawkes_notched_4to1_rectangle_mode : cox_background=False, sp_var_mu NOT PASSED (default 2.0)
+  CI-7 CANNOT make either leg unconstructible: neither passes
+  sp_var_mu, so both take the shipped default 2.0, which is a
+  `float` and passes require_config_real. THE DEFAULT DOES NOT MOVE
+  IN THIS COMMIT -- unlike CI-10, where the default's type changed --
+  so no pinned value can move for that reason either.
+  Both pass a `bool`, so CI-10 cannot reject either. The polygon
+  regime reaches the construction path and returns from it, which
+  is the precondition for the pins saying anything here at all.
+
+WHAT THIS DOES NOT SHOW. That the pins would have CAUGHT an
+  unconstructible configuration -- they would now, via A-48's
+  baseline_only=[...], and the forward run reads compared=6/6 with
+  that field EMPTY, so no configuration was lost. That is a second,
+  weaker check and it agrees with this one.
+
+NOTE 6 site(s) rely on the shipped default, whose TYPE this commit changes ('cox' -> True). Their selected
+     model is unchanged (both truthy) but they are the sites a
+     later flip of the default would move silently.
+PASS - every pinned configuration is constructible under CI-10
+CONSTRUCT_PROBE_EXIT:0
+CONSTRUCT_SHELL_EXIT:0

@@ -1,0 +1,31 @@
+RUFF_POPULATION
+  declared population : 3 file(s), named below
+  baseline            : each file's own HEAD version, linted with HEAD's pyproject.toml
+                        (so a newly added per-file ignore shows as a negative delta,
+                         not as an absence)
+
+  bstpp/main.py
+    state    : MODIFIED
+    before   : 0 {}
+    after    : 0 {}
+    delta    : none
+
+  tests/test_ci7_sp_var_mu.py
+    state    : NEW
+    baseline : NONE (new file; every finding is introduced by definition and is excluded from the delta)
+    after    : 0 {}
+
+  results/_a50_constructibility_probe.py
+    state    : MODIFIED
+    before   : 0 {}
+    after    : 0 {}
+    delta    : none
+
+  TOTALS over the declared population
+    INTRODUCED (modified files) : 0 {}
+    INHERITED  (modified files) : 0 {}
+    IN NEW FILES (no baseline)  : 0 {}
+  A new file's findings are listed separately because subtracting them against
+  an absent baseline is what made A-47's '13 against 10' look like a comparison.
+RUFF_POPULATION_EXIT:0
+RUFF_POP_SHELL_EXIT:0

@@ -1,0 +1,104 @@
+A46_EXCLUSION_DISCRIMINATION
+  repo          : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor
+  git_rev       : db55ee1
+  tracked_dirty : 28
+    M  AGENTS.md
+    M  bstpp/main.py
+    M  phase3_record.tex
+    M  refactor-patches/captures/README.md
+    A  refactor-patches/captures/a53_ci7_red.log
+    A  refactor-patches/captures/a53_citation_sweep_red.log
+    M  results/_a50_constructibility_probe.py
+    AM results/_a53_a46_exclusion.txt
+    A  results/_a53_apparatus_checks.txt
+    A  results/_a53_ascii_sweep.txt
+    A  results/_a53_ci7_green.txt
+    A  results/_a53_citation_sweep.txt
+    A  results/_a53_citation_sweep_after_staging.txt
+    A  results/_a53_commit_msg.txt
+    A  results/_a53_constructibility.txt
+    A  results/_a53_content_checks.txt
+    A  results/_a53_corpus_identity.txt
+    A  results/_a53_file_list.txt
+    A  results/_a53_hypertarget.txt
+    A  results/_a53_label_check.txt
+    A  results/_a53_pin_compare_canonical.txt
+    A  results/_a53_pin_compare_forward.txt
+    A  results/_a53_pins_candidate.json
+    A  results/_a53_pins_stderr.txt
+    A  results/_a53_pytest_fast.txt
+    A  results/_a53_pytest_slow.txt
+    A  results/_a53_ruff.txt
+    A  tests/test_ci7_sp_var_mu.py
+
+DEFINITIONS -- stated because a count without one is not a number
+  CENSUS POPULATION: the tracked files a document-census instrument
+    may search. Produced by `git ls-files -- . ':(exclude)refactor-patches/captures/'`, so the capture root is removed AT THE
+    ENUMERATION and no capture-root path is ever in the list.
+  ELIGIBLE CAPTURE FILES: the census population restricted to
+    ('.txt', '.log', '.json') -- A-42's rule that a capture is a file
+    PRODUCED BY RUNNING an instrument, never a document written
+    about one. This is the denominator C2 was read against.
+  CITATION RESOLUTION SET: what a citation resolves against. The
+    capture root is INCLUDED here on purpose; see check 4.
+
+MEASURED
+  census population (capture root excluded) : 643
+  unfiltered population (exclusion removed) : 662
+  tracked files under refactor-patches/captures/ : 19
+    refactor-patches/captures/README.md
+    refactor-patches/captures/a45_red_capture_copy.txt
+    refactor-patches/captures/a46_citation_sweep_red.log
+    refactor-patches/captures/a46_exclusion_vacuous_red.log
+    refactor-patches/captures/a47_citation_sweep_red.log
+    refactor-patches/captures/a47_corpus_identity_expiry.log
+    refactor-patches/captures/a47_corpus_identity_test_red.log
+    refactor-patches/captures/a47_fastlane_red_with_broken_exit_wrapper.log
+    refactor-patches/captures/a48_citation_sweep_red.log
+    refactor-patches/captures/a50_ascii_sweep_red.log
+    refactor-patches/captures/a50_ci10_red.log
+    refactor-patches/captures/a50_citation_sweep_red.log
+    refactor-patches/captures/a50_fastlane_red_missed_call_site.log
+    refactor-patches/captures/a51_citation_sweep_red.log
+    refactor-patches/captures/a51_content_checks_red.log
+    refactor-patches/captures/a52_citation_sweep_red.log
+    refactor-patches/captures/a52_content_checks_ordering_red.log
+    refactor-patches/captures/a53_ci7_red.log
+    refactor-patches/captures/a53_citation_sweep_red.log
+  ELIGIBLE CAPTURE FILES in census population   : 371
+  eligible capture files without the exclusion  : 389
+
+CHECK 1 -- the exclusion is not vacuous
+  files removed by the exclusion : 19
+  OK -- the two populations differ by 19
+
+CHECK 2 -- the A-45 preserved capture is inert in the census
+  refactor-patches/captures/a45_red_capture_copy.txt
+    in census population   : False  (must be False)
+    in unfiltered listing  : True  (must be True)
+    eligible-capture population with the exclusion    : 371
+    eligible-capture population without the exclusion : 389  (+18)
+
+CHECK 3 -- the fixture is byte-identical to the capture it copies
+  refactor-patches/phase3f/wp2/a45_red_capture.txt  sha256 78ffde4569456a60
+  refactor-patches/captures/a45_red_capture_copy.txt  sha256 78ffde4569456a60
+  OK -- identical
+
+CHECK 4 -- exclusion applies to what is SEARCHED, not to what a
+           citation RESOLVES against
+  refactor-patches/captures/a45_red_capture_copy.txt in citation resolution set : True  (must be True)
+  citation source documents (3), none under the capture root:
+    refactor-patches/pre-3f-stabilization/findings_ledger.md   under_capture_root=False
+    refactor-patches/pre-3f-stabilization/traceability_matrix.md   under_capture_root=False
+    phase3_record.tex   under_capture_root=False
+
+CHECK 5 -- both instrument classes derive their population here
+  OK   refactor-patches/phase3f/wp2/probe_a42_gate_capability_census.py
+  OK   results/_a25_citation_sweep.py
+
+PASS -- the capture root is excluded by construction, the exclusion is load-bearing,
+       and preserved captures remain citable.
+CENSUS_POPULATION 643
+ELIGIBLE_CAPTURE_FILES 371
+A46_EXCLUSION_EXIT:0
+A46_EXCLUSION_SHELL_EXIT:0

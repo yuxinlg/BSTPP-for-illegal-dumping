@@ -1,0 +1,60 @@
+A-53 / WP2.8 -- PRE-STATED FILE LIST (D-41 clause 5)
+
+-- production -------------------------------------------------------------
+  M  bstpp/main.py
+       `args['sp_var_mu'] = float(sp_var_mu)` -> `require_config_real(
+       'sp_var_mu', sp_var_mu)`. Import added. Docstring states the accept
+       set and WHY the type is checked rather than merely coerced.
+       NO OTHER CHANGE. No new clause is added to config.py: CI-7's canonical
+       clause already exists and is REUSED, which is what makes this the same
+       invariant at a second site rather than a second invariant.
+
+-- tests ------------------------------------------------------------------
+  A  tests/test_ci7_sp_var_mu.py            18 rows, RED at db55ee1
+
+-- instruments ------------------------------------------------------------
+  M  results/_a50_constructibility_probe.py
+       PARAMETRISED by argument name and EXTENDED to sp_var_mu, rather than
+       copied into a fresh probe. Adds the literal-vs-variable split by name.
+
+-- record and docs --------------------------------------------------------
+  M  phase3_record.tex     A-53. NO decision added (stays 52 rows, D-1..D-52).
+                           NO new CI number (next free stays CI-11).
+  M  AGENTS.md             CI-7's two enforcement sites; the paired-gain harm;
+                           the bool/isinstance boundary; next-free.
+
+-- preserved captures (D-45, under D-46's declared root) ------------------
+  A  refactor-patches/captures/a53_ci7_red.log      11 failed / 7 passed
+  A  refactor-patches/captures/a53_citation_sweep_red.log
+  M  refactor-patches/captures/README.md
+
+-- gate evidence ----------------------------------------------------------
+  A  results/_a53_ci7_green.txt              18 passed
+  A  results/_a53_pytest_fast.txt            653 passed
+  A  results/_a53_pytest_slow.txt            11 passed
+  A  results/_a53_constructibility.txt
+  A  results/_a53_pins_candidate.json        sha256 e8ade72f7947...
+  A  results/_a53_pins_stderr.txt
+  A  results/_a53_pin_compare_canonical.txt  compared=4/6 PARTIAL
+  A  results/_a53_pin_compare_forward.txt    compared=6/6 MATCH
+  A  results/_a53_corpus_identity.txt
+  A  results/_a53_hypertarget.txt            53/53
+  A  results/_a53_label_check.txt
+  A  results/_a53_content_checks.txt         52 rows, checks 4a-4d + 5 clean
+  A  results/_a53_ascii_sweep.txt            183/183
+  A  results/_a53_apparatus_checks.txt       checks A and B
+  A  results/_a53_ruff.txt                   introduced 0, inherited 0
+  A  results/_a53_a46_exclusion.txt
+  A  results/_a53_citation_sweep.txt
+  A  results/_a53_citation_sweep_after_staging.txt
+  A  results/_a53_file_list.txt              this file
+  A  results/_a53_commit_msg.txt
+
+NOT DONE, with the reason:
+  * NO second enforcement site is manufactured. `sp_var_mu` is assigned once,
+    in `Point_Process_Model.__init__`; `Hawkes_Model` and `LGCP_Model` both
+    forward **kwargs to it, and there is no mutator. Padding to CI-9's
+    two-site shape would report a site that does not exist.
+  * NO deferred import: no cycle arises, `main.py` already imports from
+    `config`.
+  * NO new canonical clause. Adding one would split CI-7's identity (D-40).

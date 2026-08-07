@@ -39,8 +39,8 @@ from .data_contracts import (validate_events, validate_covariates,
 from .preparation import (ModelData, prepare_domain, prepare_partitions,
                           attach_covariate_partitions,
                           finalize_integration_arrays, T_INTERNAL)
-from .config import (NumericalConfig, validate_cox_background,
-                     validate_standardize_cov)
+from .config import (NumericalConfig, require_config_real,
+                     validate_cox_background, validate_standardize_cov)
 from .excitation_support import (
     build_excitation_support,
     resolve_excitation_support_mode,
@@ -290,6 +290,13 @@ class Point_Process_Model:
             field. Note this is an amplitude multiplier, NOT the var_loc used in VAE
             training. A sampled amplitude (and a matching knob for the seasonal field, which
             currently has none) is planned follow-up work.
+            Must be an ``int`` or ``float`` (CI-7): ``bool`` is rejected as an
+            ``int`` subclass and ``np.float64`` accepted as a ``float``
+            subclass. The type is checked rather than merely coerced because
+            ``exp(sp_var_mu)`` is a gain PAIRED with the decoder parameters --
+            ``sp_var_mu=True`` would coerce to 1.0 and silently apply the wrong
+            amplitude, and ``'2.0'`` would coerce to the right one, which no
+            inspection of results could ever catch.
         data_contracts: str
             'reject' (default) or 'report'. Phase 3a boundary validation:
             nonfinite coordinates/covariates, out-of-horizon times,
@@ -537,7 +544,24 @@ class Point_Process_Model:
         default_priors = {}
         if 'num_cov' in args:
             default_priors["w"] = dist.Normal(jnp.zeros(args['num_cov']),jnp.ones(args["num_cov"]))
-        args['sp_var_mu'] = float(sp_var_mu)
+        # CI-7 at a second site. The bare `float()` this replaces WAS the
+        # defect D-42 names: it checks nothing and erases what the caller
+        # passed. `float(True)` is 1.0, so `sp_var_mu=True` silently became a
+        # gain of exp(1.0) against the calibrated exp(2.0) -- and exp(sp_var_mu)
+        # is a PAIRED gain, restoring the log-amplitude factored out of the
+        # spatial draws in VAE training, so an unpaired value is a different
+        # model rather than a mislabelled one. `'2.0'` is worse to find: it
+        # coerces to the right number, so no inspection of results can catch it.
+        #
+        # `require_config_real` is REUSED rather than reimplemented, and the
+        # NumericalConfigError it raises is deliberate: one invariant, one
+        # identity, one clause rendered byte-for-byte wherever detected (D-40).
+        # A ModelConfig-owned sibling raising bare ValueError would split CI-7
+        # in two. The name asserts more ownership than D-42's own scope implies
+        # -- D-42 says all five config objects inherit this policy -- and that
+        # is a naming observation, not a reason to fork the identity. The class
+        # subclasses ValueError, so no caller's except clause changes.
+        args['sp_var_mu'] = require_config_real('sp_var_mu', sp_var_mu)
         for par, prior in kwargs.items():
             if isinstance(prior,dist.Distribution):
                 default_priors[par] = prior

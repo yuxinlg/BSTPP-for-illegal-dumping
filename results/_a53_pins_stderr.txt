@@ -1,0 +1,23 @@
+PIN_CAPTURE_PROVENANCE
+  repo_under_test  : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor
+  bstpp.__file__   : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+  git_rev          : db55ee1
+  tracked_dirty    : 3
+    M bstpp/main.py
+     M phase3_record.tex
+     M results/_a50_constructibility_probe.py
+  canonical_baseline        : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\refactor-patches\baselines-2026-07\pins.json
+  canonical_baseline_sha256 : f2141fd558704057c87c8c20a3f2b9516c8815f232b6eaafc8f71baa0864e7eb
+  (this script emits no verdict; compare with refactor-patches/pin_compare.py)
+PIN5_POLYGON_PROVENANCE  (OP-24; explicit choices, not defaults)
+  domain            : notched octagon, bounds (0.0, 0.0, 4.0, 1.0), area 3.5599999999999996, aspect 4:1, NON-rectangular
+  events            : 60, RandomState(0) rejection-sampled inside the polygon
+  min_sigma         : 0.05   (real units; explicit, D-29 forbids a default)
+  max_sigma         : 0.5   (explicit)
+  panel_h_m         : 0.4   (explicit; shipped default 20.0 fails the panel ratio guard on this domain)
+  gl_order          : 16   (shipped default)
+  knots x events    : 39 x 60
+  MASS_TABLE_SHA256 : 09b055c20e5b750f6271bda8ca5d12d6362d9908fd805e5bd184416137d11fbf
+  excitation modes  : polygon AND rectangle, same domain/events/bounds
+  FORWARD BASELINE  : pin 5 certifies commits AFTER this capture. It cannot certify b98e91d or 0e78f7d, which predate it.
+PIN_CHECK_EXIT:0

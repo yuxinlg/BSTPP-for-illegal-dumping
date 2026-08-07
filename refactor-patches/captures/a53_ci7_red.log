@@ -1,0 +1,1181 @@
+FFFFFFFFF......F.F                                                       [100%]
+================================== FAILURES ===================================
+_________ test_a_non_real_sp_var_mu_is_rejected_at_construction[True] _________
+
+value = True
+
+    @pytest.mark.parametrize("value", BAD)
+    def test_a_non_real_sp_var_mu_is_rejected_at_construction(value):
+        """THE FIRING ROW. The constructor must refuse, with the CANONICAL clause.
+    
+        Matching on the clause text rather than on the exception type is
+        deliberate: ``float(None)`` already raises ``TypeError`` at the pre-change
+        tip, and a test satisfied by that would record an accident as enforcement.
+        """
+>       with pytest.raises(ValueError, match="sp_var_mu must be a real number"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests\test_ci7_sp_var_mu.py:92: Failed
+________ test_a_non_real_sp_var_mu_is_rejected_at_construction[False] _________
+
+value = False
+
+    @pytest.mark.parametrize("value", BAD)
+    def test_a_non_real_sp_var_mu_is_rejected_at_construction(value):
+        """THE FIRING ROW. The constructor must refuse, with the CANONICAL clause.
+    
+        Matching on the clause text rather than on the exception type is
+        deliberate: ``float(None)`` already raises ``TypeError`` at the pre-change
+        tip, and a test satisfied by that would record an accident as enforcement.
+        """
+>       with pytest.raises(ValueError, match="sp_var_mu must be a real number"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests\test_ci7_sp_var_mu.py:92: Failed
+_________ test_a_non_real_sp_var_mu_is_rejected_at_construction[2.0] __________
+
+value = '2.0'
+
+    @pytest.mark.parametrize("value", BAD)
+    def test_a_non_real_sp_var_mu_is_rejected_at_construction(value):
+        """THE FIRING ROW. The constructor must refuse, with the CANONICAL clause.
+    
+        Matching on the clause text rather than on the exception type is
+        deliberate: ``float(None)`` already raises ``TypeError`` at the pre-change
+        tip, and a test satisfied by that would record an accident as enforcement.
+        """
+>       with pytest.raises(ValueError, match="sp_var_mu must be a real number"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests\test_ci7_sp_var_mu.py:92: Failed
+_______ test_a_non_real_sp_var_mu_is_rejected_at_construction[nonsense] _______
+
+value = 'nonsense'
+
+    @pytest.mark.parametrize("value", BAD)
+    def test_a_non_real_sp_var_mu_is_rejected_at_construction(value):
+        """THE FIRING ROW. The constructor must refuse, with the CANONICAL clause.
+    
+        Matching on the clause text rather than on the exception type is
+        deliberate: ``float(None)`` already raises ``TypeError`` at the pre-change
+        tip, and a test satisfied by that would record an accident as enforcement.
+        """
+>       with pytest.raises(ValueError, match="sp_var_mu must be a real number"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'sp_var_mu must be a real number'
+E         Actual message: "could not convert string to float: 'nonsense'"
+
+tests\test_ci7_sp_var_mu.py:92: AssertionError
+_________ test_a_non_real_sp_var_mu_is_rejected_at_construction[None] _________
+
+value = None
+
+    @pytest.mark.parametrize("value", BAD)
+    def test_a_non_real_sp_var_mu_is_rejected_at_construction(value):
+        """THE FIRING ROW. The constructor must refuse, with the CANONICAL clause.
+    
+        Matching on the clause text rather than on the exception type is
+        deliberate: ``float(None)`` already raises ``TypeError`` at the pre-change
+        tip, and a test satisfied by that would record an accident as enforcement.
+        """
+        with pytest.raises(ValueError, match="sp_var_mu must be a real number"):
+>           _build(sp_var_mu=value)
+
+tests\test_ci7_sp_var_mu.py:93: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_ci7_sp_var_mu.py:81: in _build
+    return Hawkes_Model(_data(), A, T_DAYS, cox_background=False, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+bstpp\main.py:2034: in __init__
+    super().__init__(name, data, A, T, **kwargs)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <bstpp.main.Hawkes_Model object at 0x000002DD3E6FCF80>, model = 'hawkes'
+data =            X         Y           T
+0   0.249794  0.296678    1.325150
+1   0.833659  0.422812    1.438414
+2   0.236047 ...52  159.894383
+12  0.447178  0.917537  173.355651
+13  0.192479  0.914204  183.704424
+14  0.841943  0.219573  196.153632
+A = array([[0., 1.],
+       [0., 1.]]), T = 200.0, offset_seasonal = 0
+spatial_cov = None, cov_names = None, cov_grid_size = None
+spatial_cov_crs = None, standardize_cov = None, sp_var_mu = None
+data_contracts = 'reject'
+kwargs = {'a_0': <numpyro.distributions.continuous.Normal object at 0x000002DD178323F0>, 'alpha': <numpyro.distributions.contin... object at 0x000002DD3D50CA10>, 'sigmax_2': <numpyro.distributions.continuous.HalfNormal object at 0x000002DD3D50C860>}
+
+    def __init__(self,model,data,A,T,offset_seasonal=0,spatial_cov=None,cov_names=None,
+                 cov_grid_size=None,spatial_cov_crs=None,standardize_cov=None,sp_var_mu=2.0,
+                 data_contracts='reject',**kwargs):
+        """
+        Spatiotemporal Point Process Model.
+        The data is rescaled to fit in a 1x1 spatial grid and a lenght 50 time window. Posterior samples must be interpreted with this in mind.
+    
+        Parameters
+        ----------
+        model: str
+            one of ['cox_hawkes','lgcp','hawkes'].
+        data: str or pd.DataFrame
+            either file path or DataFrame containing spatiotemporal data. Required
+            columns are 'X', 'Y', 'T'. The seasonal coordinate 'A' (day-of-year) is
+            NOT required: it is derived as (T + offset_seasonal) mod S. If an 'A'
+            column is supplied it is validated for consistency with 'T' (to within
+            1 day) and a ValueError is raised on mismatch, rather than trusted.
+        A: np.array [2x2], GeoDataFram
+            Spatial region of interest. If np.array first row is the x-range, second row is y-range.
+        T: float
+            Maximum time in region of interest. Time is assumed to spart at 0.
+        offset_seasonal: float
+            Day-of-year corresponding to T=0, used to derive the seasonal coordinate
+            A = (T_days + offset_seasonal) mod S. Defaults to 0.
+        spatial_cov: str,pd.DataFrame,gpd.GeoDataFrame
+            Either file path (.csv or .shp), DataFrame, or GeoDataFrame containing spatial covariates.
+            Spatial covariates must cover all the points in data.
+            If spatial_cov is a csv or pd.DataFrame, the first 2 columns must be 'X', 'Y' and cov_grid_size must be specified.
+        cov_names: list
+            List of covariate names. Must all be columns in spatial_cov.
+        cov_grid_size: list-like
+            Spatial covariate grid (width, height).
+        spatial_cov_crs: CRS-like, optional
+            Declared CRS of CSV/plain-DataFrame covariate coordinates (parsed by
+            ``CRS.from_user_input``). Required when those tabular covariates are
+            paired with a CRS-bearing domain; must match the domain CRS.
+            GeoDataFrame covariates are self-describing and do not use this
+            argument. Array domains (no CRS) do not require it.
+        standardize_cov: None or str
+            None (default): covariate values preserved exactly as supplied.
+            ``'domain_area'``: area-weighted standardization with the exact
+            clipped |C_c \u2229 A| areas as weights (D-11); cells with no domain
+            mass do not influence mean/scale. Legacy booleans are rejected
+            explicitly (OP-3/OP-4 settled pre-3f). Whichever method runs is
+            reported on self.standardization (D-10):
+            {'method', 'columns', 'mean', 'scale'}, with
+            X = standardized * scale + mean.
+        sp_var_mu: float
+            Fixed log-amplitude multiplier applied to the spatial VAE decoder output.
+            Calibrate as sp_var_mu = 0.5*log(sigma2_target / E[f^2]_decoder), where
+            E[f^2]_decoder is the empirical second moment of decoder outputs under z~N(0,I)
+            and sigma2_target is the intended marginal variance of the spatial log-intensity
+            field. Note this is an amplitude multiplier, NOT the var_loc used in VAE
+            training. A sampled amplitude (and a matching knob for the seasonal field, which
+            currently has none) is planned follow-up work.
+        data_contracts: str
+            'reject' (default) or 'report'. Phase 3a boundary validation:
+            nonfinite coordinates/covariates, out-of-horizon times,
+            out-of-domain events (polygon boundary is inside, D-4), invalid
+            geometry, and CRS mismatches are collected into
+            self.data_contract_report. 'reject' raises DataContractError
+            listing every offending row; 'report' warns and leaves legacy
+            behavior bit-unchanged (the section-14 dry-run instrument).
+            Default flipped report -> reject on reviewer sign-off of the
+            committed dry run (2026-07-20); see
+            refactor-patches/phase3a/rebaseline_record.md.
+        priors: dict
+            priors for parameters (a_0,w,alpha,beta,sigmax_2). Must be a numpyro distribution.
+        """
+        if type(data) is str:
+            data = pd.read_csv(data)
+        # Ownership: retain owned copies of caller-supplied mutable inputs.
+        data = data.copy()
+        self.data = data
+    
+        # Phase 3a data contracts: validate the raw events and domain BEFORE
+        # any grid construction, so reject mode fails with the actual defect
+        # rather than a downstream sjoin symptom. Report mode only warns:
+        # every numerical code path below is bit-unchanged.
+        self._data_contracts_mode = data_contracts
+        self.data_contract_report = enforce(
+            validate_events(data, A, T), len(data), data_contracts)
+    
+        # CI-9: the enumerated value is validated HERE, unconditionally, before
+        # anything is reported -- not in the covariate leg, which runs only when
+        # spatial_cov is supplied. Without this a rejected value constructs and
+        # then reports the well-formed 'none' record below, which is
+        # indistinguishable from a legitimate standardize_cov=None.
+        validate_standardize_cov(standardize_cov)
+    
+        # D-10: always report whether/how covariates were standardized;
+        # overwritten by the covariate leg when covariates are supplied.
+        self.standardization = {'method': 'none', 'columns': [],
+                                'mean': None, 'scale': None}
+    
+        # Phase 3b seam: owned copies of events/domain (prepare_domain also
+        # copies); covariate_source stays the raw handle for load-error
+        # ordering until the covariate leg normalizes and copies.
+        if type(A) is gpd.GeoDataFrame:
+            domain_owned = A.copy(deep=True)
+        else:
+            domain_owned = np.array(A, dtype=float, copy=True)
+        self.model_data = ModelData(
+            events=data.copy(), domain=domain_owned, horizon_days=T,
+            offset_seasonal=offset_seasonal, covariate_source=spatial_cov,
+            cov_names=cov_names, cov_grid_size=cov_grid_size)
+    
+        args={}
+        args['T']=50
+        args['S']=24 #24
+        # Spatial grid is 1x1
+        args['t_min']=0
+        args['x_min']=0
+        args['x_max']=1
+        args['y_min']=0
+        args['y_max']=1
+        args['model']=model
+    
+        args['offset_seasonal'] = offset_seasonal
+    
+        # Phase 3b seam: domain geometry, bounding rectangle, unit scales and
+        # the geographic-CRS contract warning live in prepare_domain; args
+        # entries below are the legacy adapter view of the same objects.
+        self.prepared_domain = prepare_domain(A)
+        A_ = self.prepared_domain.bounds
+        args['A_area'] = self.prepared_domain.area_ratio
+        args['A_'] = A_
+        args['axis_scales'] = self.prepared_domain.axis_scales
+    
+        # Phase 3b seam: temporal/seasonal/spatial partitions, comp_grid,
+        # in-domain cells, season_idx_of_t and the exact overlap matrix W
+        # live in prepare_partitions (verbatim extraction); args entries are
+        # the legacy adapter view of the same objects.
+        parts = prepare_partitions(self.prepared_domain, T, offset_seasonal)
+        self.prepared_partitions = parts
+        self.S = 365
+        args["n_t"] = parts.n_t
+        args["x_t"] = parts.x_t
+        args["n_s"] = parts.n_s
+        args["x_a"] = parts.x_a
+        args["n_xy"] = parts.n_xy
+        args['spatial_grid_cells'] = parts.spatial_grid_cells
+        args['season_idx_of_t'] = parts.season_idx_of_t
+        args['season_overlap'] = parts.season_overlap
+        comp_grid = parts.comp_grid
+        self.comp_grid = comp_grid
+        # Polygon plotting domain is the owned PreparedDomain.domain copy.
+        self.A = (self.prepared_domain.domain
+                  if self.prepared_domain.is_polygon else comp_grid)
+        self.T = T
+    
+        args,points = self._scale_xyt(data,args,parts.support_cells)
+        self.points = points
+    
+        if args['model'] in ['lgcp','cox_hawkes']:
+            args["gp_kernel"]=exp_sq_kernel
+    
+            # temporal VAE training arguments
+            args["hidden_dim_temporal"]= 35
+            args["z_dim_temporal"]= 11
+    
+            # seasonal VAE training arguments
+            args["hidden_dim1_seasonal"]= 24 #75 #35
+            args["hidden_dim2_seasonal"]= 12 #50 #30
+            args["z_dim_seasonal"]= 8 #20 #50 #10 11
+    
+            # spatial VAE training arguments
+            args["hidden_dim1_spatial"]= 75
+            args["hidden_dim2_spatial"]= 50
+            args["z_dim_spatial"]=20
+    
+            decoder_params = _load_decoder("decoder_1d_T50_fixed_ls")
+            args["decoder_params_temporal"] = decoder_params
+    
+            # load decoder for seasonal
+            decoder_params = _load_decoder("decoder_1d_T24_circ_small_l8")
+            args["decoder_params_seasonal"] = decoder_params
+    
+            #Load 2d spatial trained decoder
+            decoder_params = _load_decoder("2d_decoder_15_5_large.pkl")
+            args["decoder_params_spatial"] = decoder_params
+    
+        if spatial_cov is not None:
+            #convert input into geopandas dataframe.
+            if type(spatial_cov) is str:
+                if spatial_cov[-4:] == '.zip' or spatial_cov[-4:] == '.shp':
+                    spatial_cov = gpd.read_file(spatial_cov)
+                else:
+                    spatial_cov = pd.read_csv(spatial_cov)
+            # exact-type check is intentional: GeoDataFrame subclasses DataFrame and must NOT
+            # take this branch (it already carries geometry); isinstance would misroute it.
+            if type(spatial_cov) is pd.DataFrame:
+                polygons = []
+                for i in spatial_cov.index:
+                    polygons.append(Polygon([(spatial_cov.loc[i,'X']-cov_grid_size[0]/2,
+                                              spatial_cov.loc[i,'Y']-cov_grid_size[1]/2),
+                                             (spatial_cov.loc[i,'X']+cov_grid_size[0]/2,
+                                              spatial_cov.loc[i,'Y']-cov_grid_size[1]/2),
+                                             (spatial_cov.loc[i,'X']+cov_grid_size[0]/2,
+                                              spatial_cov.loc[i,'Y']+cov_grid_size[1]/2),
+                                             (spatial_cov.loc[i,'X']-cov_grid_size[0]/2,
+                                              spatial_cov.loc[i,'Y']+cov_grid_size[1]/2)]))
+                spatial_cov = gpd.GeoDataFrame(data=spatial_cov,geometry=polygons)
+                # Tabular X/Y have no self-describing CRS. When the domain
+                # declares a CRS, require an explicit spatial_cov_crs and
+                # assign THAT value before validation -- never infer by
+                # copying the domain CRS.
+                domain_crs = self.prepared_domain.crs
+                if domain_crs is not None:
+                    if spatial_cov_crs is None:
+                        raise ValueError(
+                            "spatial_cov_crs is required when CSV/plain-"
+                            "DataFrame covariates are used with a CRS-"
+                            "bearing domain; declare the CRS of the "
+                            "tabular X/Y coordinates (e.g. "
+                            "spatial_cov_crs='EPSG:26918').")
+                    from pyproj.crs import CRS
+                    spatial_cov = spatial_cov.set_crs(
+                        CRS.from_user_input(spatial_cov_crs))
+                elif spatial_cov_crs is not None:
+                    from pyproj.crs import CRS
+                    spatial_cov = spatial_cov.set_crs(
+                        CRS.from_user_input(spatial_cov_crs))
+    
+            # Phase 3a data contracts, covariate leg: validated on the
+            # normalized GeoDataFrame, before the legacy membership sjoin, so
+            # reject mode names the defect instead of the sjoin symptom.
+            # Phase 3c coverage contract (IV; D-7): the layer must cover A
+            # exactly once -- gaps and positive-area overlaps are violations
+            # with the actual offending geometries exported on the report.
+            _pts_xy = np.column_stack((
+                pd.to_numeric(data['X'], errors='coerce').to_numpy(dtype=float),
+                pd.to_numeric(data['Y'], errors='coerce').to_numpy(dtype=float)))
+            self.data_contract_report.checks.extend(enforce(
+                validate_covariates(spatial_cov, cov_names, A, points_xy=_pts_xy)
+                + validate_covariate_coverage(spatial_cov, A),
+                len(data), data_contracts).checks)
+    
+            # Ownership: copy before attaching cov_ind / membership so the
+            # caller's frame is never mutated or retained.
+            spatial_cov = spatial_cov.copy(deep=True)
+            spatial_cov['cov_ind'] = np.arange(len(spatial_cov))
+            # Align points CRS for the covariate sjoin without the deprecated
+            # attribute override (GeoDataFrame.crs = ...). Points already carry
+            # the domain CRS from _scale_xyt when the domain declares one;
+            # validate_covariates has already required CRS equality, so a
+            # matching CRS needs no write. Only set when points are CRS-less.
+            if self.points.crs is None and spatial_cov.crs is not None:
+                self.points = self.points.set_crs(spatial_cov.crs)
+            # D-22 unique membership, covariate leg: an event exactly on a
+            # shared covariate-polygon edge joins every incident polygon;
+            # ties resolve deterministically to the LARGEST cov_ind,
+            # mirroring the field grid's max-comp_grid_id rule (identical to
+            # left-closed on row-major raster-like layers; for arbitrary
+            # polygon layers it is a documented deterministic convention,
+            # not a geometric statement). Unique joins are bit-unchanged.
+            args['cov_ind'] = (self.points.sjoin(spatial_cov)
+                               .groupby('point_id')['cov_ind'].max()
+                               .sort_index().values)
+            if len(args['cov_ind']) != len(self.points):
+                raise Exception("Spatial covariates are not defined for all data points!")
+    
+            args['num_cov'] = len(cov_names)
+            self.cov_names = cov_names
+    
+            # Phase 3b seam: covariate partition products (design matrix,
+            # common refinement with exact intersection areas, in-domain
+            # cell override / covariate areas) live on PreparedPartitions;
+            # args entries below are the legacy adapter view. Event
+            # membership (cov_ind above) stays event-side by design.
+            # attach_covariate_partitions copies spatial_cov into
+            # parts.cov_gdf; self.spatial_cov uses that owned frame.
+            attach_covariate_partitions(parts, self.prepared_domain,
+                                        spatial_cov, cov_names,
+                                        standardize_cov, args['model'])
+            self.spatial_cov = parts.cov_gdf
+            # D-10 (3c API): the model always reports whether/how it
+            # standardized -- method 'none' | 'domain_area' with
+            # invertible mean/scale (X = standardized * scale + mean).
+            # Legacy method name 'count' is not implemented.
+            self.standardization = parts.standardization
+            args['spatial_cov'] = parts.cov_values
+            if args['model'] in ['lgcp','cox_hawkes']:
+                args['int_df'] = parts.int_df
+                args['spatial_grid_cells'] = parts.spatial_grid_cells
+            else:
+                args['cov_area'] = parts.cov_area
+    
+        # Integration arrays for the pure spatial_refinement_integral atom
+        # (eq. 24): plain NumPy arrays only, derived once on the seam object,
+        # so no pandas / GeoPandas object is ever read inside traced
+        # likelihood code.
+        finalize_integration_arrays(parts, args['model'])
+        if args['model'] in ['lgcp', 'cox_hawkes']:
+            args['integration_field_indices'] = parts.integration_field_indices
+            args['integration_cov_indices'] = parts.integration_cov_indices
+            args['integration_areas'] = parts.integration_areas
+    
+        #Set up parameter priors
+        default_priors = {}
+        if 'num_cov' in args:
+            default_priors["w"] = dist.Normal(jnp.zeros(args['num_cov']),jnp.ones(args["num_cov"]))
+>       args['sp_var_mu'] = float(sp_var_mu)
+                            ^^^^^^^^^^^^^^^^
+E       TypeError: float() argument must be a string or a real number, not 'NoneType'
+
+bstpp\main.py:540: TypeError
+________ test_a_non_real_sp_var_mu_is_rejected_at_construction[value5] ________
+
+value = []
+
+    @pytest.mark.parametrize("value", BAD)
+    def test_a_non_real_sp_var_mu_is_rejected_at_construction(value):
+        """THE FIRING ROW. The constructor must refuse, with the CANONICAL clause.
+    
+        Matching on the clause text rather than on the exception type is
+        deliberate: ``float(None)`` already raises ``TypeError`` at the pre-change
+        tip, and a test satisfied by that would record an accident as enforcement.
+        """
+        with pytest.raises(ValueError, match="sp_var_mu must be a real number"):
+>           _build(sp_var_mu=value)
+
+tests\test_ci7_sp_var_mu.py:93: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_ci7_sp_var_mu.py:81: in _build
+    return Hawkes_Model(_data(), A, T_DAYS, cox_background=False, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+bstpp\main.py:2034: in __init__
+    super().__init__(name, data, A, T, **kwargs)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <bstpp.main.Hawkes_Model object at 0x000002DD3D5965A0>, model = 'hawkes'
+data =            X         Y           T
+0   0.249794  0.296678    1.325150
+1   0.833659  0.422812    1.438414
+2   0.236047 ...52  159.894383
+12  0.447178  0.917537  173.355651
+13  0.192479  0.914204  183.704424
+14  0.841943  0.219573  196.153632
+A = array([[0., 1.],
+       [0., 1.]]), T = 200.0, offset_seasonal = 0
+spatial_cov = None, cov_names = None, cov_grid_size = None
+spatial_cov_crs = None, standardize_cov = None, sp_var_mu = []
+data_contracts = 'reject'
+kwargs = {'a_0': <numpyro.distributions.continuous.Normal object at 0x000002DD178323F0>, 'alpha': <numpyro.distributions.contin... object at 0x000002DD3D50CA10>, 'sigmax_2': <numpyro.distributions.continuous.HalfNormal object at 0x000002DD3D50C860>}
+
+    def __init__(self,model,data,A,T,offset_seasonal=0,spatial_cov=None,cov_names=None,
+                 cov_grid_size=None,spatial_cov_crs=None,standardize_cov=None,sp_var_mu=2.0,
+                 data_contracts='reject',**kwargs):
+        """
+        Spatiotemporal Point Process Model.
+        The data is rescaled to fit in a 1x1 spatial grid and a lenght 50 time window. Posterior samples must be interpreted with this in mind.
+    
+        Parameters
+        ----------
+        model: str
+            one of ['cox_hawkes','lgcp','hawkes'].
+        data: str or pd.DataFrame
+            either file path or DataFrame containing spatiotemporal data. Required
+            columns are 'X', 'Y', 'T'. The seasonal coordinate 'A' (day-of-year) is
+            NOT required: it is derived as (T + offset_seasonal) mod S. If an 'A'
+            column is supplied it is validated for consistency with 'T' (to within
+            1 day) and a ValueError is raised on mismatch, rather than trusted.
+        A: np.array [2x2], GeoDataFram
+            Spatial region of interest. If np.array first row is the x-range, second row is y-range.
+        T: float
+            Maximum time in region of interest. Time is assumed to spart at 0.
+        offset_seasonal: float
+            Day-of-year corresponding to T=0, used to derive the seasonal coordinate
+            A = (T_days + offset_seasonal) mod S. Defaults to 0.
+        spatial_cov: str,pd.DataFrame,gpd.GeoDataFrame
+            Either file path (.csv or .shp), DataFrame, or GeoDataFrame containing spatial covariates.
+            Spatial covariates must cover all the points in data.
+            If spatial_cov is a csv or pd.DataFrame, the first 2 columns must be 'X', 'Y' and cov_grid_size must be specified.
+        cov_names: list
+            List of covariate names. Must all be columns in spatial_cov.
+        cov_grid_size: list-like
+            Spatial covariate grid (width, height).
+        spatial_cov_crs: CRS-like, optional
+            Declared CRS of CSV/plain-DataFrame covariate coordinates (parsed by
+            ``CRS.from_user_input``). Required when those tabular covariates are
+            paired with a CRS-bearing domain; must match the domain CRS.
+            GeoDataFrame covariates are self-describing and do not use this
+            argument. Array domains (no CRS) do not require it.
+        standardize_cov: None or str
+            None (default): covariate values preserved exactly as supplied.
+            ``'domain_area'``: area-weighted standardization with the exact
+            clipped |C_c \u2229 A| areas as weights (D-11); cells with no domain
+            mass do not influence mean/scale. Legacy booleans are rejected
+            explicitly (OP-3/OP-4 settled pre-3f). Whichever method runs is
+            reported on self.standardization (D-10):
+            {'method', 'columns', 'mean', 'scale'}, with
+            X = standardized * scale + mean.
+        sp_var_mu: float
+            Fixed log-amplitude multiplier applied to the spatial VAE decoder output.
+            Calibrate as sp_var_mu = 0.5*log(sigma2_target / E[f^2]_decoder), where
+            E[f^2]_decoder is the empirical second moment of decoder outputs under z~N(0,I)
+            and sigma2_target is the intended marginal variance of the spatial log-intensity
+            field. Note this is an amplitude multiplier, NOT the var_loc used in VAE
+            training. A sampled amplitude (and a matching knob for the seasonal field, which
+            currently has none) is planned follow-up work.
+        data_contracts: str
+            'reject' (default) or 'report'. Phase 3a boundary validation:
+            nonfinite coordinates/covariates, out-of-horizon times,
+            out-of-domain events (polygon boundary is inside, D-4), invalid
+            geometry, and CRS mismatches are collected into
+            self.data_contract_report. 'reject' raises DataContractError
+            listing every offending row; 'report' warns and leaves legacy
+            behavior bit-unchanged (the section-14 dry-run instrument).
+            Default flipped report -> reject on reviewer sign-off of the
+            committed dry run (2026-07-20); see
+            refactor-patches/phase3a/rebaseline_record.md.
+        priors: dict
+            priors for parameters (a_0,w,alpha,beta,sigmax_2). Must be a numpyro distribution.
+        """
+        if type(data) is str:
+            data = pd.read_csv(data)
+        # Ownership: retain owned copies of caller-supplied mutable inputs.
+        data = data.copy()
+        self.data = data
+    
+        # Phase 3a data contracts: validate the raw events and domain BEFORE
+        # any grid construction, so reject mode fails with the actual defect
+        # rather than a downstream sjoin symptom. Report mode only warns:
+        # every numerical code path below is bit-unchanged.
+        self._data_contracts_mode = data_contracts
+        self.data_contract_report = enforce(
+            validate_events(data, A, T), len(data), data_contracts)
+    
+        # CI-9: the enumerated value is validated HERE, unconditionally, before
+        # anything is reported -- not in the covariate leg, which runs only when
+        # spatial_cov is supplied. Without this a rejected value constructs and
+        # then reports the well-formed 'none' record below, which is
+        # indistinguishable from a legitimate standardize_cov=None.
+        validate_standardize_cov(standardize_cov)
+    
+        # D-10: always report whether/how covariates were standardized;
+        # overwritten by the covariate leg when covariates are supplied.
+        self.standardization = {'method': 'none', 'columns': [],
+                                'mean': None, 'scale': None}
+    
+        # Phase 3b seam: owned copies of events/domain (prepare_domain also
+        # copies); covariate_source stays the raw handle for load-error
+        # ordering until the covariate leg normalizes and copies.
+        if type(A) is gpd.GeoDataFrame:
+            domain_owned = A.copy(deep=True)
+        else:
+            domain_owned = np.array(A, dtype=float, copy=True)
+        self.model_data = ModelData(
+            events=data.copy(), domain=domain_owned, horizon_days=T,
+            offset_seasonal=offset_seasonal, covariate_source=spatial_cov,
+            cov_names=cov_names, cov_grid_size=cov_grid_size)
+    
+        args={}
+        args['T']=50
+        args['S']=24 #24
+        # Spatial grid is 1x1
+        args['t_min']=0
+        args['x_min']=0
+        args['x_max']=1
+        args['y_min']=0
+        args['y_max']=1
+        args['model']=model
+    
+        args['offset_seasonal'] = offset_seasonal
+    
+        # Phase 3b seam: domain geometry, bounding rectangle, unit scales and
+        # the geographic-CRS contract warning live in prepare_domain; args
+        # entries below are the legacy adapter view of the same objects.
+        self.prepared_domain = prepare_domain(A)
+        A_ = self.prepared_domain.bounds
+        args['A_area'] = self.prepared_domain.area_ratio
+        args['A_'] = A_
+        args['axis_scales'] = self.prepared_domain.axis_scales
+    
+        # Phase 3b seam: temporal/seasonal/spatial partitions, comp_grid,
+        # in-domain cells, season_idx_of_t and the exact overlap matrix W
+        # live in prepare_partitions (verbatim extraction); args entries are
+        # the legacy adapter view of the same objects.
+        parts = prepare_partitions(self.prepared_domain, T, offset_seasonal)
+        self.prepared_partitions = parts
+        self.S = 365
+        args["n_t"] = parts.n_t
+        args["x_t"] = parts.x_t
+        args["n_s"] = parts.n_s
+        args["x_a"] = parts.x_a
+        args["n_xy"] = parts.n_xy
+        args['spatial_grid_cells'] = parts.spatial_grid_cells
+        args['season_idx_of_t'] = parts.season_idx_of_t
+        args['season_overlap'] = parts.season_overlap
+        comp_grid = parts.comp_grid
+        self.comp_grid = comp_grid
+        # Polygon plotting domain is the owned PreparedDomain.domain copy.
+        self.A = (self.prepared_domain.domain
+                  if self.prepared_domain.is_polygon else comp_grid)
+        self.T = T
+    
+        args,points = self._scale_xyt(data,args,parts.support_cells)
+        self.points = points
+    
+        if args['model'] in ['lgcp','cox_hawkes']:
+            args["gp_kernel"]=exp_sq_kernel
+    
+            # temporal VAE training arguments
+            args["hidden_dim_temporal"]= 35
+            args["z_dim_temporal"]= 11
+    
+            # seasonal VAE training arguments
+            args["hidden_dim1_seasonal"]= 24 #75 #35
+            args["hidden_dim2_seasonal"]= 12 #50 #30
+            args["z_dim_seasonal"]= 8 #20 #50 #10 11
+    
+            # spatial VAE training arguments
+            args["hidden_dim1_spatial"]= 75
+            args["hidden_dim2_spatial"]= 50
+            args["z_dim_spatial"]=20
+    
+            decoder_params = _load_decoder("decoder_1d_T50_fixed_ls")
+            args["decoder_params_temporal"] = decoder_params
+    
+            # load decoder for seasonal
+            decoder_params = _load_decoder("decoder_1d_T24_circ_small_l8")
+            args["decoder_params_seasonal"] = decoder_params
+    
+            #Load 2d spatial trained decoder
+            decoder_params = _load_decoder("2d_decoder_15_5_large.pkl")
+            args["decoder_params_spatial"] = decoder_params
+    
+        if spatial_cov is not None:
+            #convert input into geopandas dataframe.
+            if type(spatial_cov) is str:
+                if spatial_cov[-4:] == '.zip' or spatial_cov[-4:] == '.shp':
+                    spatial_cov = gpd.read_file(spatial_cov)
+                else:
+                    spatial_cov = pd.read_csv(spatial_cov)
+            # exact-type check is intentional: GeoDataFrame subclasses DataFrame and must NOT
+            # take this branch (it already carries geometry); isinstance would misroute it.
+            if type(spatial_cov) is pd.DataFrame:
+                polygons = []
+                for i in spatial_cov.index:
+                    polygons.append(Polygon([(spatial_cov.loc[i,'X']-cov_grid_size[0]/2,
+                                              spatial_cov.loc[i,'Y']-cov_grid_size[1]/2),
+                                             (spatial_cov.loc[i,'X']+cov_grid_size[0]/2,
+                                              spatial_cov.loc[i,'Y']-cov_grid_size[1]/2),
+                                             (spatial_cov.loc[i,'X']+cov_grid_size[0]/2,
+                                              spatial_cov.loc[i,'Y']+cov_grid_size[1]/2),
+                                             (spatial_cov.loc[i,'X']-cov_grid_size[0]/2,
+                                              spatial_cov.loc[i,'Y']+cov_grid_size[1]/2)]))
+                spatial_cov = gpd.GeoDataFrame(data=spatial_cov,geometry=polygons)
+                # Tabular X/Y have no self-describing CRS. When the domain
+                # declares a CRS, require an explicit spatial_cov_crs and
+                # assign THAT value before validation -- never infer by
+                # copying the domain CRS.
+                domain_crs = self.prepared_domain.crs
+                if domain_crs is not None:
+                    if spatial_cov_crs is None:
+                        raise ValueError(
+                            "spatial_cov_crs is required when CSV/plain-"
+                            "DataFrame covariates are used with a CRS-"
+                            "bearing domain; declare the CRS of the "
+                            "tabular X/Y coordinates (e.g. "
+                            "spatial_cov_crs='EPSG:26918').")
+                    from pyproj.crs import CRS
+                    spatial_cov = spatial_cov.set_crs(
+                        CRS.from_user_input(spatial_cov_crs))
+                elif spatial_cov_crs is not None:
+                    from pyproj.crs import CRS
+                    spatial_cov = spatial_cov.set_crs(
+                        CRS.from_user_input(spatial_cov_crs))
+    
+            # Phase 3a data contracts, covariate leg: validated on the
+            # normalized GeoDataFrame, before the legacy membership sjoin, so
+            # reject mode names the defect instead of the sjoin symptom.
+            # Phase 3c coverage contract (IV; D-7): the layer must cover A
+            # exactly once -- gaps and positive-area overlaps are violations
+            # with the actual offending geometries exported on the report.
+            _pts_xy = np.column_stack((
+                pd.to_numeric(data['X'], errors='coerce').to_numpy(dtype=float),
+                pd.to_numeric(data['Y'], errors='coerce').to_numpy(dtype=float)))
+            self.data_contract_report.checks.extend(enforce(
+                validate_covariates(spatial_cov, cov_names, A, points_xy=_pts_xy)
+                + validate_covariate_coverage(spatial_cov, A),
+                len(data), data_contracts).checks)
+    
+            # Ownership: copy before attaching cov_ind / membership so the
+            # caller's frame is never mutated or retained.
+            spatial_cov = spatial_cov.copy(deep=True)
+            spatial_cov['cov_ind'] = np.arange(len(spatial_cov))
+            # Align points CRS for the covariate sjoin without the deprecated
+            # attribute override (GeoDataFrame.crs = ...). Points already carry
+            # the domain CRS from _scale_xyt when the domain declares one;
+            # validate_covariates has already required CRS equality, so a
+            # matching CRS needs no write. Only set when points are CRS-less.
+            if self.points.crs is None and spatial_cov.crs is not None:
+                self.points = self.points.set_crs(spatial_cov.crs)
+            # D-22 unique membership, covariate leg: an event exactly on a
+            # shared covariate-polygon edge joins every incident polygon;
+            # ties resolve deterministically to the LARGEST cov_ind,
+            # mirroring the field grid's max-comp_grid_id rule (identical to
+            # left-closed on row-major raster-like layers; for arbitrary
+            # polygon layers it is a documented deterministic convention,
+            # not a geometric statement). Unique joins are bit-unchanged.
+            args['cov_ind'] = (self.points.sjoin(spatial_cov)
+                               .groupby('point_id')['cov_ind'].max()
+                               .sort_index().values)
+            if len(args['cov_ind']) != len(self.points):
+                raise Exception("Spatial covariates are not defined for all data points!")
+    
+            args['num_cov'] = len(cov_names)
+            self.cov_names = cov_names
+    
+            # Phase 3b seam: covariate partition products (design matrix,
+            # common refinement with exact intersection areas, in-domain
+            # cell override / covariate areas) live on PreparedPartitions;
+            # args entries below are the legacy adapter view. Event
+            # membership (cov_ind above) stays event-side by design.
+            # attach_covariate_partitions copies spatial_cov into
+            # parts.cov_gdf; self.spatial_cov uses that owned frame.
+            attach_covariate_partitions(parts, self.prepared_domain,
+                                        spatial_cov, cov_names,
+                                        standardize_cov, args['model'])
+            self.spatial_cov = parts.cov_gdf
+            # D-10 (3c API): the model always reports whether/how it
+            # standardized -- method 'none' | 'domain_area' with
+            # invertible mean/scale (X = standardized * scale + mean).
+            # Legacy method name 'count' is not implemented.
+            self.standardization = parts.standardization
+            args['spatial_cov'] = parts.cov_values
+            if args['model'] in ['lgcp','cox_hawkes']:
+                args['int_df'] = parts.int_df
+                args['spatial_grid_cells'] = parts.spatial_grid_cells
+            else:
+                args['cov_area'] = parts.cov_area
+    
+        # Integration arrays for the pure spatial_refinement_integral atom
+        # (eq. 24): plain NumPy arrays only, derived once on the seam object,
+        # so no pandas / GeoPandas object is ever read inside traced
+        # likelihood code.
+        finalize_integration_arrays(parts, args['model'])
+        if args['model'] in ['lgcp', 'cox_hawkes']:
+            args['integration_field_indices'] = parts.integration_field_indices
+            args['integration_cov_indices'] = parts.integration_cov_indices
+            args['integration_areas'] = parts.integration_areas
+    
+        #Set up parameter priors
+        default_priors = {}
+        if 'num_cov' in args:
+            default_priors["w"] = dist.Normal(jnp.zeros(args['num_cov']),jnp.ones(args["num_cov"]))
+>       args['sp_var_mu'] = float(sp_var_mu)
+                            ^^^^^^^^^^^^^^^^
+E       TypeError: float() argument must be a string or a real number, not 'list'
+
+bstpp\main.py:540: TypeError
+________ test_a_non_real_sp_var_mu_is_rejected_at_construction[value6] ________
+
+value = <object object at 0x000002DD3CC35890>
+
+    @pytest.mark.parametrize("value", BAD)
+    def test_a_non_real_sp_var_mu_is_rejected_at_construction(value):
+        """THE FIRING ROW. The constructor must refuse, with the CANONICAL clause.
+    
+        Matching on the clause text rather than on the exception type is
+        deliberate: ``float(None)`` already raises ``TypeError`` at the pre-change
+        tip, and a test satisfied by that would record an accident as enforcement.
+        """
+        with pytest.raises(ValueError, match="sp_var_mu must be a real number"):
+>           _build(sp_var_mu=value)
+
+tests\test_ci7_sp_var_mu.py:93: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_ci7_sp_var_mu.py:81: in _build
+    return Hawkes_Model(_data(), A, T_DAYS, cox_background=False, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+bstpp\main.py:2034: in __init__
+    super().__init__(name, data, A, T, **kwargs)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <bstpp.main.Hawkes_Model object at 0x000002DD3E6FF680>, model = 'hawkes'
+data =            X         Y           T
+0   0.249794  0.296678    1.325150
+1   0.833659  0.422812    1.438414
+2   0.236047 ...52  159.894383
+12  0.447178  0.917537  173.355651
+13  0.192479  0.914204  183.704424
+14  0.841943  0.219573  196.153632
+A = array([[0., 1.],
+       [0., 1.]]), T = 200.0, offset_seasonal = 0
+spatial_cov = None, cov_names = None, cov_grid_size = None
+spatial_cov_crs = None, standardize_cov = None
+sp_var_mu = <object object at 0x000002DD3CC35890>, data_contracts = 'reject'
+kwargs = {'a_0': <numpyro.distributions.continuous.Normal object at 0x000002DD178323F0>, 'alpha': <numpyro.distributions.contin... object at 0x000002DD3D50CA10>, 'sigmax_2': <numpyro.distributions.continuous.HalfNormal object at 0x000002DD3D50C860>}
+
+    def __init__(self,model,data,A,T,offset_seasonal=0,spatial_cov=None,cov_names=None,
+                 cov_grid_size=None,spatial_cov_crs=None,standardize_cov=None,sp_var_mu=2.0,
+                 data_contracts='reject',**kwargs):
+        """
+        Spatiotemporal Point Process Model.
+        The data is rescaled to fit in a 1x1 spatial grid and a lenght 50 time window. Posterior samples must be interpreted with this in mind.
+    
+        Parameters
+        ----------
+        model: str
+            one of ['cox_hawkes','lgcp','hawkes'].
+        data: str or pd.DataFrame
+            either file path or DataFrame containing spatiotemporal data. Required
+            columns are 'X', 'Y', 'T'. The seasonal coordinate 'A' (day-of-year) is
+            NOT required: it is derived as (T + offset_seasonal) mod S. If an 'A'
+            column is supplied it is validated for consistency with 'T' (to within
+            1 day) and a ValueError is raised on mismatch, rather than trusted.
+        A: np.array [2x2], GeoDataFram
+            Spatial region of interest. If np.array first row is the x-range, second row is y-range.
+        T: float
+            Maximum time in region of interest. Time is assumed to spart at 0.
+        offset_seasonal: float
+            Day-of-year corresponding to T=0, used to derive the seasonal coordinate
+            A = (T_days + offset_seasonal) mod S. Defaults to 0.
+        spatial_cov: str,pd.DataFrame,gpd.GeoDataFrame
+            Either file path (.csv or .shp), DataFrame, or GeoDataFrame containing spatial covariates.
+            Spatial covariates must cover all the points in data.
+            If spatial_cov is a csv or pd.DataFrame, the first 2 columns must be 'X', 'Y' and cov_grid_size must be specified.
+        cov_names: list
+            List of covariate names. Must all be columns in spatial_cov.
+        cov_grid_size: list-like
+            Spatial covariate grid (width, height).
+        spatial_cov_crs: CRS-like, optional
+            Declared CRS of CSV/plain-DataFrame covariate coordinates (parsed by
+            ``CRS.from_user_input``). Required when those tabular covariates are
+            paired with a CRS-bearing domain; must match the domain CRS.
+            GeoDataFrame covariates are self-describing and do not use this
+            argument. Array domains (no CRS) do not require it.
+        standardize_cov: None or str
+            None (default): covariate values preserved exactly as supplied.
+            ``'domain_area'``: area-weighted standardization with the exact
+            clipped |C_c \u2229 A| areas as weights (D-11); cells with no domain
+            mass do not influence mean/scale. Legacy booleans are rejected
+            explicitly (OP-3/OP-4 settled pre-3f). Whichever method runs is
+            reported on self.standardization (D-10):
+            {'method', 'columns', 'mean', 'scale'}, with
+            X = standardized * scale + mean.
+        sp_var_mu: float
+            Fixed log-amplitude multiplier applied to the spatial VAE decoder output.
+            Calibrate as sp_var_mu = 0.5*log(sigma2_target / E[f^2]_decoder), where
+            E[f^2]_decoder is the empirical second moment of decoder outputs under z~N(0,I)
+            and sigma2_target is the intended marginal variance of the spatial log-intensity
+            field. Note this is an amplitude multiplier, NOT the var_loc used in VAE
+            training. A sampled amplitude (and a matching knob for the seasonal field, which
+            currently has none) is planned follow-up work.
+        data_contracts: str
+            'reject' (default) or 'report'. Phase 3a boundary validation:
+            nonfinite coordinates/covariates, out-of-horizon times,
+            out-of-domain events (polygon boundary is inside, D-4), invalid
+            geometry, and CRS mismatches are collected into
+            self.data_contract_report. 'reject' raises DataContractError
+            listing every offending row; 'report' warns and leaves legacy
+            behavior bit-unchanged (the section-14 dry-run instrument).
+            Default flipped report -> reject on reviewer sign-off of the
+            committed dry run (2026-07-20); see
+            refactor-patches/phase3a/rebaseline_record.md.
+        priors: dict
+            priors for parameters (a_0,w,alpha,beta,sigmax_2). Must be a numpyro distribution.
+        """
+        if type(data) is str:
+            data = pd.read_csv(data)
+        # Ownership: retain owned copies of caller-supplied mutable inputs.
+        data = data.copy()
+        self.data = data
+    
+        # Phase 3a data contracts: validate the raw events and domain BEFORE
+        # any grid construction, so reject mode fails with the actual defect
+        # rather than a downstream sjoin symptom. Report mode only warns:
+        # every numerical code path below is bit-unchanged.
+        self._data_contracts_mode = data_contracts
+        self.data_contract_report = enforce(
+            validate_events(data, A, T), len(data), data_contracts)
+    
+        # CI-9: the enumerated value is validated HERE, unconditionally, before
+        # anything is reported -- not in the covariate leg, which runs only when
+        # spatial_cov is supplied. Without this a rejected value constructs and
+        # then reports the well-formed 'none' record below, which is
+        # indistinguishable from a legitimate standardize_cov=None.
+        validate_standardize_cov(standardize_cov)
+    
+        # D-10: always report whether/how covariates were standardized;
+        # overwritten by the covariate leg when covariates are supplied.
+        self.standardization = {'method': 'none', 'columns': [],
+                                'mean': None, 'scale': None}
+    
+        # Phase 3b seam: owned copies of events/domain (prepare_domain also
+        # copies); covariate_source stays the raw handle for load-error
+        # ordering until the covariate leg normalizes and copies.
+        if type(A) is gpd.GeoDataFrame:
+            domain_owned = A.copy(deep=True)
+        else:
+            domain_owned = np.array(A, dtype=float, copy=True)
+        self.model_data = ModelData(
+            events=data.copy(), domain=domain_owned, horizon_days=T,
+            offset_seasonal=offset_seasonal, covariate_source=spatial_cov,
+            cov_names=cov_names, cov_grid_size=cov_grid_size)
+    
+        args={}
+        args['T']=50
+        args['S']=24 #24
+        # Spatial grid is 1x1
+        args['t_min']=0
+        args['x_min']=0
+        args['x_max']=1
+        args['y_min']=0
+        args['y_max']=1
+        args['model']=model
+    
+        args['offset_seasonal'] = offset_seasonal
+    
+        # Phase 3b seam: domain geometry, bounding rectangle, unit scales and
+        # the geographic-CRS contract warning live in prepare_domain; args
+        # entries below are the legacy adapter view of the same objects.
+        self.prepared_domain = prepare_domain(A)
+        A_ = self.prepared_domain.bounds
+        args['A_area'] = self.prepared_domain.area_ratio
+        args['A_'] = A_
+        args['axis_scales'] = self.prepared_domain.axis_scales
+    
+        # Phase 3b seam: temporal/seasonal/spatial partitions, comp_grid,
+        # in-domain cells, season_idx_of_t and the exact overlap matrix W
+        # live in prepare_partitions (verbatim extraction); args entries are
+        # the legacy adapter view of the same objects.
+        parts = prepare_partitions(self.prepared_domain, T, offset_seasonal)
+        self.prepared_partitions = parts
+        self.S = 365
+        args["n_t"] = parts.n_t
+        args["x_t"] = parts.x_t
+        args["n_s"] = parts.n_s
+        args["x_a"] = parts.x_a
+        args["n_xy"] = parts.n_xy
+        args['spatial_grid_cells'] = parts.spatial_grid_cells
+        args['season_idx_of_t'] = parts.season_idx_of_t
+        args['season_overlap'] = parts.season_overlap
+        comp_grid = parts.comp_grid
+        self.comp_grid = comp_grid
+        # Polygon plotting domain is the owned PreparedDomain.domain copy.
+        self.A = (self.prepared_domain.domain
+                  if self.prepared_domain.is_polygon else comp_grid)
+        self.T = T
+    
+        args,points = self._scale_xyt(data,args,parts.support_cells)
+        self.points = points
+    
+        if args['model'] in ['lgcp','cox_hawkes']:
+            args["gp_kernel"]=exp_sq_kernel
+    
+            # temporal VAE training arguments
+            args["hidden_dim_temporal"]= 35
+            args["z_dim_temporal"]= 11
+    
+            # seasonal VAE training arguments
+            args["hidden_dim1_seasonal"]= 24 #75 #35
+            args["hidden_dim2_seasonal"]= 12 #50 #30
+            args["z_dim_seasonal"]= 8 #20 #50 #10 11
+    
+            # spatial VAE training arguments
+            args["hidden_dim1_spatial"]= 75
+            args["hidden_dim2_spatial"]= 50
+            args["z_dim_spatial"]=20
+    
+            decoder_params = _load_decoder("decoder_1d_T50_fixed_ls")
+            args["decoder_params_temporal"] = decoder_params
+    
+            # load decoder for seasonal
+            decoder_params = _load_decoder("decoder_1d_T24_circ_small_l8")
+            args["decoder_params_seasonal"] = decoder_params
+    
+            #Load 2d spatial trained decoder
+            decoder_params = _load_decoder("2d_decoder_15_5_large.pkl")
+            args["decoder_params_spatial"] = decoder_params
+    
+        if spatial_cov is not None:
+            #convert input into geopandas dataframe.
+            if type(spatial_cov) is str:
+                if spatial_cov[-4:] == '.zip' or spatial_cov[-4:] == '.shp':
+                    spatial_cov = gpd.read_file(spatial_cov)
+                else:
+                    spatial_cov = pd.read_csv(spatial_cov)
+            # exact-type check is intentional: GeoDataFrame subclasses DataFrame and must NOT
+            # take this branch (it already carries geometry); isinstance would misroute it.
+            if type(spatial_cov) is pd.DataFrame:
+                polygons = []
+                for i in spatial_cov.index:
+                    polygons.append(Polygon([(spatial_cov.loc[i,'X']-cov_grid_size[0]/2,
+                                              spatial_cov.loc[i,'Y']-cov_grid_size[1]/2),
+                                             (spatial_cov.loc[i,'X']+cov_grid_size[0]/2,
+                                              spatial_cov.loc[i,'Y']-cov_grid_size[1]/2),
+                                             (spatial_cov.loc[i,'X']+cov_grid_size[0]/2,
+                                              spatial_cov.loc[i,'Y']+cov_grid_size[1]/2),
+                                             (spatial_cov.loc[i,'X']-cov_grid_size[0]/2,
+                                              spatial_cov.loc[i,'Y']+cov_grid_size[1]/2)]))
+                spatial_cov = gpd.GeoDataFrame(data=spatial_cov,geometry=polygons)
+                # Tabular X/Y have no self-describing CRS. When the domain
+                # declares a CRS, require an explicit spatial_cov_crs and
+                # assign THAT value before validation -- never infer by
+                # copying the domain CRS.
+                domain_crs = self.prepared_domain.crs
+                if domain_crs is not None:
+                    if spatial_cov_crs is None:
+                        raise ValueError(
+                            "spatial_cov_crs is required when CSV/plain-"
+                            "DataFrame covariates are used with a CRS-"
+                            "bearing domain; declare the CRS of the "
+                            "tabular X/Y coordinates (e.g. "
+                            "spatial_cov_crs='EPSG:26918').")
+                    from pyproj.crs import CRS
+                    spatial_cov = spatial_cov.set_crs(
+                        CRS.from_user_input(spatial_cov_crs))
+                elif spatial_cov_crs is not None:
+                    from pyproj.crs import CRS
+                    spatial_cov = spatial_cov.set_crs(
+                        CRS.from_user_input(spatial_cov_crs))
+    
+            # Phase 3a data contracts, covariate leg: validated on the
+            # normalized GeoDataFrame, before the legacy membership sjoin, so
+            # reject mode names the defect instead of the sjoin symptom.
+            # Phase 3c coverage contract (IV; D-7): the layer must cover A
+            # exactly once -- gaps and positive-area overlaps are violations
+            # with the actual offending geometries exported on the report.
+            _pts_xy = np.column_stack((
+                pd.to_numeric(data['X'], errors='coerce').to_numpy(dtype=float),
+                pd.to_numeric(data['Y'], errors='coerce').to_numpy(dtype=float)))
+            self.data_contract_report.checks.extend(enforce(
+                validate_covariates(spatial_cov, cov_names, A, points_xy=_pts_xy)
+                + validate_covariate_coverage(spatial_cov, A),
+                len(data), data_contracts).checks)
+    
+            # Ownership: copy before attaching cov_ind / membership so the
+            # caller's frame is never mutated or retained.
+            spatial_cov = spatial_cov.copy(deep=True)
+            spatial_cov['cov_ind'] = np.arange(len(spatial_cov))
+            # Align points CRS for the covariate sjoin without the deprecated
+            # attribute override (GeoDataFrame.crs = ...). Points already carry
+            # the domain CRS from _scale_xyt when the domain declares one;
+            # validate_covariates has already required CRS equality, so a
+            # matching CRS needs no write. Only set when points are CRS-less.
+            if self.points.crs is None and spatial_cov.crs is not None:
+                self.points = self.points.set_crs(spatial_cov.crs)
+            # D-22 unique membership, covariate leg: an event exactly on a
+            # shared covariate-polygon edge joins every incident polygon;
+            # ties resolve deterministically to the LARGEST cov_ind,
+            # mirroring the field grid's max-comp_grid_id rule (identical to
+            # left-closed on row-major raster-like layers; for arbitrary
+            # polygon layers it is a documented deterministic convention,
+            # not a geometric statement). Unique joins are bit-unchanged.
+            args['cov_ind'] = (self.points.sjoin(spatial_cov)
+                               .groupby('point_id')['cov_ind'].max()
+                               .sort_index().values)
+            if len(args['cov_ind']) != len(self.points):
+                raise Exception("Spatial covariates are not defined for all data points!")
+    
+            args['num_cov'] = len(cov_names)
+            self.cov_names = cov_names
+    
+            # Phase 3b seam: covariate partition products (design matrix,
+            # common refinement with exact intersection areas, in-domain
+            # cell override / covariate areas) live on PreparedPartitions;
+            # args entries below are the legacy adapter view. Event
+            # membership (cov_ind above) stays event-side by design.
+            # attach_covariate_partitions copies spatial_cov into
+            # parts.cov_gdf; self.spatial_cov uses that owned frame.
+            attach_covariate_partitions(parts, self.prepared_domain,
+                                        spatial_cov, cov_names,
+                                        standardize_cov, args['model'])
+            self.spatial_cov = parts.cov_gdf
+            # D-10 (3c API): the model always reports whether/how it
+            # standardized -- method 'none' | 'domain_area' with
+            # invertible mean/scale (X = standardized * scale + mean).
+            # Legacy method name 'count' is not implemented.
+            self.standardization = parts.standardization
+            args['spatial_cov'] = parts.cov_values
+            if args['model'] in ['lgcp','cox_hawkes']:
+                args['int_df'] = parts.int_df
+                args['spatial_grid_cells'] = parts.spatial_grid_cells
+            else:
+                args['cov_area'] = parts.cov_area
+    
+        # Integration arrays for the pure spatial_refinement_integral atom
+        # (eq. 24): plain NumPy arrays only, derived once on the seam object,
+        # so no pandas / GeoPandas object is ever read inside traced
+        # likelihood code.
+        finalize_integration_arrays(parts, args['model'])
+        if args['model'] in ['lgcp', 'cox_hawkes']:
+            args['integration_field_indices'] = parts.integration_field_indices
+            args['integration_cov_indices'] = parts.integration_cov_indices
+            args['integration_areas'] = parts.integration_areas
+    
+        #Set up parameter priors
+        default_priors = {}
+        if 'num_cov' in args:
+            default_priors["w"] = dist.Normal(jnp.zeros(args['num_cov']),jnp.ones(args["num_cov"]))
+>       args['sp_var_mu'] = float(sp_var_mu)
+                            ^^^^^^^^^^^^^^^^
+E       TypeError: float() argument must be a string or a real number, not 'object'
+
+bstpp\main.py:540: TypeError
+___________ test_the_bool_row_is_not_admitted_by_an_int_float_check ___________
+
+    def test_the_bool_row_is_not_admitted_by_an_int_float_check():
+        """``isinstance(True, int)`` is True -- state the boundary in a row.
+    
+        D-42 rejects ``bool`` as an ``int`` subclass; A-50's CI-10 states the same
+        boundary from the other side. Pinning it here keeps the two policies from
+        drifting into a mutual exception.
+        """
+        assert isinstance(True, int), "CPython fact this row depends on"
+        for value in (True, False):
+>           with pytest.raises(ValueError, match="sp_var_mu must be a real number"):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE ValueError
+
+tests\test_ci7_sp_var_mu.py:105: Failed
+__________ test_the_string_that_coerces_correctly_is_still_rejected ___________
+
+    def test_the_string_that_coerces_correctly_is_still_rejected():
+        """``float('2.0') == 2.0``: right answer, wrong type, invisible in output."""
+        assert float("2.0") == 2.0, "the coincidence this row is about"
+>       with pytest.raises(ValueError) as excinfo:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests\test_ci7_sp_var_mu.py:112: Failed
+_____ test_validation_runs_on_a_path_where_the_spatial_decoder_never_does _____
+
+    def test_validation_runs_on_a_path_where_the_spatial_decoder_never_does():
+        """CI-9's property, inherited: validated whether or not the consumer runs.
+    
+        This model is ``cox_background=False``, so ``decode_spatial_field`` -- the
+        only consumer of ``sp_var_mu`` -- is never called. The rejection must still
+        happen, or the guard is only as good as the path the user happened to take.
+        """
+        model = _build()
+        assert model.args["model"] == "hawkes", "no spatial decoder on this path"
+>       with pytest.raises(ValueError, match="sp_var_mu must be a real number"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests\test_ci7_sp_var_mu.py:154: Failed
+______ test_the_constructor_and_the_validator_render_byte_identical_text ______
+
+    def test_the_constructor_and_the_validator_render_byte_identical_text():
+        """The second site must not paraphrase the first (D-40)."""
+        from bstpp.config import config_real_invariant_clause
+        with pytest.raises(ValueError) as excinfo:
+            _build(sp_var_mu="nonsense")
+>       assert str(excinfo.value) == config_real_invariant_clause(
+            name="sp_var_mu", value="nonsense")
+E       assert "could not co...t: 'nonsense'" == "sp_var_mu mu...nsense' (str)"
+E         
+E         - sp_var_mu must be a real number (int or float; bool and str rejected); got 'nonsense' (str)
+E         + could not convert string to float: 'nonsense'
+
+tests\test_ci7_sp_var_mu.py:178: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_ci7_sp_var_mu.py::test_a_non_real_sp_var_mu_is_rejected_at_construction[True]
+FAILED tests/test_ci7_sp_var_mu.py::test_a_non_real_sp_var_mu_is_rejected_at_construction[False]
+FAILED tests/test_ci7_sp_var_mu.py::test_a_non_real_sp_var_mu_is_rejected_at_construction[2.0]
+FAILED tests/test_ci7_sp_var_mu.py::test_a_non_real_sp_var_mu_is_rejected_at_construction[nonsense]
+FAILED tests/test_ci7_sp_var_mu.py::test_a_non_real_sp_var_mu_is_rejected_at_construction[None]
+FAILED tests/test_ci7_sp_var_mu.py::test_a_non_real_sp_var_mu_is_rejected_at_construction[value5]
+FAILED tests/test_ci7_sp_var_mu.py::test_a_non_real_sp_var_mu_is_rejected_at_construction[value6]
+FAILED tests/test_ci7_sp_var_mu.py::test_the_bool_row_is_not_admitted_by_an_int_float_check
+FAILED tests/test_ci7_sp_var_mu.py::test_the_string_that_coerces_correctly_is_still_rejected
+FAILED tests/test_ci7_sp_var_mu.py::test_validation_runs_on_a_path_where_the_spatial_decoder_never_does
+FAILED tests/test_ci7_sp_var_mu.py::test_the_constructor_and_the_validator_render_byte_identical_text
+11 failed, 7 passed in 37.73s
+PYTEST_EXIT:1
