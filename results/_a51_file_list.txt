@@ -1,0 +1,61 @@
+A-51 / WP2.6 -- PRE-STATED FILE LIST (D-41 clause 5)
+
+Stated BEFORE `git add`. After committing, `git show --stat HEAD` is compared
+against this list and no path on it may remain dirty.
+
+-- record and deliverables ------------------------------------------------
+  M  phase3_record.tex
+       A-51 subsection. D-48's coverage unit -> STATEMENTS (table row + Part II
+       clause). D-51's freeze tip -> c7b9ef0 (table row + Part II clause).
+       D-50's anchor LEFT OPEN with an explicit not-an-oversight paragraph.
+       A-49's backup-branch citation WITHDRAWN as unresolvable. A-50's two
+       self-created anchors removed. D-48's empty-seam-set gap recorded in its
+       own row.
+  M  docs/wp_dependency_graph.md
+       Coverage unit -> statements, with the reachability-vs-style reason.
+       WP10 intake tip -> c7b9ef0. WP2's rho_w -> N/A (empty seam set), and
+       WP2's routed-items cell enumerated (it was an anchor).
+  M  AGENTS.md
+       Anchor count corrected from "four" to the measured 21/3/2-files, with
+       the census instrument named; D-48 and D-51 marked discharged, D-50
+       marked deliberately open.
+
+-- instrument -------------------------------------------------------------
+  A  results/_a51_anchor_census.py
+       Anchor census over a DECLARED file population, by provenance, with
+       three classes (operative / deferring / narrative) and its own coverage
+       statement. Consumed by the anchor gate landing in the next commit.
+
+-- preserved captures (D-45, under D-46's declared root) ------------------
+  A  refactor-patches/captures/a51_content_checks_red.log
+       Check 4c firing on A-51's own forward reference to D-52. FAIL 1, exit 1.
+  A  refactor-patches/captures/a51_citation_sweep_red.log
+       FAIL 2, exit 1, both this commit's own unstaged evidence.
+  M  refactor-patches/captures/README.md   two inhabitants added
+
+-- gate evidence ----------------------------------------------------------
+  A  results/_a51_anchor_census.txt
+  A  results/_a51_hypertarget.txt
+  A  results/_a51_label_check.txt
+  A  results/_a51_content_checks.txt
+  A  results/_a51_ascii_sweep.txt
+  A  results/_a51_ruff.txt
+  A  results/_a51_citation_sweep.txt
+  A  results/_a51_citation_sweep_after_staging.txt
+  A  results/_a51_a46_exclusion.txt
+  A  results/_a51_file_list.txt              this file
+  A  results/_a51_commit_msg.txt
+
+NOT RUN, with reasons stated rather than omitted:
+  * the SUITE (both lanes) -- no file under bstpp/ or tests/ is touched, which
+    is checkable from this list itself;
+  * the PIN harness and both comparisons -- no file any pin reads is touched,
+    so a re-run would re-measure A-50's candidate and hand back its own hash.
+    A-50's verdicts stand: canonical compared=4/6 PARTIAL, forward compared=6/6
+    MATCH, sha256 e8ade72f7947...;
+  * PIN_CORPUS_IDENTITY -- same reason; no pin corpus file moves.
+
+NOT STAGED: every other untracked path in the tree (pins*.json scratch,
+build/, sbc logs, notebooks, the pre-3f-stabilization probe set, the
+_c1_/_c2_/_wp14c_ backfill). None is this commit's evidence and none is cited
+by A-51.

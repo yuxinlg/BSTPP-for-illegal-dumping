@@ -21,13 +21,22 @@ edge below is annotated with that decision.
 modes pinned). D-49’s process rule stands; the WP5 entry precondition is
 discharged.
 
-**Coverage unit for ρ_w:** [[FILL: statements or branches]] — declare
-once under D-48 and hold fixed.
+**Coverage unit for ρ_w:** **statements** — declared at **A-51** under D-48 and
+held fixed. Statements rather than branches because ρ_w is a *reachability*
+ratio over a declared seam set: branch coverage would make ρ_w depend on how a
+seam's internal control flow happens to be written, so refactoring a seam
+would move ρ_w without changing anything about what the pins reach.
+
+**Empty seam sets (A-51).** Where a package's deliverable is to *create* the
+objects in its seam set, |S_w| = 0 at open time and ρ_w = 0/0 is **undefined,
+not zero** — D-48's "ρ_w = 0 ⇒ pin gate vacuous" clause does not apply, and the
+cell reads `N/A (empty seam set)`. **WP2 is in this state**: `ModelConfig` and
+`PriorConfig` do not exist at `c7b9ef0`.
 
 | WP | Depends on (graph edges) | Entry preconditions | ρ_w | Open items routed here |
 |---|---|---|---|---|
 | 1 | — (reopened under **D-43**) | closed | [[FILL: measure]] | — |
-| 2 | 1; **D-43** on the 1↔2 edge | OP-20 series closed (*verified-here*, A-33) | [[FILL: measure]] | [[FILL: enumerate]] |
+| 2 | 1; **D-43** on the 1↔2 edge | OP-20 series closed (*verified-here*, A-33) | **N/A (empty seam set)** — *verified-here* A-51 | `sp_var_mu` CI-7 (next commit); D-43 cl.2 `panel_h_m` sentinel; D-43 cl.2 `standardize_cov` (blocked, G-B); OP-25 (blocked) |
 | 3 | 2 | **undetermined** | [[FILL: measure]] | [[FILL: enumerate]] |
 | 4 | 3 | **undetermined** | [[FILL: measure]] | [[FILL: enumerate]] |
 | 5 | 4 | **OP-24 polygon-mode pin** — **discharged (A-47)**; polygon-regime excitation validation status stated | was zero before OP-24 (*reported*); remeasure after A-47 | OP-19; OP-21; OP-23 (content absent); OP-26 (*verified-here* rows) |
@@ -35,7 +44,7 @@ once under D-48 and hold fixed.
 | 7 | 4 | **undetermined** | [[FILL: measure]] | custom-decoder support; provenance metadata (*reported*) |
 | 8 | 4 | **undetermined** | [[FILL: measure]] | [[FILL: enumerate]] |
 | 9 | — (independent of 2–8) | G2 xfail disposition (*reported*) | [[FILL: measure]] | [[FILL: enumerate]] |
-| 10 | all | intake frozen (**D-51**) at [[FILL: tip SHA, or tip at which WP9 opens]] | [[FILL: measure]] | `T_INTERNAL` vs. `args['T']` (*reported*) |
+| 10 | all | intake frozen (**D-51**) at **`c7b9ef0`** (named A-51) | [[FILL: measure]] | `T_INTERNAL` vs. `args['T']` (*reported*) |
 
 ## Graph properties this table must keep
 

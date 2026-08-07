@@ -1,0 +1,183 @@
+WP2.6 [DOC]: the anchors discharged, the citations repaired, and A-49's gate record supplied late and labelled as such
+
+A-51. Discharges the operative anchors in D-48 and D-51. Corrects A-50's
+anchor count and A-49's backup-branch citation. Records A-49's absent gates.
+Class DOC. No file under bstpp/ or tests/ is touched, no API surface moves,
+no decision is added: the register stands at 51 rows, D-1..D-51.
+
+WHY THIS PRECEDES THE NEXT ENFORCEMENT COMMIT. Two of A-49's five decisions
+were UNEXECUTABLE AS LANDED -- D-48 could not be complied with because its
+coverage unit was undefined, and D-51 froze nothing because its tip was
+unnamed. A work package cannot open D-48-compliant against a D-48 that has no
+unit, WP5 included. Landing another enforcement into that state would have
+made the next amendment cite two rules that cannot be followed.
+
+THE ANCHOR COUNT, RECONCILED -- AND THE RECONCILIATION IS THE FINDING. Three
+numbers for one quantity were in circulation: A-50 said FOUR; the brief
+commissioning this round said THREE, from a clone at 51c98f8; neither was an
+occurrence count and NEITHER HAD LOOKED AT docs/wp_dependency_graph.md, which
+is A-49's own deliverable. Measured by results/_a51_anchor_census.py:
+  * A-49 introduced 21 ANCHORS -- 5 in phase3_record.tex, 16 in the graph --
+    across THREE distinct decisions: D-48, D-50, D-51.
+  * 26 anchors existed over the whole declared population: A-49's 21, 3
+    pre-existing and unrelated (938e32b, beb0482), and 2 CREATED BY A-50.
+  THE DIRECTION OF THE DISCREPANCY, since the brief asked: A-50 ran wrong in
+  BOTH DIRECTIONS AT ONCE. It OVERCOUNTED distinct anchored decisions (four
+  against three) and UNDERCOUNTED occurrences by a factor of five (four
+  against twenty-one). That is only possible because it never said which it
+  was counting -- the population-unstated defect named at A-39, A-41, OP-31,
+  A-48, and now here. The brief's "three" is right for distinct decisions in
+  the register and is not the occurrence count either. So the fix is an
+  INSTRUMENT, not a corrected sentence.
+  TWO OF THE TWENTY-SIX WERE A-50's OWN, and they are the sharpest instance
+  in the class: A-50's prose COMPLAINING THAT A-49 LEFT PLACEHOLDERS spelled
+  the anchor token literally, in the register and in AGENTS.md, creating two
+  anchors while reporting on anchors. Both removed here. No gate could have
+  caught it -- check 4c resolves a citation by finding its row and cannot see
+  inside the cell, and there was no anchor check at all.
+
+D-48's COVERAGE UNIT IS STATEMENTS, declared here and held fixed in the
+register, the section-8 row, and the graph. Statements rather than branches
+because rho_w is a REACHABILITY ratio over a declared seam set: branch
+coverage would make rho_w depend on how a seam's internal control flow happens
+to be written, so refactoring a seam would move rho_w without changing
+anything about what the pins reach -- and a coverage figure that moves under
+behaviour-preserving edits is a style metric, not a coverage figure.
+  AUTHORSHIP WAS OURS AND THE ANCHOR WAS OURS TO CLOSE. 51c98f8 carries Terhi
+  on both the author and committer fields; the Co-authored-by trailer names a
+  tool, not a second person. There was no other author to wait for, which is
+  what made A-50's "its author's to close" a deferral to nobody.
+
+rho_WP2 IS STILL NOT MEASURABLE, AND THE COVERAGE UNIT WAS NEVER WHAT BLOCKED
+IT. Verified here at c7b9ef0: `git grep 'class ModelConfig|class PriorConfig'
+-- bstpp/` returns NOTHING. WP2's seam set is ModelConfig and PriorConfig,
+NEITHER OF WHICH EXISTS, so |S_WP2| = 0 and rho_WP2 = 0/0 is UNDEFINED, NOT
+ZERO. The distinction is load-bearing and D-48 does not draw it: D-48's
+rho_w = 0 clause declares the pin gate VACUOUS and demands a separately
+constructed entry gate, which is the right response to a seam set that EXISTS
+AND IS UNREACHED. It is the wrong response to an EMPTY one, where there is
+nothing yet to reach and no gate that could reach it. The general case is
+recorded in D-48's own row: a package whose deliverable is to CREATE its seam
+objects records rho_w as `N/A (empty seam set)` with the reason. THIS IS A GAP
+IN D-48 AS LANDED, FOUND BY TRYING TO COMPLY WITH IT, and it is reported
+rather than repaired by rewriting the decision -- the retroactivity question
+it raises is left open for the next commit.
+  WHAT MEASURING rho_w WOULD COST, stated BEFORE any measuring, and the honest
+  answer is that the tooling is the cheap part. (1) TOOLING: `coverage` is NOT
+  installed -- `import coverage` raises ModuleNotFoundError, verified. It
+  would enter as a dev tool under the ruff precedent (pip install --no-deps),
+  touching no runtime pin. (2) RUNTIME: one instrumented pin-harness run,
+  against the ~6 min uninstrumented baseline measured last round, at the
+  1.2-2x slowdown coverage typically imposes. (3) THE BINDING COST, which is
+  neither: A DECLARED SEAM SET PER PACKAGE, as a list of code locations. That
+  artifact does not exist for any package, the graph carries `measure` anchors
+  in nine of ten rho_w cells, and for WP2 the list would name objects nobody
+  has written. So rho_w is blocked on a DEFINITION, not on a tool, and buying
+  the tool first would produce a number with no denominator.
+
+D-51's FREEZE TIP IS c7b9ef0 (A-50) -- the tip at which the freeze is
+declared, which is what D-51's own text asks for. The anchor's alternative
+reading, "the tip at which WP9 opens", is REJECTED on the record: WP9 has not
+opened, its entry precondition is undetermined in the graph, and a freeze
+defined by a future event freezes nothing in the interval, which is the
+precise condition the anchor was standing in for.
+
+D-50's ANCHOR IS LEFT OPEN DELIBERATELY, and the register now says so in its
+own paragraph so it is not later read as an oversight. D-48's and D-51's
+anchors sat in OPERATIVE clauses -- a rule with no unit and a freeze with no
+tip cannot be executed. D-50's RULE IS COMPLETE AND EXECUTABLE AS WRITTEN: the
+cap is three, a fourth closes the package. What its anchor defers is a LEDGER
+STATEMENT about WP1's history against the cap -- a record, not a rule -- and
+filling it would require re-reading a settled count, which A-44's cap forbids.
+Classified `deferring` in the census module with that reason attached at the
+classification, so a later gate and the register cannot drift into two
+opinions.
+
+A-49 HAS NO GATE RECORD, AND THIS ONE IS SUPPLIED LATE. Measured: no
+results/_a49_* artifact exists, where every entry from _a25 through _a48 has
+at least a content_checks capture and A-48 has fifteen. A-49's gates were not
+run at its own commit. A DOC-profile commit touching no code has a genuinely
+reduced gate set -- but REDUCED IS NOT ABSENT: the content, hypertarget, label
+and citation gates all read the register A-49 rewrote, and "not run, with the
+reason stated" is itself a record that A-49 did not make either.
+  THE GATES IN THIS COMMIT'S BLOCK COVER THE SAME REGISTER STATE, AND THAT IS
+  COVERAGE BY ADJACENCY AT A LATER COMMIT. IT DOES NOT DISCHARGE D-41 CLAUSE 5
+  FOR A-49 AND IS NOT OFFERED AS DOING SO. Clause 5 requires the checked
+  process's own exit status AT THE COMMIT THAT MADE THE CLAIM, compared
+  against a file list stated BEFORE committing; a run at a descendant commit
+  can produce neither, and a green result here is consistent with A-49 having
+  been red at 51c98f8 for anything since repaired. What it does establish is
+  narrower and worth having: the register state A-49 produced, AS AMENDED
+  HERE, passes the register gates. A-49's own commit remains UNGATED on the
+  record.
+
+A-49's BACKUP CITATION RESOLVED TO NOTHING AND IS WITHDRAWN. Measured at
+c7b9ef0: no branch matching backup/* exists on origin (`git ls-remote --heads
+origin 'backup/*'` empty) or locally (`git branch --list 'backup/*'` empty),
+and ecdfa51 is NOT A VALID OBJECT here (`git cat-file -t` -> fatal). IT COULD
+NOT BE PUSHED, BECAUSE IT DOES NOT EXIST ON THIS MACHINE EITHER, so the remedy
+is restatement, not publication. The colliding pre-renumber commit is recorded
+as UNPRESERVED. Fixed rather than annotated because it is a citation to
+nothing standing INSIDE THE ENTRY THAT ESTABLISHED D-44, whose entire content
+is that a destination must resolve.
+
+GATES. Populations first.
+  ANCHOR POPULATION: 26 before, over the declared file set (phase3_record.tex,
+  docs/*.md, AGENTS.md, from git ls-files); 16 after, of which OPERATIVE 0,
+  deferring 1 (D-50's), narrative 15. The 5 discharged are D-48's two, D-51's
+  two, and A-50's stray pair. THE CENSUS STATES ITS OWN COVERAGE: decision-
+  clause detection is LaTeX-specific, so every Markdown anchor falls to
+  `narrative` BY CONSTRUCTION -- `OPERATIVE 0` is a claim about the LaTeX
+  register only, not a claim that every Markdown anchor is harmless.
+  RUFF POPULATION: 1 file, results/_a51_anchor_census.py, NEW with
+  baseline: NONE. Introduced 0, inherited 0 -- after two F541 (f-strings with
+  no placeholders) were FIXED rather than declared, a finding this commit
+  introduced in a file this commit creates being inherited by no reading.
+  PIN COMPARISON POPULATION: NOT RE-TAKEN, reason stated -- this commit
+  touches no file any pin reads, so a re-run would re-measure A-50's candidate
+  and hand back its own hash. A-50's verdicts stand: canonical compared=4/6
+  PIN_DIFFS 0 PARTIAL, forward compared=6/6 PIN_DIFFS 0 MATCH, candidate
+  sha256 e8ade72f7947...
+  SUITE: NOT RUN, reason stated -- no file under bstpp/ or tests/ is touched,
+  checkable from this commit's own file list.
+  hypertarget 51/51. Content checks PASS, 51 rows D-1..D-51, checks 4a/4b/4c/4d
+  clean. ASCII sweep PASS 183/183, 11 clauses. Label sweep PASS.
+  TWO REDS PRESERVED, both this commit's own. (1) CONTENT CHECK 4c FIRED ON
+  A-51's OWN TEXT: `4c cited-with-no-row : ['D-52']`, FAIL 1, exit 1 -- the
+  draft cited a decision the NEXT commit establishes, inside the very entry
+  that withdraws A-49's citation to a non-existent branch. THE GATE CAUGHT THE
+  AUTHOR COMMITTING THE DEFECT THE ENTRY WAS WRITTEN TO REPAIR, which is the
+  strongest evidence a gate discriminates. Fixed by removing the forward
+  reference, not by landing D-52 early. Capture:
+  captures/a51_content_checks_red.log. (2) Citation sweep FAIL 2, exit 1, both
+  unstaged evidence; capture: captures/a51_citation_sweep_red.log.
+  TWO DEFECTS IN THE NEW INSTRUMENT, caught and recorded rather than quietly
+  fixed. Its first run died with UnicodeDecodeError reading the register
+  through subprocess under this machine's cp1252 default, leaving stdout as
+  None -- AN ANCHOR CENSUS THAT COULD NOT READ THE FILE IT AUDITS. Pinned to
+  UTF-8 with errors="replace". Same class as A-48's ruff-colour defect, and
+  the second time in four commits that an instrument's OUTPUT ENCODING has
+  been the thing that broke it. Second: attribution by line co-occurrence
+  reported D-49 as anchored (its ID merely appears on another decision's
+  anchored row) and MISSED D-50 (whose anchor sits in a body line not
+  repeating its own ID) -- WRONG IN BOTH DIRECTIONS, now attributed by
+  enclosing clause with an explicit scope-end.
+  A46_EXCLUSION_EXIT:0. CENSUS POPULATION 601, eligible-capture subset 334,
+  measured with ALL of this commit's contents staged. Reconciles exactly:
+  589 at c7b9ef0, plus 12 new non-capture files (18 staged = 4 modified + 14
+  new, of which 2 are captures), gives 601. THE TWO CAPTURES MOVED IT BY ZERO.
+  A THIRD MEASUREMENT-ORDER FINDING, recorded because it nearly became a
+  wrong number in this message: the instrument first reported 599, because it
+  was run BEFORE the last two evidence files were staged. Caught by
+  cross-checking against the raw pathspec (`git ls-files -- .
+  ':(exclude)refactor-patches/captures/'` = 601), not by inspection. THE
+  CENSUS READING DEPENDS ON WHERE IN THE STAGING SEQUENCE IT IS TAKEN --
+  A-48 measured pre-staging, A-50 and A-51 post-staging -- so the reading is
+  labelled with its point in the sequence rather than left to be inferred,
+  and a cross-check against the raw pathspec is now part of taking it.
+  Verified under D-41 clause 5 against a pre-stated file list
+  (results/_a51_file_list.txt).
+
+Next free: A-52, D-52, CI-11, OP-32.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
