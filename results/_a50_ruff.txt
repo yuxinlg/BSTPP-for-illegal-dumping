@@ -1,0 +1,71 @@
+RUFF_POPULATION
+  declared population : 10 file(s), named below
+  baseline            : each file's own HEAD version, linted with HEAD's pyproject.toml
+                        (so a newly added per-file ignore shows as a negative delta,
+                         not as an absence)
+
+  bstpp/config.py
+    state    : MODIFIED
+    before   : 0 {}
+    after    : 0 {}
+    delta    : none
+
+  bstpp/main.py
+    state    : MODIFIED
+    before   : 0 {}
+    after    : 0 {}
+    delta    : none
+
+  refactor-patches/pin_check_v2.py
+    state    : MODIFIED
+    before   : 5 {'E401': 2, 'E702': 3}
+    after    : 5 {'E401': 2, 'E702': 3}
+    delta    : none
+
+  results/_a26_ascii_sweep.py
+    state    : MODIFIED
+    before   : 0 {}
+    after    : 0 {}
+    delta    : none
+
+  tests/test_crs_set_crs_paths.py
+    state    : MODIFIED
+    before   : 0 {}
+    after    : 0 {}
+    delta    : none
+
+  tests/test_decode_fields.py
+    state    : MODIFIED
+    before   : 10 {'E402': 10}
+    after    : 10 {'E402': 10}
+    delta    : none
+
+  tests/test_identities.py
+    state    : MODIFIED
+    before   : 11 {'E402': 11}
+    after    : 11 {'E402': 11}
+    delta    : none
+
+  tests/test_ci10_boolean_argument.py
+    state    : NEW
+    baseline : NONE (new file; every finding is introduced by definition and is excluded from the delta)
+    after    : 0 {}
+
+  refactor-patches/phase3f/wp2/probe_a50_wp2_remaining_items.py
+    state    : NEW
+    baseline : NONE (new file; every finding is introduced by definition and is excluded from the delta)
+    after    : 0 {}
+
+  results/_a50_constructibility_probe.py
+    state    : NEW
+    baseline : NONE (new file; every finding is introduced by definition and is excluded from the delta)
+    after    : 0 {}
+
+  TOTALS over the declared population
+    INTRODUCED (modified files) : 0 {}
+    INHERITED  (modified files) : 26 {'E401': 2, 'E402': 21, 'E702': 3}
+    IN NEW FILES (no baseline)  : 0 {}
+  A new file's findings are listed separately because subtracting them against
+  an absent baseline is what made A-47's '13 against 10' look like a comparison.
+RUFF_POPULATION_EXIT:0
+RUFF_POP_SHELL_EXIT:0

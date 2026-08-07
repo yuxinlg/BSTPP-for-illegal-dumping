@@ -1,0 +1,33 @@
+bstpp.__file__ : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+harness        : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\refactor-patches\pin_check_v2.py
+
+CI-10 CONSTRUCTIBILITY OF THE PINNED CONFIGURATIONS
+  question : can the CI-10 rejection make any configuration in
+             pin_check_v2.py fail to CONSTRUCT? (a rejection is
+             invisible to a comparison over what still builds)
+  method   : AST read of the argument actually passed at each
+             construction site, then validate_cox_background on it
+
+  line  121  Hawkes_Model   cox_background=False (bool) accepted
+  line  126  Hawkes_Model   cox_background=True (bool) accepted
+  line  131  LGCP_Model     cox_background NOT APPLICABLE (no such parameter)
+  line  149  Hawkes_Model   cox_background=False (bool) accepted
+  line  224  Hawkes_Model   cox_background=False (bool) accepted
+  line  232  Hawkes_Model   cox_background=False (bool) accepted
+
+THE TWO PIN-5 LEGS, NAMED (the brief's question, answered directly)
+  hawkes_notched_4to1_polygon_mode   : cox_background=False
+  hawkes_notched_4to1_rectangle_mode : cox_background=False
+  Both pass a `bool`, so CI-10 cannot reject either. The polygon
+  regime reaches the construction path and returns from it, which
+  is the precondition for the pins saying anything here at all.
+
+WHAT THIS DOES NOT SHOW. That the pins would have CAUGHT an
+  unconstructible configuration -- they would now, via A-48's
+  baseline_only=[...], and the forward run reads compared=6/6 with
+  that field EMPTY, so no configuration was lost. That is a second,
+  weaker check and it agrees with this one.
+
+PASS - every pinned configuration is constructible under CI-10
+CONSTRUCT_PROBE_EXIT:0
+CONSTRUCT_SHELL_EXIT:0

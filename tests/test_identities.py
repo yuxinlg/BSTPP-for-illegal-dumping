@@ -174,7 +174,7 @@ def test_offspring_thinning_matches_compensator_mass():
 @needs_decoder
 def test_alpha_zero_reduces_cox_hawkes_to_lgcp():
     lgcp = LGCP_Model(DATA, A_RECT, T_DAYS, a_0=dist.Normal(0, 5))
-    ch = Hawkes_Model(DATA, A_RECT, T_DAYS, cox_background="cox", **PRIORS)
+    ch = Hawkes_Model(DATA, A_RECT, T_DAYS, cox_background=True, **PRIORS)
 
     tr = handlers.trace(handlers.seed(lgcp.model, jax.random.PRNGKey(1))).get_trace(lgcp.args)
     shared = {k: tr[k]["value"] for k in ("a_0", "z_temporal", "z_seasonal", "z_spatial")}
@@ -630,17 +630,17 @@ def test_trigger_legs_invariant_to_bounding_rectangle():
     assert len(outs[0]) > 1, "cascade produced no offspring; seed/config uninformative"
 
 
-@pytest.mark.parametrize("cox", [False, "cox"])
+@pytest.mark.parametrize("cox", [False, True])
 def test_simulate_fully_reproducible_with_generator(cox):
     """RNG unification: one Generator drives every draw, so two simulate()
     calls with identically seeded fresh Generators are byte-identical --
     including the pure-Hawkes background path, whose sample_points draw was
     historically unseeded. (rng=None preserves the legacy behavior.)"""
-    if cox == "cox" and not os.path.isfile(_SEASONAL_DECODER):
+    if cox and not os.path.isfile(_SEASONAL_DECODER):
         pytest.skip("seasonal decoder artifact absent")
     model = Hawkes_Model(DATA, A_GDF, T_DAYS, cox_background=cox,
                          excitation_support="rectangle", **PRIORS)
-    if cox == "cox":
+    if cox:
         tr = handlers.trace(handlers.seed(model.model,
                                           jax.random.PRNGKey(3))).get_trace(model.args)
         truth = {k: np.asarray(tr[k]["value"]) for k in

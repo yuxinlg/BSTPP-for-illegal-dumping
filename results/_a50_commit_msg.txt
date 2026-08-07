@@ -1,0 +1,204 @@
+WP2.5 [SC/API]: WP2's scope enumerated before it is drawn from -- CI-10, a boolean argument is a bool
+
+A-50. Opens and implements CI-10.
+
+RENUMBERED. Written, gated and committed locally as A-49 against tip
+f40591e. While its gates ran, A-49 was taken by 51c98f8 (DOC/process,
+D-47--D-51), which reached origin/refactor first. The published commit keeps
+the number; this one moves to A-50 -- the only non-destructive resolution,
+since renumbering an unpushed commit costs a rebase and overwriting a
+published one costs the audit trail. The evidence files moved with the number
+(results/_a49_* -> _a50_*, and the four captures likewise): in this repository
+the prefix IS the amendment number, and evidence filed under someone else's
+number is the silent mismatch this register keeps fixing. NO GATE OUTPUT WAS
+RE-TAKEN to accomplish the rename -- capture contents are unedited and the
+exit statuses they record are the ones observed.
+  TWO OF A-49's DECISIONS BEAR ON THIS COMMIT AND NEITHER IS DISCHARGED HERE.
+  D-48 requires a work package's pin reachability rho_w to be recorded before
+  it opens, and WP2 OPENED AT A-45 WITHOUT ONE -- so rho_WP2 is an OUTSTANDING
+  DEBT AGAINST WP2, declared here rather than quietly satisfied. The
+  constructibility probe below asks whether the pins CAN REJECT the pinned
+  configurations, which is strictly narrower than what fraction of WP2's seam
+  they cover; it is not a rho_w measurement and is not offered as one. D-49
+  concerns WP5 and is consistent with the WP5 remainder below. A-49's text
+  carries four unresolved [[FILL: ...]] placeholders, including D-48's coverage
+  unit; those are its author's to close and are not touched here.
+Class SC/API. The accepted configuration space narrows, a shipped default's
+TYPE changes, and a previously accepted value stops being accepted. NOT
+behaviour-preserving, and not to be described as such. No decision is added:
+the register stands at 51 rows, D-1..D-51, the five most recent being
+A-49's D-47--D-51 and none of them this commit's.
+
+THE ENUMERATION IS THE CHECK, AND IT CAME FIRST. CI-9 was described at A-42 as
+"the smallest item on the list" without the list's remainder ever having been
+written down. That is a habit, not a set, and a second item chosen the same way
+would make it a practice. So the population was defined before it was counted
+and then MEASURED, by probe_a50_wp2_remaining_items.py. Population: public
+constructor arguments whose quantity belongs to ModelConfig or PriorConfig --
+WP2's seam per the A-43 outline -- plus the items C1 routed to WP2 explicitly.
+Predicate: is an out-of-set value rejected AT CONSTRUCTION, on a path where the
+leg that consumes it does not run? That is CI-9's own predicate, applied to the
+rest of the population instead of to the argument that prompted it.
+  IN SCOPE, measured:
+    cox_background  'false', 'nonsense', 0, [] all construct silently.
+                    UNBLOCKED and FIRST -> taken as CI-10.
+    sp_var_mu       '2.0' and True construct silently; None is rejected, but by
+                    an incidental TypeError from float() rather than a
+                    canonical clause. This is CI-7's invariant at a site that
+                    does not enforce it, and it is WP2's NEXT item, unblocked.
+                    Named here so the next round is a decision, not a survey.
+    standardize_cov THE CONTROL, not a candidate: landed at A-45, included so a
+                    census whose known-enforced row fails to fire is caught
+                    measuring nothing. It fired on both values.
+  EXCLUDED, each with its owner: data_contracts and spatial_cov_crs (WP8);
+  offset_seasonal (WP4 -- the seasonal time origin is a ModelData fact);
+  excitation_support / min_sigma / max_sigma / mass_table (WP5's seam exactly,
+  and WP5 cannot open); panel_h_m / gl_order / tolerance defaults (WP1's,
+  object invariants CLOSED, construction sites reopening only under D-43 cl.2 --
+  which is the separate C1 item, not a new one).
+  C1'S ROUTED ITEMS: CI-9 enforcement CLOSED (A-45); D-43 cl.2 panel_h_m
+  sentinel UNBLOCKED, implementation outstanding; D-43 cl.2 standardize_cov
+  relocation BLOCKED by gap G-B until OP-28 is answered; OP-25 BLOCKED, a
+  deferred decision whose criterion needs a count not yet taken.
+  The enumeration is neither empty nor wholly blocked, so the stop condition
+  is not met.
+
+CI-10 -- A CONFIG-OWNED BOOLEAN ARGUMENT IS A bool, NEVER MERELY TRUTHY.
+cox_background is documented `bool` and consumed as `if cox_background:` with
+nothing checking it, so the accept set is every Python object and the branch is
+taken by TRUTHINESS. This is CI-9's defect with the sign flipped: there a bad
+value was accepted and IGNORED, here it is accepted and ACTED ON, in the
+direction opposite to what it says. A user who writes cox_background='false'
+gets a Gaussian-process background -- a different model with different
+parameters -- and nothing reports a problem: model.args['model'] reads
+'cox_hawkes' and is a perfectly well-formed record of a model they did not ask
+for. Every figure downstream is then of the other model.
+  THE SHIPPED DEFAULT IS PART OF THE DEFECT. It was the string 'cox', so the
+  package's own default sat outside the type its own docstring declared, and a
+  bool-only enforcement must move it. That is what makes this SC/API rather
+  than a quiet tightening: the default's TYPE changes and its MEANING does not
+  (both truthy, so the selected model is identical and no pinned value moves),
+  and cox_background='cox' stops being accepted.
+  WHY 'cox' IS NOT KEPT AS A LEGACY ALIAS. Keeping one string alive keeps the
+  truthiness coercion alive with it, and the reader then has to remember which
+  string is the good one -- while 'false', the string that motivates the whole
+  row, differs from it only in spelling. OP-3/OP-4 settled this the other way
+  round for standardize_cov: legacy values are rejected EXPLICITLY, never
+  silently reinterpreted. The clause branches on the old default and appends
+  "use cox_background=True for the same model", because the upgrading user hits
+  'cox' first, having copied it out of the signature.
+  np.bool_ IS ACCEPTED, and the reason is a CPython fact rather than a
+  preference. D-42 accepts np.float64 because it IS a float subclass; bool
+  CANNOT BE SUBCLASSED in CPython, so np.bool_ has no way to opt into the same
+  treatment, and rejecting it would punish numpy for a language restriction.
+  The check is on the SCALAR type, never on an array's truthiness -- bool(arr)
+  on a multi-element array raises its own ValueError with the wrong message,
+  the split identity D-40 forbids. 0 and 1 ARE rejected: D-42's
+  bool-is-not-an-int boundary from the other side.
+
+THE CALL SITE THE CHANGE MISSED, AND WHY ITS CAPTURE IS KEPT. The call sites
+were swept before the change and one was still missed:
+test_simulate_fully_reproducible_with_generator is parametrised over
+[False, "cox"], so the retired string reaches the constructor THROUGH A
+VARIABLE and the literal never appears next to `cox_background=` for a sweep to
+find. The fast lane caught it: 1 failed, 634 passed, PYTEST_FAST_EXIT:1,
+preserved at captures/a50_fastlane_red_missed_call_site.log. It is preserved
+because it is the argument for RUNNING the gate rather than reasoning about the
+change: the reasoning had already been done, carefully, and was wrong. The fix
+is the parametrisation and its two `cox == "cox"` guards, which become
+`if cox:` -- no assertion moves, which is the condition under which editing a
+test is permitted at all.
+
+CAN CI-10 MAKE EITHER PIN-5 CONFIGURATION UNCONSTRUCTIBLE? MEASURED: NO.
+A rejection clause is invisible to a value-and-gradient comparison over the
+configurations that still construct -- if one stops constructing, pin_check_v2
+raises and writes no record, so the comparison sees not a moved number but an
+absent key, which before A-48 was counted as no diff.
+_a50_constructibility_probe.py reads the cox_background actually passed at
+every construction site in the harness BY AST rather than by rerunning it, and
+puts each value through validate_cox_background. All six sites pass a bool:
+cox_hawkes passes True (changed in this commit), the other four Hawkes_Model
+sites pass False, and LGCP_Model has no such parameter and is reported NOT
+APPLICABLE rather than omitted. BOTH PIN-5 LEGS pass cox_background=False, so
+CI-10 cannot reject either, and the polygon regime reaches the construction
+path and returns from it. NO SITE RELIES ON THE DEFAULT, so the default's type
+change moves nothing in the harness. The gate line agrees by a second and
+weaker route: the forward run reads compared=6/6 with baseline_only=[].
+
+WP5 DOES NOT OPEN, AND ITS REMAINDER IS STATED AS A LIST so the next round can
+be a decision rather than a survey. The ENTRY PRECONDITION is discharged
+(A-47). What stands, exhaustively: (1) OP-23 is reserved with NO TEXT, cited
+only in AGENTS.md, and A-36 fixed the terms -- its text lands at WP5's opening
+or the citation is withdrawn; (2) A-44's gap G-A, three ungated document gates;
+(3) A-44's gap G-B, standardize_cov's bind-time relocation, held until OP-28 is
+answered. Each of the three is a DECISION TO TAKE, not a measurement to make.
+OP-28 stays escalated. main.py:338 stays WP10's. C4 stays 2 of 4. WP3/4/6/7/8
+stay placeholders.
+
+GATES. Populations first, per A-48's standing requirement.
+  PIN-COMPARISON POPULATION: 6 configurations in the candidate. Canonical
+  2026-07: PIN_DIFFS 0 PARTIAL compared=4/6, both candidate_only keys named,
+  baseline_only=[]. Forward 2026-08-polygon: PIN_DIFFS 0 MATCH compared=6/6.
+  THE CANDIDATE WAS RE-CAPTURED, not reused -- pin_check_v2.py's cox_hawkes
+  construction changes here, so a reused candidate would have gated the old
+  call. It re-captured BYTE-IDENTICALLY, sha256 e8ade72f7947..., which is the
+  SC/API claim's whole content: the accept set narrows and no pinned value
+  moves.
+  RUFF POPULATION: 10 files, named in results/_a50_ruff.txt -- 7 MODIFIED
+  against their own HEAD versions under HEAD's config, 3 NEW reported
+  separately. Introduced 0. Inherited 26 by name: 21 E402 (the two test
+  modules' post-os.environ imports), 3 E702 and 2 E401 (pin_check_v2.py), all
+  pre-existing at HEAD. 0 in the new files, after the one introduced F401 -- an
+  unused LGCP_Model import in the census probe -- was FIXED rather than
+  declared, since a finding this commit introduces in a file this commit
+  creates is not inherited by any reading.
+  FULL SUITE, TWO INVOCATIONS, and the reason is the change class rather than
+  the file list: SC/API narrows a public constructor's accept set and every
+  slow test that builds a model goes through that constructor. Fast lane 635
+  passed, 1 skipped, 1 xfailed, 12 deselected, PYTEST_FAST_EXIT:0. Slow lane 11
+  passed, 1 skipped, 637 deselected, PYTEST_SLOW_EXIT:0. The lanes partition
+  exactly: 637 + 12 = 649 collected on both sides. Selected rises by 18 over
+  A-48's 619 -- the 18 CI-10 rows and nothing else.
+  TARGETED RED AND GREEN: captures/a50_ci10_red.log (14 failed, 4 passed,
+  PYTEST_EXIT:1 at f40591e) and results/_a50_ci10_green.txt (18 passed). The
+  red's SHAPE is evidence of a minimal revert: twelve behavioural rows fail as
+  DID NOT RAISE ValueError, and the two clause-identity rows fail separately on
+  their own ImportError because they import bstpp.config INSIDE the test.
+  hypertarget 50/50. Content checks PASS, 51 rows D-1..D-51 -- the count moves
+  by A-49's five decisions and by none of this commit's, which is what the
+  monotonicity check exists to make visible. Check 4 clean.
+  ASCII sweep PASS 183/183 raise sites, 11 clause functions evaluated, 0
+  unevaluated -- RED FIRST at 10 evaluated / 1 unevaluated, SWEEP_EXIT:1,
+  preserved at captures/a50_ascii_sweep_red.log. A SECOND, UNRELATED DEFECT in
+  that instrument is declared rather than folded in: NON_ASCII_PROBE's literal
+  had been mojibake-corrupted between A-48 and here (its UTF-8 bytes re-encoded
+  as UTF-8), which the sweep could not catch because BOTH spellings are
+  non-ASCII and the probe only has to be non-ASCII to work. Restored to HEAD's
+  bytes. Label sweep PASS. PIN_CORPUS_IDENTITY: IDENTITY_HOLDS True on both
+  ON_DISK and TRACKED, exit 0, two declared eras, no undeclared group. Citation
+  sweep red then PASS, capture preserved; all eight unreachable citations this
+  commit's own unstaged evidence, no genuine defect among them.
+  A46_EXCLUSION_EXIT:0, CENSUS POPULATION 589, eligible-capture subset 323,
+  under A-48's definition, MEASURED WITH THIS COMMIT'S CONTENTS STAGED -- which
+  differs from A-48's practice of measuring before staging, so the reading is
+  labelled rather than left to be inferred. EVERY READING SINCE RECONCILES, and
+  the arithmetic is written out because it is the only thing that makes the
+  stationarity claim checkable: A-48 added 15 files, ONE under the declared
+  root, so 550+(15-1)=564 at f40591e; A-49 added one tracked file -> 565; this
+  commit stages 39, of which 11 are already-tracked modifications and 4 are
+  captures under the declared root, so 565+24=589. ALL FIVE CAPTURES ACROSS THE
+  TWO COMMITS MOVED IT BY ZERO, which is the whole of what D-46 buys. The
+  eligible subset moves 302 -> 323 by this commit's 21 .txt/.json gate outputs
+  under results/, and by NONE of the four preserved reds. This is a population
+  size, not a C2 verdict: no fifth reading is taken, C2 stays 4/3 with the
+  fourth reading provisional, C4 stays 2 of 4.
+  Verified under D-41 clause 5 against a pre-stated file list
+  (results/_a50_file_list.txt), which also NAMES THE FIVE ARCHIVED CALL SITES
+  that still pass the retired string -- under phase0/, phase1/, phase2b/ and
+  two A-36/A-41 probes -- as knowingly stale historical artifacts deliberately
+  NOT rewritten, since an archive edited to keep compiling stops being evidence
+  of what was measured.
+
+Next free: A-51, D-52, CI-11, OP-32.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

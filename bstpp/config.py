@@ -314,6 +314,64 @@ def validate_standardize_cov(standardize_cov: object) -> None:
     raise_standardize_cov_violation(standardize_cov=standardize_cov)
 
 
+def cox_background_invariant_clause(*, cox_background: object) -> str:
+    """Render the canonical ``cox_background`` boolean clause (CI-10).
+
+    One clause, one branch on the same text: the old default ``'cox'`` gets a
+    replacement named for it, because it is the value an upgrading user is
+    most likely to be passing -- they copied it out of the signature.
+    """
+    replacement = (" use cox_background=True for the same model;"
+                   if cox_background == "cox" else "")
+    return _ascii_safe(
+        "cox_background selects the background form and must be a bool "
+        f"(True = Gaussian-process background, False = plain hawkes);{replacement} "
+        f"got {cox_background!r}")
+
+
+def raise_cox_background_violation(
+    *, cox_background: object, remediation: str = "") -> NoReturn:
+    """Raise the single identity for the ``cox_background`` type invariant.
+
+    ``ValueError`` for the same reason ``standardize_cov`` uses one: the
+    quantity belongs to ``ModelConfig``, which has not landed, and borrowing
+    ``NumericalConfigError`` would assert an ownership D-40 has not assigned.
+    """
+    msg = cox_background_invariant_clause(cox_background=cox_background)
+    if remediation:
+        msg = f"{msg} {remediation}"
+    raise ValueError(msg)
+
+
+def validate_cox_background(cox_background: object) -> None:
+    """CI-10: a boolean argument is a bool, not whatever happens to be truthy.
+
+    The argument was consumed as ``if cox_background:`` with nothing checking
+    it, so the accept set was every object and the branch was taken by
+    TRUTHINESS -- ``'false'`` and ``'nonsense'`` both selected the Gaussian-
+    process background. That is CI-9's defect with the sign flipped: there a
+    bad value was accepted and IGNORED, here it was accepted and ACTED ON, in
+    the direction opposite to what it said.
+
+    ``np.bool_`` is accepted, and the reason is a CPython fact rather than a
+    preference. D-42 accepts ``np.float64`` because it is a ``float``
+    subclass; ``bool`` CANNOT BE SUBCLASSED in CPython, so ``np.bool_`` has no
+    way to opt into the same treatment. Rejecting it would punish numpy for a
+    language restriction rather than for being the wrong quantity.
+    """
+    if type(cox_background) is bool:
+        return
+    # Deferred: `config` is imported by modules numpy-free at import time, and
+    # this is the only site in the module that needs an array type. The check
+    # is on the SCALAR type, never on an array's truthiness -- `bool(arr)` on
+    # a multi-element array raises its own ValueError with the wrong message,
+    # which is the split identity D-40 forbids.
+    import numpy as np
+    if isinstance(cox_background, np.bool_):
+        return
+    raise_cox_background_violation(cox_background=cox_background)
+
+
 def validate_sigma_pair(min_sigma: float, max_sigma: float) -> None:
     """The single implementation of the resolved-bound invariants (CI-3, CI-4).
 

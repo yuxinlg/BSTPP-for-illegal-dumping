@@ -103,7 +103,7 @@ def test_covariate_attach_when_partition_and_cov_crs_already_match():
     with warnings.catch_warnings():
         warnings.simplefilter("error", DeprecationWarning)
         m = Hawkes_Model(
-            data, tri, T_DAYS, cox_background="cox",
+            data, tri, T_DAYS, cox_background=True,
             excitation_support="rectangle",
             spatial_cov=cov, cov_names=["v"],
             data_contracts="reject", **PRIORS,
@@ -148,7 +148,7 @@ def test_public_crs_mismatch_rejected_without_allow_override():
     data = _triangle_data()
     with pytest.raises(DataContractError, match="crs_mismatch"):
         Hawkes_Model(
-            data, tri, T_DAYS, cox_background="cox",
+            data, tri, T_DAYS, cox_background=True,
             excitation_support="rectangle",
             spatial_cov=cov, cov_names=["v"],
             data_contracts="reject", **PRIORS,

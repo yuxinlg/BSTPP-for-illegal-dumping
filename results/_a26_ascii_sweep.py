@@ -157,6 +157,13 @@ CLAUSE_SAMPLES: dict[str, object] = {
     # that red is preserved at refactor-patches/phase3f/wp2/a45_red_capture.txt
     # rather than being erased by this line (D-45).
     "standardize_cov": "area",
+    # CI-10 (A-50). Same shape as the CI-9 sample: added AFTER the red that
+    # showed the sweep going unevaluated without it, and that red is preserved
+    # at refactor-patches/captures/a50_ascii_sweep_red.log rather than being
+    # erased by this line (D-45). The path differs from the CI-9 line above
+    # because D-46 landed between them: A-45's capture predates the declared
+    # root and stays where it was written, A-50's is written under it.
+    "cox_background": "cox",
 }
 
 # Second pass: can a caller's own non-ASCII value reach the message through

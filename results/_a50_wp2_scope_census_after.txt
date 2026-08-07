@@ -1,0 +1,58 @@
+bstpp.__file__ : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+
+WP2 REMAINING-SCOPE CENSUS
+  predicate : is an out-of-set value REJECTED AT CONSTRUCTION on a
+              path where the consuming leg does not run? (CI-9)
+  path      : Hawkes_Model, array domain, NO covariates
+
+-- C1's routed items, state from the register ------------------
+  [CLOSED   ] CI-9 enforcement
+              LANDED at A-45
+  [UNBLOCKED] D-43 cl.2 -- panel_h_m bind-time sentinel
+              decision LANDED (A-36, reviewed A-39); implementation OUTSTANDING
+  [BLOCKED  ] D-43 cl.2 -- standardize_cov bind-time relocation
+              BLOCKED by declared gap G-B until OP-28 is answered
+  [BLOCKED  ] OP-25 -- warnings.warn ASCII sibling
+              DEFERRED decision (A-39's standing rule bars settling it in a bookkeeping pass); its criterion needs a count not yet taken
+
+-- constructor arguments, by owning object ---------------------
+  [IN SCOPE ] cox_background   -> ModelConfig
+              selects the background form (cox_hawkes vs hawkes); documented `bool`
+      'false'      rejected: ValueError: cox_background selects the background form and must be a bool (True = Gaussian-process b
+      'nonsense'   rejected: ValueError: cox_background selects the background form and must be a bool (True = Gaussian-process b
+      0            rejected: ValueError: cox_background selects the background form and must be a bool (True = Gaussian-process b
+      []           rejected: ValueError: cox_background selects the background form and must be a bool (True = Gaussian-process b
+
+  [IN SCOPE ] sp_var_mu   -> ModelConfig
+              fixed log-amplitude multiplier on the spatial decoder; a real
+      '2.0'        ACCEPTED SILENTLY  <-- finding
+      True         ACCEPTED SILENTLY  <-- finding
+      None         rejected: TypeError: float() argument must be a string or a real number, not 'NoneType'
+
+  [IN SCOPE ] standardize_cov   -> ModelConfig
+              CI-9's own argument; LANDED at A-45 and included here as a CONTROL -- a census whose known-enforced row does not fire is measuring nothing
+      'nonsense'   rejected: ValueError: standardize_cov must be None (off, default) or 'domain_area' (area-weighted over |C_c in
+      True         rejected: ValueError: standardize_cov no longer accepts booleans; standardize_cov must be None (off, default) 
+
+  [EXCLUDED ] data_contracts   -> WP8 (input metadata)
+              the outline assigns `data_contracts` mode to WP8, not WP2
+
+  [EXCLUDED ] spatial_cov_crs   -> WP8 (input metadata)
+              same row of the outline
+
+  [EXCLUDED ] offset_seasonal   -> WP4 (ModelData)
+              the seasonal time origin is a ModelData fact
+
+  [EXCLUDED ] excitation_support / min_sigma / max_sigma / mass_table   -> WP5
+              WP5's seam exactly, and WP5 cannot open (OP-23 has no text)
+
+  [EXCLUDED ] panel_h_m / gl_order / tolerance defaults   -> WP1 (NumericalConfig)
+              WP1's object invariants are CLOSED; its construction sites reopen only under D-43 cl.2, which is the separate C1 item below
+
+-- the shipped default, measured -------------------------------
+  Hawkes_Model.__init__ cox_background default = True (bool)
+  docstring declares it `bool`. A bool-only enforcement would reject the
+  package's own default, so the default is part of the change, not incidental.
+
+A49_CENSUS_EXIT:0
+A49_CENSUS_SHELL_EXIT:0

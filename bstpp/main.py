@@ -39,7 +39,8 @@ from .data_contracts import (validate_events, validate_covariates,
 from .preparation import (ModelData, prepare_domain, prepare_partitions,
                           attach_covariate_partitions,
                           finalize_integration_arrays, T_INTERNAL)
-from .config import NumericalConfig, validate_standardize_cov
+from .config import (NumericalConfig, validate_cox_background,
+                     validate_standardize_cov)
 from .excitation_support import (
     build_excitation_support,
     resolve_excitation_support_mode,
@@ -1847,7 +1848,7 @@ class Point_Process_Model:
 
 
 class Hawkes_Model(Point_Process_Model):
-    def __init__(self, data, A, T, cox_background='cox',
+    def __init__(self, data, A, T, cox_background=True,
                  temporal_trig=Temporal_Exponential,
                  spatial_trig=Spatial_Symmetric_Gaussian,
                  window=None, spatial_window=None,
@@ -1895,7 +1896,12 @@ class Hawkes_Model(Point_Process_Model):
         T: float
             Maximum time in region of interest. Time is assumed to spart at 0.
         cox_background: bool
-            use gaussian processes in background
+            Use Gaussian processes in the background. ``True`` (default) gives
+            the cox_hawkes model, ``False`` plain hawkes. Must be a ``bool``
+            (CI-10): the value selects the model, so a truthy non-bool such as
+            the string ``'false'`` would otherwise choose the opposite of what
+            it reads. The pre-A-49 default was the string ``'cox'``; pass
+            ``True`` for the identical model.
         temporal_trig: class Trigger
             an implementation of Trigger to parameterize the temporal triggering mechanism.
             ``mean_lag_days``, ``temporal_cutoff_tol``, ``design_mean_lag_days``,
@@ -1989,6 +1995,12 @@ class Hawkes_Model(Point_Process_Model):
                 "from bstpp.polygon_mass.prepare_polygon_mass_table(...); "
                 "the constructor does not build Hermite tables.")
 
+        # CI-10, before the branch it guards: `if cox_background:` selects the
+        # model by TRUTHINESS, so an unvalidated non-bool does not fail, it
+        # picks a background. Validated here rather than at the branch so the
+        # rejection precedes expensive base construction, and so the argument
+        # the caller passed is still the object being checked.
+        validate_cox_background(cox_background)
         self.model = spatiotemporal_hawkes_model
         if cox_background:
             name = 'cox_hawkes'

@@ -1,0 +1,3 @@
+..s.........                                                             [100%]
+11 passed, 1 skipped, 637 deselected in 567.17s (0:09:27)
+PYTEST_SLOW_EXIT:0

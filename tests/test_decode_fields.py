@@ -41,7 +41,7 @@ def cox_args():
                          "Y": rng.uniform(0.05, 0.95, 40),
                          "T": np.sort(rng.uniform(0, T_DAYS, 40))})
     m = Hawkes_Model(data, np.array([[0., 1.], [0., 1.]]), T_DAYS,
-                     cox_background="cox",
+                     cox_background=True,
                      a_0=dist.Normal(0, 5), alpha=dist.Beta(2, 2),
                      beta=dist.HalfNormal(1.0), sigmax_2=dist.HalfNormal(0.25))
     return m.args

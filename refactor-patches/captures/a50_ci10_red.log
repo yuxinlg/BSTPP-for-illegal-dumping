@@ -1,0 +1,194 @@
+FFFFFFFFF....FFFFF                                                       [100%]
+================================== FAILURES ===================================
+_____________ test_a_non_bool_is_rejected_at_construction[false] ______________
+
+value = 'false'
+
+    @pytest.mark.parametrize("value", BAD)
+    def test_a_non_bool_is_rejected_at_construction(value):
+        """THE FIRING ROW. No covariates, no fit -- the constructor must refuse."""
+>       with pytest.raises(ValueError, match="cox_background"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests\test_ci10_boolean_argument.py:94: Failed
+______________ test_a_non_bool_is_rejected_at_construction[cox] _______________
+
+value = 'cox'
+
+    @pytest.mark.parametrize("value", BAD)
+    def test_a_non_bool_is_rejected_at_construction(value):
+        """THE FIRING ROW. No covariates, no fit -- the constructor must refuse."""
+>       with pytest.raises(ValueError, match="cox_background"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests\test_ci10_boolean_argument.py:94: Failed
+____________ test_a_non_bool_is_rejected_at_construction[nonsense] ____________
+
+value = 'nonsense'
+
+    @pytest.mark.parametrize("value", BAD)
+    def test_a_non_bool_is_rejected_at_construction(value):
+        """THE FIRING ROW. No covariates, no fit -- the constructor must refuse."""
+>       with pytest.raises(ValueError, match="cox_background"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests\test_ci10_boolean_argument.py:94: Failed
+_______________ test_a_non_bool_is_rejected_at_construction[0] ________________
+
+value = 0
+
+    @pytest.mark.parametrize("value", BAD)
+    def test_a_non_bool_is_rejected_at_construction(value):
+        """THE FIRING ROW. No covariates, no fit -- the constructor must refuse."""
+>       with pytest.raises(ValueError, match="cox_background"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests\test_ci10_boolean_argument.py:94: Failed
+_______________ test_a_non_bool_is_rejected_at_construction[1] ________________
+
+value = 1
+
+    @pytest.mark.parametrize("value", BAD)
+    def test_a_non_bool_is_rejected_at_construction(value):
+        """THE FIRING ROW. No covariates, no fit -- the constructor must refuse."""
+>       with pytest.raises(ValueError, match="cox_background"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests\test_ci10_boolean_argument.py:94: Failed
+_____________ test_a_non_bool_is_rejected_at_construction[value5] _____________
+
+value = []
+
+    @pytest.mark.parametrize("value", BAD)
+    def test_a_non_bool_is_rejected_at_construction(value):
+        """THE FIRING ROW. No covariates, no fit -- the constructor must refuse."""
+>       with pytest.raises(ValueError, match="cox_background"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests\test_ci10_boolean_argument.py:94: Failed
+______________ test_a_non_bool_is_rejected_at_construction[None] ______________
+
+value = None
+
+    @pytest.mark.parametrize("value", BAD)
+    def test_a_non_bool_is_rejected_at_construction(value):
+        """THE FIRING ROW. No covariates, no fit -- the constructor must refuse."""
+>       with pytest.raises(ValueError, match="cox_background"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests\test_ci10_boolean_argument.py:94: Failed
+______________ test_a_non_bool_is_rejected_at_construction[1.0] _______________
+
+value = 1.0
+
+    @pytest.mark.parametrize("value", BAD)
+    def test_a_non_bool_is_rejected_at_construction(value):
+        """THE FIRING ROW. No covariates, no fit -- the constructor must refuse."""
+>       with pytest.raises(ValueError, match="cox_background"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests\test_ci10_boolean_argument.py:94: Failed
+____________ test_the_string_that_reads_as_false_selects_cox_today ____________
+
+    def test_the_string_that_reads_as_false_selects_cox_today():
+        """The row that makes this worth an SC change rather than a docstring fix.
+    
+        Asserted through the PUBLIC record, not the branch: after the fix the
+        value never gets far enough to select anything, and before it, the record
+        a user would inspect says 'cox_hawkes'. Either way this row is about what
+        ``cox_background='false'`` is allowed to produce.
+        """
+>       with pytest.raises(ValueError) as excinfo:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests\test_ci10_boolean_argument.py:106: Failed
+___________ test_the_shipped_default_is_a_bool_and_still_means_cox ____________
+
+    def test_the_shipped_default_is_a_bool_and_still_means_cox():
+        """The default's TYPE moves and its MEANING does not. Both are pinned.
+    
+        Pinning only the type would allow a later edit to flip the default to
+        ``False``, which is a different model, under cover of this row.
+        """
+        default = inspect.signature(Hawkes_Model.__init__) \
+            .parameters["cox_background"].default
+>       assert type(default) is bool, (
+            f"the package default must satisfy its own invariant; got {default!r}")
+E       AssertionError: the package default must satisfy its own invariant; got 'cox'
+E       assert <class 'str'> is bool
+E        +  where <class 'str'> = type('cox')
+
+tests\test_ci10_boolean_argument.py:138: AssertionError
+__________ test_the_clause_names_the_replacement_for_the_old_default __________
+
+    def test_the_clause_names_the_replacement_for_the_old_default():
+        """A user upgrading hits ``cox_background='cox'`` first, since it was the
+        default they may have copied out of the signature. The message has to be
+        actionable for exactly that person."""
+>       with pytest.raises(ValueError) as excinfo:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE ValueError
+
+tests\test_ci10_boolean_argument.py:148: Failed
+________ test_one_clause_one_identity_reachable_without_a_constructor _________
+
+    def test_one_clause_one_identity_reachable_without_a_constructor():
+        """D-40: the validator is callable on its own and renders the same text.
+    
+        A clause only reachable by building a model is a clause a second owner
+        cannot delegate to, which is how the sigma family ended up split.
+        """
+>       from bstpp.config import (cox_background_invariant_clause,
+                                  validate_cox_background)
+E       ImportError: cannot import name 'cox_background_invariant_clause' from 'bstpp.config' (C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\config.py)
+
+tests\test_ci10_boolean_argument.py:160: ImportError
+_____________ test_the_clause_is_ascii_even_for_a_non_ascii_value _____________
+
+    def test_the_clause_is_ascii_even_for_a_non_ascii_value():
+        """D-40's encoding corollary, at the interpolation slot."""
+>       from bstpp.config import cox_background_invariant_clause
+E       ImportError: cannot import name 'cox_background_invariant_clause' from 'bstpp.config' (C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\config.py)
+
+tests\test_ci10_boolean_argument.py:170: ImportError
+_____________ test_a_bool_is_not_reinterpreted_as_an_int_anywhere _____________
+
+    def test_a_bool_is_not_reinterpreted_as_an_int_anywhere():
+        """``0``/``1`` are rejected, so the reverse coercion cannot creep back.
+    
+        D-42 rejects ``bool`` as an ``int`` subclass; this is the same boundary
+        from the other side, and stating it here keeps the two policies from
+        drifting into a mutual exception.
+        """
+        for value in (0, 1):
+>           with pytest.raises(ValueError, match="cox_background"):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE ValueError
+
+tests\test_ci10_boolean_argument.py:183: Failed
+=========================== short test summary info ===========================
+FAILED tests/test_ci10_boolean_argument.py::test_a_non_bool_is_rejected_at_construction[false]
+FAILED tests/test_ci10_boolean_argument.py::test_a_non_bool_is_rejected_at_construction[cox]
+FAILED tests/test_ci10_boolean_argument.py::test_a_non_bool_is_rejected_at_construction[nonsense]
+FAILED tests/test_ci10_boolean_argument.py::test_a_non_bool_is_rejected_at_construction[0]
+FAILED tests/test_ci10_boolean_argument.py::test_a_non_bool_is_rejected_at_construction[1]
+FAILED tests/test_ci10_boolean_argument.py::test_a_non_bool_is_rejected_at_construction[value5]
+FAILED tests/test_ci10_boolean_argument.py::test_a_non_bool_is_rejected_at_construction[None]
+FAILED tests/test_ci10_boolean_argument.py::test_a_non_bool_is_rejected_at_construction[1.0]
+FAILED tests/test_ci10_boolean_argument.py::test_the_string_that_reads_as_false_selects_cox_today
+FAILED tests/test_ci10_boolean_argument.py::test_the_shipped_default_is_a_bool_and_still_means_cox
+FAILED tests/test_ci10_boolean_argument.py::test_the_clause_names_the_replacement_for_the_old_default
+FAILED tests/test_ci10_boolean_argument.py::test_one_clause_one_identity_reachable_without_a_constructor
+FAILED tests/test_ci10_boolean_argument.py::test_the_clause_is_ascii_even_for_a_non_ascii_value
+FAILED tests/test_ci10_boolean_argument.py::test_a_bool_is_not_reinterpreted_as_an_int_anywhere
+14 failed, 4 passed in 41.66s
+PYTEST_EXIT:1

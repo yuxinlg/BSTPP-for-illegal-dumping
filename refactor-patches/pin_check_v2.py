@@ -121,7 +121,9 @@ p = {k: jnp.float32(v) for k,v in dict(a_0=0.5, alpha=0.3, beta=2.0, sigmax_2=0.
 hw = Hawkes_Model(DATA, A, T_DAYS, cox_background=False, **PRIORS)
 out["hawkes"] = pin(hw, p)
 
-ch = Hawkes_Model(DATA, A, T_DAYS, cox_background="cox", **PRIORS)
+# CI-10: the old default string 'cox' is no longer accepted; True selects the
+# identical model (both are truthy, so nothing about this pin's values moves).
+ch = Hawkes_Model(DATA, A, T_DAYS, cox_background=True, **PRIORS)
 t2 = handlers.trace(handlers.seed(ch.model, jax.random.PRNGKey(3))).get_trace(ch.args)
 lat = {k: t2[k]["value"] for k in ("a_0","z_temporal","z_seasonal","z_spatial","alpha","beta","sigmax_2")}
 out["cox_hawkes"] = pin(ch, lat)

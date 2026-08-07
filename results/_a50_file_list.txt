@@ -1,0 +1,106 @@
+A-50 / WP2.5 -- PRE-STATED FILE LIST (D-41 clause 5)
+
+Stated BEFORE `git add`. After committing, `git show --stat HEAD` is compared
+against this list and `git status --porcelain` must be empty of these paths. A
+commit whose contents were not compared to a pre-stated list is ungated
+regardless of what the gates said.
+
+-- production (bstpp/) ---------------------------------------------------
+  M  bstpp/config.py
+       CI-10's canonical clause trio: cox_background_invariant_clause,
+       raise_cox_background_violation, validate_cox_background (D-40).
+  M  bstpp/main.py
+       Hawkes_Model.__init__: default 'cox' -> True; validate_cox_background
+       called before the `if cox_background:` branch it guards; docstring
+       states the accept set and names the replacement for the old default.
+
+-- tests -----------------------------------------------------------------
+  A  tests/test_ci10_boolean_argument.py           18 rows, RED at f40591e
+  M  tests/test_identities.py                      parametrize [False,"cox"]
+                                                   -> [False,True]; the two
+                                                   `cox == "cox"` guards ->
+                                                   `if cox:`. NO assertion
+                                                   moves.
+  M  tests/test_crs_set_crs_paths.py               2 call sites, "cox" -> True
+  M  tests/test_decode_fields.py                   1 call site, "cox" -> True
+
+-- instruments -----------------------------------------------------------
+  M  refactor-patches/pin_check_v2.py              cox_hawkes config: "cox" ->
+                                                   True. Pins re-captured
+                                                   BYTE-IDENTICALLY.
+  M  results/_a26_ascii_sweep.py                   CLAUSE_SAMPLES gains
+                                                   cox_background; NON_ASCII_
+                                                   PROBE restored from a
+                                                   mojibake corruption
+                                                   (\xc3\x83\xc2\xa9 ->
+                                                   \xc3\xa9) introduced
+                                                   between A-48 and here.
+  A  results/_a50_constructibility_probe.py        AST read of every pin
+                                                   construction site.
+  A  refactor-patches/phase3f/wp2/probe_a50_wp2_remaining_items.py
+                                                   the WP2 scope census.
+
+-- record and docs -------------------------------------------------------
+  M  phase3_record.tex                             A-50; CI sequence extended
+                                                   to CI-10, next free CI-11.
+                                                   NO decision added (stays
+                                                   46 rows, D-1..D-46).
+  M  AGENTS.md                                     CI-10; next free numbers;
+                                                   the default's type change
+                                                   flagged; WP5's remainder as
+                                                   a three-item list.
+  M  refactor-patches/captures/README.md           four A-50 inhabitants +
+                                                   the a48 row that was
+                                                   missing.
+  M  refactor-patches/pre-3f-stabilization/pin_path_map.md
+                                                   the cox_hawkes row's entry
+                                                   call, now stale ("cox").
+
+-- preserved captures (D-45, under D-46's declared root) -----------------
+  A  refactor-patches/captures/a50_ci10_red.log
+  A  refactor-patches/captures/a50_ascii_sweep_red.log
+  A  refactor-patches/captures/a50_fastlane_red_missed_call_site.log
+  A  refactor-patches/captures/a50_citation_sweep_red.log
+
+-- gate evidence (results/) ----------------------------------------------
+  A  results/_a50_pytest_fast.txt
+  A  results/_a50_pytest_slow.txt
+  A  results/_a50_ci10_green.txt
+  A  results/_a50_ascii_sweep.txt
+  A  results/_a50_ruff.txt
+  A  results/_a50_pins_candidate.json
+  A  results/_a50_pins_stderr.txt
+  A  results/_a50_pin_compare_canonical.txt
+  A  results/_a50_pin_compare_forward.txt
+  A  results/_a50_corpus_identity.txt
+  A  results/_a50_hypertarget.txt
+  A  results/_a50_label_check.txt
+  A  results/_a50_content_checks.txt
+  A  results/_a50_a46_exclusion.txt
+  A  results/_a50_constructibility.txt
+  A  results/_a50_wp2_scope_census.txt          PRE-change (re-taken against
+                                                f40591e with bstpp/ reverted
+                                                and restored byte-identically;
+                                                md5 verified both ways)
+  A  results/_a50_wp2_scope_census_after.txt    POST-change; the control row
+                                                and cox_background both fire
+  A  results/_a50_citation_sweep.txt            red, pre-staging
+  A  results/_a50_citation_sweep_after_staging.txt
+  A  results/_a50_file_list.txt                 this file
+  A  results/_a50_commit_msg.txt
+
+NOT STAGED, and deliberately so: every other untracked path in the tree
+(pins*.json scratch, build/, sbc logs, notebooks, the pre-3f-stabilization
+probe set, results/_c1_*/_c2_*/_wp14c_* backfill). None is this commit's
+evidence and none is cited by A-50.
+
+NOT REWRITTEN, and named rather than silently left: the archived call sites
+that still pass the retired string --
+  refactor-patches/phase0/test_identities.py:158
+  refactor-patches/phase1/pin_check.py:23
+  refactor-patches/phase2b/dist_check.py:19
+  refactor-patches/phase3f/wp2/probe_a36_silent_collapse_census.py:166
+  refactor-patches/phase3f/wp2/probe_a41_vendored_dependency_surface.py:158
+These are historical artifacts with committed logs, not live instruments; a
+rewritten archive stops being evidence of what was measured. They are listed
+so "still passes 'cox'" is a recorded fact rather than an oversight.
