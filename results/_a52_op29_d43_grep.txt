@@ -1,0 +1,29 @@
+A-52 BOUNDED DETERMINATION: does OP-29's first instance survive?
+tip: 96c01ba
+
+CLAIM UNDER TEST (OP-29 instance 1, A-36): 'D-43 was cited as authority
+before it existed anywhere in the repository.'
+
+$ git log --oneline -S 'D-43' --reverse --all | head -1
+65e2708 docs(3f): D-43 landed; the register's own unregistered citations (A-36) (DOC/IV)
+
+$ git log -1 --format='%h %ad %s' 65e2708
+65e2708 Thu Aug 6 00:21:28 2026 -0400 docs(3f): D-43 landed; the register's own unregistered citations (A-36) (DOC/IV)
+
+$ git grep -l 'D-43' 65e2708^ -- .
+  (no tracked file at the parent commit contains 'D-43')
+
+$ git log -1 --format='%h %ad %s' 426d60a
+426d60a Wed Aug 5 04:51:49 2026 -0400 fix(3f): one identity for the five sigma/mode invariants (A-27 / D-40) (SC)
+$ git merge-base --is-ancestor 426d60a 65e2708 ; echo $?
+  exit 0 (0 = 426d60a predates the D-43 landing)
+
+RESULT: D-43's first appearance in ANY tracked file is 65e2708 -- the
+commit that LANDED it. There was never a repository state in which the
+register cited D-43 with no row, so instance (1) is NOT an OP-29-class
+(prose-vs-table) event. It was real but occurred outside the repository,
+making it D-44-class (a citation whose destination does not resolve).
+OP-29 therefore rests on TWO instances, below the OP-22 threshold of three.
+SEPARATELY: 'D-43 absent at 426d60a' was CORRECT -- 426d60a is A-27 and
+genuinely predates the landing. A one-day-stale tip, not a misreading.
+OP29_DETERMINATION_EXIT:0

@@ -1,0 +1,201 @@
+WP2.7 [DOC/process]: use and mention; D-48 amended where compliance was impossible; D-52; check 5 and two checks against the apparatus class
+
+A-52. Amends D-48 (three clauses). Establishes D-52. Adds content check 5 and
+two apparatus checks, each mutation-tested. Reclassifies OP-29's first
+instance. Class DOC/process; no file under bstpp/ or tests/ is touched.
+Register moves to 52 rows, D-1..D-52.
+
+THE A-50 EDIT, RECORDED AS AN ERRATUM AND THEN UNDONE THE RIGHT WAY. A-51
+REMOVED two literal anchor spellings from A-50's landed Part II text and from
+AGENTS.md. That was a silent edit to a landed entry and the register has no
+rule permitting one. A-52 RESTORES the spelling under the use/mention
+convention, so A-50's sentence reads exactly as it landed and the census still
+counts zero uses there. THE SENTENCE'S CLAIM -- "four" -- STAYS WRONG ON THE
+RECORD, superseded above rather than corrected in place: a landed count that
+turned out to be wrong is evidence about how the count was taken.
+  THE CONVENTION: an anchor on a line carrying `census:mention` (LaTeX %
+  comment; Markdown <!-- -->) is a MENTION -- reported, never counted, never
+  gated on. LINE-SCOPED, NOT FILE-SCOPED: a file-level opt-out silences every
+  future anchor in that file, which is how an exemption becomes an amnesty.
+  STATIONARITY CONFIRMED BY MEASUREMENT, which is the point of the item:
+  restoring A-50's literal token left the use count at 16, UNCHANGED, with 1
+  mention reported separately. The register can now quote its own subject
+  matter without altering its own count -- it could not before, and that
+  inability was itself the seventh instance of the apparatus class.
+
+D-48 AMENDED IN THREE CLAUSES, because compliance was attempted and failed
+three ways. These are AMENDMENTS, not a new decision: each repairs a rule that
+could not be followed as written, and a second decision restating a first is
+how two rules come to disagree.
+  (1) EMPTY SEAM SET. rho_w = 0/0 is undefined, not zero. The existing
+      rho_w = 0 clause answers a DIFFERENT question -- a seam set that exists
+      and is unreached, for which a separate entry gate is the right demand.
+      There is no gate that can reach an object nobody has written.
+  (2) COMPARABILITY. rho_w holds only within a fixed tree state. The unit is
+      statements and statement counts move under extraction, inlining and
+      reformatting, so differencing across tips reports refactoring as
+      coverage change. Every recorded rho_w names its tip.
+  (3) A DECLARED SEAM SET IS ITSELF AN OPENING PRECONDITION, in
+      docs/seam_sets.md. Without it rho_w has no denominator, so "record
+      rho_w before opening" was UNSATISFIABLE AS LANDED -- which is why no
+      package could have complied.
+  S_WP2 IS DECLARED, AND ONLY S_WP2: ModelConfig and PriorConfig, with
+  intended membership per quantity and non-members named with their owners.
+  It is EMPTY of extant code at 96c01ba -- git grep for either class returns
+  nothing -- so rho_WP2 is `N/A (empty seam set)` under clause 1 and WP2's
+  D-48 debt is discharged BY THE DECLARATION, not by a measurement. The other
+  nine declare at opening. The enforcement commits landing against WP2 act on
+  the quantities S_WP2 will own, at their current pre-object sites, which is
+  why they are WP2 work although the objects are absent -- and no pin gate
+  over them is read as evidence about ModelConfig.
+
+D-52 -- RETROACTIVITY, AND IT LANDS BEFORE ANYTHING CITES IT. Check 4c already
+demonstrated why that ordering matters: A-51's draft cited D-52 before its row
+existed and went red on its own text. Default prospective; retroactive reach
+ENUMERATED, never asserted ("this applies to everything" is not an
+enumeration). Applied to the two packages D-48 caught mid-flight: WP2
+DISCHARGED by the retroactive S_WP2 declaration; WP1 GRANDFATHERED WITH ITS
+DEBT DECLARED, because re-deriving a landed package's seam set is a re-audit
+the cap forbids. D-52 is not itself retroactive -- it enumerates nothing prior,
+so by its own clause 1 it binds decisions landing from A-52 forward.
+
+CONTENT CHECK 5 -- an anchor inside a landed decision, which 4c is
+structurally unable to see. 4c resolves a citation by finding its row and is
+satisfied the moment the row exists; it passed on D-48 and D-51 while both
+stated rules that could not be executed. Check 5 is SCOPED to landed decision
+rows AND to documents a decision declares authoritative -- wp_dependency_graph
+.md is operative under D-47 and carries most of the anchors, so a check
+confined to the .tex would exempt the file that needed it most. ADOPTED
+AGAINST A DECLARED BASELINE in the A-47 two-era pattern: adopting it bare
+would go red on arrival, and a gate red from its first commit trains its
+reader to ignore it. MEASURED IN SCOPE: 13 anchors over three (path, text)
+keys -- one D-50 deferral, eight `measure`, four `enumerate`. (The brief
+anticipated nineteen; thirteen is what the declared scope contains, and the
+scope is stated rather than the number forced.) DECLARED IS NOT DISCHARGED:
+open items with a number attached, checked every commit; a rising count needs
+an amendment, a falling one is reported and never failed.
+  MUTATION-TESTED, FOUR ROWS: operative anchor in a landed row RED; undeclared
+  extra anchor RED; anchor in the authoritative document, which carries no
+  LaTeX decision markers, RED -- proving the D-47 scope is load-bearing; and
+  THE SAME ANCHOR TEXT MARKED AS A MENTION, GREEN, the negative control
+  without which the other three prove only that the check fails on everything.
+  The probe carries a baseline guard THAT FIRED ON ITS FIRST RUN: the fixture
+  omitted the work-package entry files, check 4d went red, and every mutation
+  would have been red for free.
+
+THE SELF-REFERENTIAL APPARATUS CLASS, DECLARED AT SEVEN INSTANCES, WITH TWO
+MECHANICAL CHECKS AND THEN A STOP. Seven: the C2 census accepting a document
+DESCRIBING a red; the A-40/A-41 captures overwritten so a known-failing
+instrument could not demonstrate failing; OP-31's walker counting a one-sided
+key as no diff; NON_ASCII_PROBE double-encoded and invisible to its own sweep;
+check 4c blind inside a cell it had resolved; the anchor census dying on the
+encoding of the file it audits; and A-50's prose creating the anchors it was
+reporting. COMMON SHAPE: the instrument's own substrate -- fixture, probe,
+encoding, notation -- is under no instrument. The remedy generalises
+mass_table_sha256, the one place this repository already had it right.
+  CHECK A, SUBSTRATE PINNING: every declared gate instrument is hash-pinned in
+  a manifest computed by results/_a52_apparatus_checks.py, WHICH IS NOT A GATE
+  AND CONSUMES NONE OF THEM, so no instrument certifies itself.
+  CHECK B, EXPLICIT ENCODING: every document instrument opens files with an
+  explicit encoding=; binary modes exempt by definition.
+  BOTH MUTATION-TESTED: edited gate RED, undeclared gate RED, bare open() RED,
+  open(p,'rb') GREEN -- the control that stops the check demanding a
+  meaningless encoding= on binary reads, which is how a check gets deleted
+  rather than obeyed. CHECK B PASSED ON ITS FIRST RUN HAVING FOUND NOTHING,
+  which is the shape of the silent pass it exists to prevent, so its red
+  matters more than check A's. Two checks, then a stop: the remaining
+  instances are each closed by a targeted fix already landed, and the
+  use/mention convention is the third mechanism. NO SETTLED COUNT IS RE-READ.
+
+RENAMED-FILE CONSISTENCY: THE CHECK IS NOT VIABLE AS SPECIFIED, AND THAT IS
+THE FINDING. Grepping the moved _a50_* files for residual A-49 strings returns
+hits and EVERY ONE IS LEGITIMATE. Two classes: (a) preserved gate captures --
+_a50_citation_sweep.txt is the RED taken BEFORE the rename and names _a49_*
+paths that never became tracked; EDITING IT WOULD FALSIFY EVIDENCE, the
+failure mode a47_fastlane_red_with_broken_exit_wrapper.log is preserved
+unedited to illustrate. (b) The renumbering explanation, which cannot describe
+a rename without naming both sides. SO NOTHING IS FIXED, BECAUSE NOTHING FOUND
+IS A DEFECT. And the general check is NOT built: a sweep over all _aNN_
+evidence files shows cross-amendment references are pervasive and correct --
+_a47_commit_msg.txt legitimately names seven other amendments -- so a
+filename-to-content rule would be noise at best and would demand the
+falsification of captures at worst. Reported rather than implemented.
+
+ONE BOUNDED RECOVERY ATTEMPT FOR ecdfa51, THEN CLOSED. git reflog --all and
+git fsck --lost-found run at 96c01ba. The reflog holds no reference; fsck
+reports 39 dangling commits, NONE beginning ecdfa5; git cat-file -t on both
+ecdfa51 and ecdfa5 returns "fatal: Not a valid object name". UNPRESERVED
+STANDS, now with the commands and their output as evidence
+(results/_a52_recovery_attempt.txt) rather than as an inference from a failed
+lookup. A DRAFTING ERROR IN THAT PARAGRAPH IS RECORDED, since it is the class
+this commit is about: it first read "two dangling commits", because the
+exploratory run was piped through `head -15` and the count was taken from the
+truncated output. The committed capture is unpiped and lists all 39. A count
+taken from a truncated view is a count with an unstated population, one layer
+down.
+
+OP-29's FIRST INSTANCE DOES NOT SURVIVE, AND THE CLASS RESTS ON TWO. Measured
+at 96c01ba: `git log -S "D-43" --reverse --all` gives 65e2708 -- THE COMMIT
+THAT LANDED D-43 -- and `git grep "D-43" 65e2708^` returns NOTHING in any
+tracked file. So there was never a repository state in which the register
+cited D-43 with no row, and OP-29's class is specifically the register saying
+one thing in prose and another in a table. The event A-36 recorded was REAL
+but occurred in the planning thread, OUTSIDE the repository, making it
+D-44-class (a citation whose destination does not resolve). OP-29 therefore
+rests on TWO instances: OP-21/OP-22 opened in prose and never entered the
+table, and OP-20 closed in prose with its row unmarked -- both genuine, both
+register-internal. THREE WAS THE OP-22 PRECEDENT'S ENUMERATION THRESHOLD, SO
+THE CLASS NOW SITS BELOW IT, stated rather than absorbed; whether a
+two-instance class stays enumerated is a question for the register and IS NOT
+SETTLED HERE. SEPARATELY: the A-49 author's "D-43 absent at 426d60a" was
+CORRECT -- 426d60a is A-27 (2026-08-05), a genuine ancestor of 65e2708
+(2026-08-06), so D-43 was legitimately absent there. A one-day-stale tip, not
+a misreading by anyone.
+
+GATES. Populations first.
+  ANCHOR POPULATION: 16 uses, 1 mention, over the declared file set; 0
+  operative, 1 deferring (D-50's), 15 narrative. In check 5's scope: 13, all
+  declared.
+  CENSUS MEASUREMENT POINT is now part of D-46's definition -- post-staging,
+  pre-commit, with the `git ls-files` cross-check REQUIRED to take the reading
+  -- and the 550/564/589/601 series is LABELLED NON-HOMOGENEOUS rather than
+  retro-corrected, since A-48's reading was pre-staging and the later ones
+  post-staging. Retro-correcting a published count to smooth a series is how a
+  series stops being evidence.
+  RUFF POPULATION: 7 files -- 3 MODIFIED against their own HEAD under HEAD's
+  config, 4 NEW with baseline: NONE. Introduced 0, inherited 0, 0 in new files
+  after one F401 and one F841 were FIXED rather than declared.
+  PIN COMPARISON POPULATION: NOT RE-TAKEN, reason stated -- no file any pin
+  reads is touched. A-50's verdicts stand: canonical compared=4/6 PIN_DIFFS 0
+  PARTIAL, forward compared=6/6 PIN_DIFFS 0 MATCH, sha256 e8ade72f7947...
+  SUITE: NOT RUN -- no file under bstpp/ or tests/ is touched.
+  A46_EXCLUSION_EXIT:0. CENSUS POPULATION 622, eligible-capture subset 351,
+  taken at the newly declared point (post-staging, pre-commit) with the
+  required cross-check: `git ls-files -- . ':(exclude)refactor-patches/
+  captures/'` = 622, agreeing. Reconciles: 601 at 96c01ba plus 21 new
+  non-capture files (29 staged = 6 modified + 23 new, of which 2 are captures)
+  = 622. THE TWO CAPTURES MOVED IT BY ZERO.
+  THE NEW PROCEDURE EARNED ITS KEEP IMMEDIATELY: the instrument first read
+  620, having been run before the last two evidence files were staged --
+  THE SAME MEASUREMENT-ORDER ERROR AS A-51, one commit after it was diagnosed
+  -- and the cross-check that A-52 makes part of the definition caught it
+  rather than a reader catching it later. A procedure adopted this commit
+  failed this commit and was caught by its own new clause.
+  hypertarget 52/52. Content checks PASS, 52 rows D-1..D-52, checks 4a-4d and
+  5 clean. ASCII sweep PASS 183/183, 11 clauses. Label sweep PASS. Citation
+  sweep red then PASS, capture preserved
+  (captures/a52_citation_sweep_red.log); all four unreachable citations this
+  commit's own unstaged evidence.
+  ONE RED PRESERVED, this commit's own: DECISION-ROW MONOTONICITY, "D-49
+  follows D-52", FAIL 1, exit 1 -- D-52's row was drafted immediately after
+  D-48's, beside the clauses it relates to, which reads naturally and breaks
+  the ordering the register depends on. Fixed by moving the row after D-51.
+  THE SECOND COMMIT RUNNING, A CONTENT CHECK HAS CAUGHT THIS AUTHOR rather
+  than a historical defect, which is the argument for running the gates on DOC
+  commits at all. Capture: captures/a52_content_checks_ordering_red.log.
+  Verified under D-41 clause 5 against a pre-stated file list
+  (results/_a52_file_list.txt).
+
+Next free: A-53, D-53, CI-11, OP-32.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

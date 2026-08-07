@@ -244,6 +244,83 @@ if unresolved:
 print(f"  work packages with entries: {len(entries)}  {sorted(entries, key=lambda w: int(w[2:]))}")
 print(f"  4d routed-to-no-entry     : {unresolved or 'none'}")
 
+# ---------------------------------------------------------------- check 5 --
+# A-52. A LANDED decision must not carry a fill-anchor in an OPERATIVE clause.
+#
+# WHY 4c COULD NOT COVER THIS. Check 4c resolves a citation by finding the row
+# it names; it is satisfied the moment the row exists and CANNOT SEE INSIDE THE
+# CELL. D-48 and D-51 landed with their operative clauses carrying anchors, so
+# 4c passed on rows stating rules that could not be executed -- a gate blind to
+# a defect inside a cell it had just resolved (the fifth instance in the
+# self-referential apparatus class, A-52).
+#
+# SCOPE, and it is deliberately wider than the register. D-47 makes
+# `docs/wp_dependency_graph.md` OPERATIVE -- it governs execution order -- so a
+# check confined to the .tex would exempt the document that carries most of the
+# anchors. Scope = landed decision rows + every document a decision declares
+# authoritative.
+#
+# BASELINE, in the A-47 two-era pattern. Adopting this bare would go red on
+# arrival: anchors legitimately remain, and a gate that is red from its first
+# commit trains its reader to ignore it. So the REMAINING anchors are DECLARED,
+# and an UNDECLARED anchor is red. Declared is not discharged: these are open
+# items with a number attached, and the number is checked every commit.
+try:
+    import importlib
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parent))
+    _census = importlib.import_module("_a51_anchor_census")
+except Exception as exc:                                   # pragma: no cover
+    failures.append(f"5 anchor census unavailable: {type(exc).__name__}: {exc}")
+    _census = None
+
+#: The declared anchor population, by (path, anchor text) -> count. Measured at
+#: A-52 and held as a baseline. Raising a count needs a register amendment;
+#: LOWERING one is always safe and is reported, never failed.
+DECLARED_ANCHORS = {
+    ("phase3_record.tex", "[[FILL: state in the ledger]]"): 1,
+    ("docs/wp_dependency_graph.md", "[[FILL: measure]]"): 8,
+    ("docs/wp_dependency_graph.md", "[[FILL: enumerate]]"): 4,
+}
+
+if _census is not None:
+    AUTHORITATIVE_DOCS = {"docs/wp_dependency_graph.md"}   # D-47
+    observed: dict[tuple, int] = {}
+    for _p in _census._tracked(_census.POPULATION_GLOBS):
+        if not Path(_p).is_file():
+            continue
+        in_scope_doc = _p in AUTHORITATIVE_DOCS
+        for _n, _t, _d in _census._anchor_scopes(_p):
+            # In scope if inside a landed decision clause, or anywhere in a
+            # document a decision declares authoritative.
+            if _d or in_scope_doc:
+                observed[(_p, _t)] = observed.get((_p, _t), 0) + 1
+
+    undeclared = []
+    for key, count in sorted(observed.items()):
+        allowed = DECLARED_ANCHORS.get(key, 0)
+        if count > allowed:
+            undeclared.append(f"{key[0]}: {key[1]} x{count} (declared {allowed})")
+    shrunk = [f"{k[0]}: {k[1]} {DECLARED_ANCHORS[k]}->{observed.get(k, 0)}"
+              for k in DECLARED_ANCHORS if observed.get(k, 0) < DECLARED_ANCHORS[k]]
+
+    # An OPERATIVE anchor is red regardless of the baseline: the baseline
+    # licenses anchors that defer a RECORD, never one that breaks a RULE.
+    ops = _census.operative_anchors()
+    if ops:
+        failures.append(
+            "5 operative anchor in a landed decision: "
+            + "; ".join(f"{p}:{n} [{d}] {t}" for p, n, t, d in ops))
+    if undeclared:
+        failures.append("5 undeclared anchor: " + "; ".join(undeclared))
+
+    print(f"  5 in-scope anchors        : {sum(observed.values())} "
+          f"over {len(observed)} (path, text) key(s)")
+    print(f"  5 operative               : {len(ops) or 'none'}")
+    print(f"  5 undeclared              : {undeclared or 'none'}")
+    if shrunk:
+        print(f"  5 declared-but-fewer      : {shrunk}  (safe; reported)")
+
 print()
 if known:
     print(f"KNOWN-PREEXISTING {len(known)}  (frozen Part I; reported, not suppressed)")

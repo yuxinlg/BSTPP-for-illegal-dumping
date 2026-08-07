@@ -1,0 +1,24 @@
+APPARATUS CHECKS DISCRIMINATION -- mutation test
+
+  BASELINE (fixture, manifest freshly written)  exit 0  GREEN
+
+  [OK   ] A1 edited gate, manifest untouched
+          expected RED   got RED   (exit 1)
+            A platform-default decode makes an instrument answer differently
+            A gate CHANGED without its pin: results/_a26_ascii_sweep.py 81172052e6b7 -> 020b2788aebe
+  [OK   ] A2 gate present but undeclared
+          expected RED   got RED   (exit 1)
+            A platform-default decode makes an instrument answer differently
+            A undeclared gate: results/_zz_new_gate.py (9bd432f56ac9)
+  [OK   ] B1 open() with no encoding
+          expected RED   got RED   (exit 1)
+            A platform-default decode makes an instrument answer differently
+            B open() without encoding= : results/_a26_ascii_sweep.py line(s) 402
+  [OK   ] B2 open(path, 'rb') -- binary, correctly no encoding
+          expected GREEN got GREEN (exit 0)
+            A platform-default decode makes an instrument answer differently
+
+PASS -- check A reddens on an edited gate and on an undeclared one;
+       check B reddens on a bare open() and stays green on binary.
+APPARATUS_DISCRIMINATION_EXIT:0
+APPARATUS_DISC_SHELL_EXIT:0

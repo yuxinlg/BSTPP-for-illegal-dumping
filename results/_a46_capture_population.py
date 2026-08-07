@@ -1,5 +1,26 @@
 """A-46 / D-46: the declared capture root, and the populations that exclude it.
 
+MEASUREMENT POINT (A-52) -- part of the DEFINITION, not of the procedure.
+
+The population is read from the INDEX, so its value depends on where in the
+staging sequence the reading is taken. That cannot be left to the operator: at
+A-51 this instrument reported 599 because it ran before the last two evidence
+files were staged, and the correct figure was 601. The error was caught by a
+cross-check, not by inspection.
+
+  * DECLARED POINT: post-staging, pre-commit. Every file the commit will
+    contain is in the index, and nothing else is.
+  * THE CROSS-CHECK IS PART OF TAKING THE READING, not an optional extra:
+        git ls-files -- . ':(exclude)refactor-patches/captures/' | wc -l
+    must equal CENSUS_POPULATION. A reading taken without it is not a reading.
+
+THE SERIES IS NOT HOMOGENEOUS, and it is LABELLED rather than retro-corrected.
+A-48's 550 was taken PRE-staging; A-50's 589 and A-51's 601 POST-staging. So
+550 -> 564 -> 589 -> 601 mixes two measurement points and successive
+differences across that boundary are not comparable. The earlier readings are
+correct at their own point and are NOT restated: retro-correcting a published
+count to make a series look smooth is how a series stops being evidence.
+
 WHY THIS MODULE EXISTS. D-45 preserves a capture at every red. A preserved
 capture is a text file, and two classes of instrument here search text files in
 the tree: the document census

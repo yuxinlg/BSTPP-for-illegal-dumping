@@ -1,0 +1,34 @@
+CHECK 5 DISCRIMINATION -- mutation test
+  repo   : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor
+
+  BASELINE (unmutated)                    exit 0  GREEN
+      5 in-scope anchors        : 13 over 3 (path, text) key(s)
+      5 operative               : none
+      5 undeclared              : none
+
+  [OK   ] operative anchor in a landed decision row
+          expected RED   got RED   (exit 1)
+            5 operative               : 1
+            5 undeclared              : ['phase3_record.tex: [[FILL: an undeclared operative blank]] x1 (declared 0)']
+            5 operative anchor in a landed decision: phase3_record.tex:1129 [D-50] [[FILL: an undeclared operative blank]]
+            5 undeclared anchor: phase3_record.tex: [[FILL: an undeclared operative blank]] x1 (declared 0)
+  [OK   ] undeclared extra anchor in the authoritative document
+          expected RED   got RED   (exit 1)
+            5 operative               : none
+            5 undeclared              : ['docs/wp_dependency_graph.md: [[FILL: measure]] x9 (declared 8)']
+            5 undeclared anchor: docs/wp_dependency_graph.md: [[FILL: measure]] x9 (declared 8)
+  [OK   ] anchor in the authoritative doc with no decision marker
+          expected RED   got RED   (exit 1)
+            5 operative               : none
+            5 undeclared              : ['docs/wp_dependency_graph.md: [[FILL: unscoped and undeclared]] x1 (declared 0)']
+            5 undeclared anchor: docs/wp_dependency_graph.md: [[FILL: unscoped and undeclared]] x1 (declared 0)
+  [OK   ] the SAME anchor text, marked as a mention
+          expected GREEN got GREEN (exit 0)
+            5 operative               : none
+            5 undeclared              : none
+
+PASS -- check 5 goes red for an operative anchor, for an undeclared
+       anchor, and for an anchor in the authoritative document; and
+       it stays green for a marked mention.
+CHECK5_DISCRIMINATION_EXIT:0
+CHECK5_DISC_SHELL_EXIT:0

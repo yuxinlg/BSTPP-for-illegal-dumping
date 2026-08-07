@@ -61,6 +61,22 @@ ANCHOR = re.compile(r"\[\[FILL")
 #: Anchor WITH its text, where the text is well formed. Used for grouping only.
 ANCHOR_FULL = re.compile(r"\[\[FILL[^\]]*\]\]")
 
+#: USE versus MENTION (A-52). Prose that DISCUSSES anchors must be able to
+#: spell one without creating one. A-50 could not: a sentence complaining that
+#: A-49 left placeholders spelled the token literally and thereby added two
+#: anchors to the count, and the only available repair was to stop spelling it
+#: -- which makes the register unable to quote its own subject matter.
+#:
+#: The convention is a LINE-SCOPED MARKER, chosen because it works in both
+#: formats this population contains and is visible to a human reader:
+#:     LaTeX     ...  % census:mention
+#:     Markdown  ...  <!-- census:mention -->
+#: An anchor on a marked line is a MENTION: reported, never counted as a use,
+#: never gated on. THE MARKER IS LINE-SCOPED AND NOT FILE-SCOPED on purpose --
+#: a file-level opt-out would silence every future anchor in that file, which
+#: is how an exemption becomes an amnesty.
+MENTION_MARKER = re.compile(r"census:mention")
+
 #: Where a decision's text BEGINS. Two forms, and both are needed: a §8
 #: longtable row opens `\amdnew{A-nn} \textbf{D-nn} &`, and a Part II clause
 #: opens `\paragraph{D-nn ---`.
@@ -171,13 +187,24 @@ def _anchor_scopes(path):
                 current = None
             if row or para:
                 current = (row or para).group(1)
-            if ANCHOR.search(line):
+            if ANCHOR.search(line) and not MENTION_MARKER.search(line):
                 found = ANCHOR_FULL.findall(line) or \
                     ["[[FILL (MALFORMED -- no ]] found)"]
                 for text in found:
                     yield n, text, current
             if row and ROW_SCOPE_IS_LINE:
                 current = None
+
+
+def mentions(path):
+    """Anchors on lines carrying the mention marker. Reported, never gated."""
+    out = []
+    with open(os.path.join(REPO, path), encoding="utf-8") as fh:
+        for n, line in enumerate(fh, 1):
+            if ANCHOR.search(line) and MENTION_MARKER.search(line):
+                for text in (ANCHOR_FULL.findall(line) or ["[[FILL ..."]):
+                    out.append((n, text))
+    return out
 
 
 def _decisions_with_anchors(path):
@@ -241,32 +268,41 @@ def main() -> int:
     print("  them).")
     print()
 
-    total_occ = 0
+    total_occ, total_mentions = 0, 0
     for path in paths:
         full = os.path.join(REPO, path)
         if not os.path.isfile(full):
             continue
         text = open(full, encoding="utf-8").read()
-        occ = len(ANCHOR.findall(text))
-        if not occ:
+        ment = mentions(path)
+        # USES only. A mention is spelled but not counted -- see MENTION_MARKER.
+        occ = len(ANCHOR.findall(text)) - len(ment)
+        if not occ and not ment:
             continue
         total_occ += occ
+        total_mentions += len(ment)
         decisions = _decisions_with_anchors(path)
         prov = _blame_commits(path)
         report["files"][path] = {"occurrences": occ, "decisions": decisions,
-                                 "provenance": prov}
+                                 "mentions": len(ment), "provenance": prov}
         print(f"  {path}")
-        print(f"    anchor OCCURRENCES            : {occ}")
+        print(f"    anchor USES                   : {occ}")
+        if ment:
+            print(f"    MENTIONS (marked, not counted): {len(ment)}")
+            for n, t in ment:
+                print(f"        line {n}: {t}")
         print(f"    lines containing an anchor    : "
               f"{sum(1 for ln in text.splitlines() if ANCHOR.search(ln))}"
               "   <- the two differ; `grep -c` reports this one")
         print(f"    DISTINCT decisions anchored   : {len(decisions)}"
               f"  {decisions if decisions else ''}")
-        print("    by anchor text:")
-        in_clause = {(n, t) for n, t, d in _anchor_scopes(path) if d}
-        for t, c in sorted(
-                {t: text.count(t) for t in set(ANCHOR_FULL.findall(text))}
-                .items()):
+        print("    by anchor text (USES only; mentions excluded above):")
+        scoped = list(_anchor_scopes(path))
+        in_clause = {(n, t) for n, t, d in scoped if d}
+        tally = {}
+        for _, t, _d in scoped:
+            tally[t] = tally.get(t, 0) + 1
+        for t, c in sorted(tally.items()):
             if t in DEFERRING_ANCHORS:
                 kind = "deferring"
             elif any(tt == t for _, tt in in_clause):
@@ -285,7 +321,8 @@ def main() -> int:
     narr = narrative_anchors()
     print("TOTALS -- three classes, because collapsing them is how a harmless")
     print("anchor and an unexecutable rule come to look like the same number.")
-    print(f"  anchor occurrences, whole population : {total_occ}")
+    print(f"  anchor USES, whole population        : {total_occ}")
+    print(f"  MENTIONS (marked; not uses)          : {total_mentions}")
     print("  OPERATIVE  (in a decision clause,")
     print(f"              unclassified -> blocks a RULE) : {len(ops)}")
     print("  deferring  (in a decision clause,")

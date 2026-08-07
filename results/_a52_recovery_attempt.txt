@@ -1,0 +1,54 @@
+A-52 BOUNDED RECOVERY ATTEMPT FOR ecdfa51 (D-45 evidence)
+tip: 96c01ba
+
+$ git reflog --all | grep -i ecdfa
+  (no match)
+
+$ git fsck --lost-found  [dangling commits only]
+dangling commit 4841b6eb66bcc4d3920fb323305edfee95076575
+dangling commit 36a2f37cfb26808eb7d75226291a157d7afcfe0f
+dangling commit 13c59a47f379b85c35c26c23f84084dda0cf84ed
+dangling commit 4f8508b761a012fc0ab014102afb3235d93fb07f
+dangling commit 6e456c252102fc2efbc0b94f0d6aba0c52b13d58
+dangling commit bb0590e5851f63fc21f67c636f3095c537144e33
+dangling commit ae4656185ae3de3a84ae3582d2c259d8a764c9f4
+dangling commit 11e788221409f75e66273f157ccb9fe202b23608
+dangling commit 09298d473f4d378ab92544dbe3597952f7b2b089
+dangling commit 5b09efbf7510e911e820552909af156165ce9834
+dangling commit 210aaa9fffa1618f9f6a840a91a7d37faa1391d6
+dangling commit accb4f7a06f92feab47f6a018022ca08dea3df7b
+dangling commit 8f4d20e6f22f129d30fcafe96e6c6f2c31118043
+dangling commit af4ee9627b5ce6d930bd1e4aadea1846e54b2868
+dangling commit 85cf51a518a6473d49e90180a65105c790312073
+dangling commit 16107563589dd16c558244279de2ef1546ffc57e
+dangling commit 71b164f19dc660b722a8598c7b058e2560b06ae4
+dangling commit 9c91e3dc4507cb0e20cac4008483af784d01e267
+dangling commit 33b265bf6fa18fb75bf45a9ad42c3b911f4262a7
+dangling commit d753010217b52669ae3b4c4b5a3c9e209f711bac
+dangling commit 4bb56eba2fc55b8981c1079c7d9ab4c31b996e59
+dangling commit bcf54c08c99e99829d8efc3ed4ed6e44068351c5
+dangling commit 8c964168418b0e350f4e16f5a2af6d08c9607134
+dangling commit 1ff734c0d57b08b3a0402ca12fd396c5e24aadca
+dangling commit 7af7486fda388019d175c85a31eed070afa26568
+dangling commit acb7114c0ce4858b8b22c1e577479cde91aee666
+dangling commit b9575f72f5edc4a039f5d38000dad14e997a9c2c
+dangling commit ed78db09ddb0861c7c8a2d5e472295a193360d25
+dangling commit 499936bc8be1087736bbeb1d7499942c4390ff12
+dangling commit 09dab4eab3fa229a5ea974343f766a10c8f94182
+dangling commit 173a1090188b5e44a0bbfe28688b99f14d7fb2ef
+dangling commit 001b7cd24744db7d6f0cf95a912eec6d1613cbd3
+dangling commit c99cf01a20611f78e8c17631124198a008531bc7
+dangling commit 9bfdad35e4b697306a49b55676ccb97eebf3fa03
+dangling commit b95ecbb24e9b79c4b4a65e1b192757a400c03482
+dangling commit d01e6f8bd496af8372cc7b0929341ae824d19935
+dangling commit f9bee89b98b8bc44005d5809740e652175db9000
+dangling commit 4cdfda036fee0f65e9ec75b7e5bc7af9f48b7ff5
+dangling commit fedf30fd4c3dea258308b21a157fb112e028d7a0
+
+$ git cat-file -t ecdfa51
+fatal: Not a valid object name ecdfa51
+$ git cat-file -t ecdfa5
+fatal: Not a valid object name ecdfa5
+
+VERDICT: ecdfa51 is NOT recoverable on this machine. 'Unpreserved' stands.
+RECOVERY_ATTEMPT_EXIT:0

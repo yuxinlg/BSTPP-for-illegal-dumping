@@ -1,0 +1,16 @@
+{
+  "gates": {
+    "refactor-patches/pin_check_v2.py": "4df104cb24b2f4bbef163a23cfaa96ae8af94365970bd55ea4ba112acf41e9ee",
+    "refactor-patches/pin_compare.py": "67fc07d552ad426d7b9acaff8e8be85642f32d6febf02e7145c7022984d245a2",
+    "refactor-patches/pin_corpus_identity.py": "a4d4af262eb3cedc4609ff121a0930adefa26f5183063b40a2fd47ca7cb824d3",
+    "results/_a25_citation_sweep.py": "f332d527c04c375da33006274e9db0fb8b946fa9528969429ed3cc3ddafa63bc",
+    "results/_a25_content_checks.py": "09a02ae1f3c7a29656311ecfca5e6373945f6d5f64df1d1ad4a5df0fe972b327",
+    "results/_a26_ascii_sweep.py": "81172052e6b730235f0e4bced45578bf479954b3b43d4ca817bd49fbab111fca",
+    "results/_a30_label_check.py": "1713b3f143777900e474bf6ad2b1190b8afd75fc08266a2c51cefc28b892dacf",
+    "results/_a46_capture_population.py": "f5e5c137a5f75a13dfd79ee0dc12872300f3043f4b523ecbce6921089b6d6805",
+    "results/_a46_exclusion_discrimination.py": "55334b2feec5f53750737d0ccbc21b4368b4a65d1de521986b87de2661334cec",
+    "results/_a48_ruff_population.py": "af2b56c07af74c7aa6087982762df7cdb163ea4a5a9a5d80e7a54690ebdf4682",
+    "results/_a51_anchor_census.py": "bcf962fce7995429f15a166c68de29b4afd14f0b8a0545a7beb176819b4dcf0d",
+    "results/_c1_hypertarget_check.py": "d6e7cc63f1f85e51333e843a5f4957f5b1c4842647bff518c5c920076d18fbf6"
+  }
+}

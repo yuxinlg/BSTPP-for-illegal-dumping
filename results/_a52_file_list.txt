@@ -1,0 +1,72 @@
+A-52 / WP2.7 -- PRE-STATED FILE LIST (D-41 clause 5)
+
+-- record and authoritative documents -------------------------------------
+  M  phase3_record.tex
+       A-52 subsection. D-48 AMENDED, three clauses (empty seam set;
+       comparability within a fixed tree state; declared seam set as an
+       opening precondition). D-52 ESTABLISHED (retroactivity), row placed
+       after D-51 -- the content check caught it placed after D-48 and went
+       red on decision-row monotonicity. A-50's literal anchor spelling
+       RESTORED under the mention convention, with the erratum recorded.
+       OP-29 instance (1) RECLASSIFIED as D-44-class, count 3 -> 2.
+  A  docs/seam_sets.md
+       S_WP2 declared -- retroactively, and it is the only one. Empty of
+       extant code; intended membership per quantity; non-members with owners.
+  M  AGENTS.md
+       D-48's three clauses, D-52, S_WP2, checks 5/A/B, the use/mention
+       convention, OP-29's reclassification, the non-homogeneous census
+       series, and next-free (which A-51 left reading "A-51").
+
+-- instruments ------------------------------------------------------------
+  M  results/_a51_anchor_census.py     use/mention convention; per-file
+                                       breakdown counts uses only
+  M  results/_a25_content_checks.py    CHECK 5 added, scoped to landed
+                                       decision rows + D-47-authoritative
+                                       documents, against a declared baseline
+  M  results/_a46_capture_population.py  measurement point declared as part
+                                       of the definition, with the required
+                                       cross-check and the non-homogeneity
+                                       of the 550/564/589/601 series
+  A  results/_a52_apparatus_checks.py        checks A (substrate pinning)
+                                             and B (explicit encoding)
+  A  results/_a52_gate_manifest.json         the pinned gate hashes
+  A  results/_a52_check5_discrimination.py   check 5 mutation test, 4 rows
+  A  results/_a52_apparatus_discrimination.py  checks A/B mutation test, 4 rows
+
+-- preserved captures (D-45, under D-46's declared root) ------------------
+  A  refactor-patches/captures/a52_content_checks_ordering_red.log
+       Decision-row monotonicity red: "D-49 follows D-52".
+  A  refactor-patches/captures/a52_citation_sweep_red.log
+       FAIL 4, exit 1, all four this commit's own unstaged evidence.
+  M  refactor-patches/captures/README.md
+
+-- gate evidence ----------------------------------------------------------
+  A  results/_a52_hypertarget.txt
+  A  results/_a52_label_check.txt
+  A  results/_a52_content_checks.txt
+  A  results/_a52_ascii_sweep.txt
+  A  results/_a52_anchor_census.txt
+  A  results/_a52_ruff.txt
+  A  results/_a52_apparatus_checks_run.txt
+  A  results/_a52_apparatus_discrimination.txt
+  A  results/_a52_check5_discrimination.txt
+  A  results/_a52_citation_sweep.txt
+  A  results/_a52_citation_sweep_after_staging.txt
+  A  results/_a52_a46_exclusion.txt
+  A  results/_a52_recovery_attempt.txt      the bounded ecdfa51 search
+  A  results/_a52_op29_d43_grep.txt         the bounded OP-29 determination
+  A  results/_a52_file_list.txt             this file
+  A  results/_a52_commit_msg.txt
+
+NOT RUN, with reasons:
+  * SUITE, both lanes -- no file under bstpp/ or tests/ is touched.
+  * PIN harness and both comparisons -- no file any pin reads is touched.
+    A-50's verdicts stand: canonical compared=4/6 PARTIAL, forward
+    compared=6/6 MATCH, sha256 e8ade72f7947...
+  * PIN_CORPUS_IDENTITY -- no pin corpus file moves.
+
+NOT FIXED, because nothing found is a defect: the residual A-49 strings in the
+moved _a50_* files. Two classes, both legitimate -- preserved gate captures
+recording a pre-rename state (editing them would falsify evidence) and the
+renumbering explanation, which cannot describe a rename without naming both
+sides. The general filename-to-content check is NOT built; see A-52.
