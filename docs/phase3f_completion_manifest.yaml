@@ -23,7 +23,8 @@ as_of:
   # the immediate DOC-only follow-up. This sentinel lives for exactly one
   # commit; it is not a fill-anchor of the class the census counts, and this
   # file is in no anchor-census population.
-  adopted_at_commit: PENDING_INTEGRATION_COMMIT
+  adopted_at_commit: 6072a194d67f1b45a4fbb4bd122b2badc1e8ca99
+  adopted_at_commit_short: 6072a19
   next_free_ids:
     amendment: A-55
     decision: D-63

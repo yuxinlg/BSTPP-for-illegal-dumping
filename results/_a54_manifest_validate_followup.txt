@@ -1,0 +1,5 @@
+MANIFEST_OK 10 17
+evidence baseline  : c4e069f (unchanged)
+adopted at         : 6072a19
+PENDING sentinel gone: True
+EXIT_STATUS:0

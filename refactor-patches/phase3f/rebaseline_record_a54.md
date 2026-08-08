@@ -312,7 +312,43 @@ under D-59, with S_WP2's retroactive declaration standing as historical record.
 
 ## 9. Post-commit file-list comparison
 
-Recorded in the immediate DOC-only follow-up commit that fills
-`adopted_at_commit`, because the comparison cannot exist inside the commit it
-describes — the same constraint that forces the two-commit adoption-hash form
-in §3.
+**Installation commit: `6072a194d67f1b45a4fbb4bd122b2badc1e8ca99` (`6072a19`).**
+
+`git diff HEAD^ --name-only`, sorted, was compared against the list pre-stated in
+§4 before any editing began. **The two are IDENTICAL — 30 files, no addition and
+no omission.** `git show --stat --oneline HEAD` reports
+**30 files changed, 3570 insertions(+), 11 deletions(-)**, of which 16 are new.
+`git status --porcelain` after the commit shows **no tracked file left modified**.
+
+Re-verified against the committed tree, not merely the staged one: **zero** paths
+matching `bstpp/`, `tests/`, a pin baseline, an SBC artifact, or the `_a53_` /
+`a53_` prefixes appear anywhere in the commit.
+
+**`git diff --check`** reports one item, deliberately left alone: trailing
+whitespace on a line of `results/_a54_anchor_census.txt`. That file is verbatim
+instrument output. Editing a gate capture to satisfy a whitespace linter would
+falsify evidence, which is a worse defect than the whitespace.
+
+## 10. The adoption-hash follow-up
+
+`adopted_at_commit` was filled in the immediate DOC-only follow-up, replacing
+`PENDING_INTEGRATION_COMMIT` with `6072a194d67f1b45a4fbb4bd122b2badc1e8ca99`
+and adding `adopted_at_commit_short: 6072a19`.
+
+**Why two commits.** A commit's own hash is not knowable while that commit is
+being written, so a single commit cannot both adopt these documents and record
+the hash at which they were adopted. The alternatives were rejected: amending
+would rewrite a published gate record, and leaving the field empty would leave
+the manifest unable to say when it took effect. The two-commit form keeps the
+**evidence baseline** (`as_of.commit = c4e069f`, the tip every claim in the
+manifest was verified against) and the **adoption point** as separate, separately
+true facts. The evidence-baseline hash is never rewritten.
+
+**Gates re-run for the follow-up: the manifest validator alone.** This is not a
+shortcut but D-53's stated rule — the manifest is YAML and sits outside the
+declared populations of the document-prose gates (`phase3_record.tex`,
+`docs/*.md`, `AGENTS.md`), so a manifest-only edit runs the validator and nothing
+else. The follow-up also appends this section to the present record, which lives
+under `refactor-patches/phase3f/` and is likewise outside those populations. It
+adds no file, so the capture population is unchanged at 657 and the citation
+resolution set is unchanged; no document-prose gate has an input that moved.
