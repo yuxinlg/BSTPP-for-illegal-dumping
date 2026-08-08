@@ -352,3 +352,87 @@ else. The follow-up also appends this section to the present record, which lives
 under `refactor-patches/phase3f/` and is likewise outside those populations. It
 adds no file, so the capture population is unchanged at 657 and the citation
 resolution set is unchanged; no document-prose gate has an input that moved.
+
+## 11. Environment action — the manifest validator's parser
+
+Recorded here because it is an **environment change, not a repository change**,
+and the two are separately reversible. The commit that declares the dependency
+carries no evidence that it was installed; this section is that evidence.
+
+**The gap.** A-54 validated the manifest on `C:\Users\Terhi\miniconda3\python.exe`
+(3.13.13) using `ruamel.yaml 0.18.16`, because **neither PyYAML nor ruamel.yaml
+was importable from the project interpreter**. That made a standing gate — the
+manifest validator runs on every commit changing a Phase 3f status, scope,
+dependency, blocker, cycle count or exit gate — unreproducible on the documented
+environment. Declaring the dependency without installing it would have left the
+gate exactly as unreproducible, so both were done, separately.
+
+**Interpreter.** `$PY` = `C:\Users\Terhi\miniconda3\envs\illegal-dumping\python.exe`,
+Python **3.12.13**, conda env `illegal-dumping`.
+
+**Install.** `"$PY" -m pip install --no-deps PyYAML`, exit **0**.
+`--no-deps` deliberately: the pinned stack is fragile (`jax==0.4.23` forces
+`numpy<2`, which forces `scipy<1.13` and `rasterio<1.4`), and a resolver allowed
+to walk that graph is the one thing this install must not do.
+
+**Before/after, `pip list --format=freeze`, 93 → 94 packages. The entire diff:**
+
+```
+72a73
+> PyYAML==6.0.3
+```
+
+**One line moved.** The pinned stack was checked entry by entry and every one is
+byte-identical across the install:
+
+| package | before | after |
+|---|---|---|
+| `numpy` | `1.26.4` | `1.26.4` |
+| `jax` | `0.4.23` | `0.4.23` |
+| `jaxlib` | `0.4.23` | `0.4.23` |
+| `numpyro` | `0.15.0` | `0.15.0` |
+| `scipy` | `1.11.4` | `1.11.4` |
+| `geopandas` | `1.1.3` | `1.1.3` |
+| `shapely` | `2.1.2` | `2.1.2` |
+
+The rollback condition — anything other than PyYAML moving — was not met, so no
+rollback was performed.
+
+**Footprint.** `pip show PyYAML` reports `Requires:` **empty** and `Required-by:`
+**empty**. It pulls in nothing and cannot interact with the `numpy<2` /
+`jax 0.4.23` pins, which is the same argument `requirements.txt` already makes
+for `ruff` in the section this pin was added to.
+
+**Validation on the declared parser.**
+
+```
+interpreter : C:\Users\Terhi\miniconda3\envs\illegal-dumping\python.exe
+parser      : PyYAML 6.0.3
+MANIFEST_OK 10 17
+EXIT_STATUS:0
+```
+
+Output: `results/_a55_manifest_validate_declared_parser.txt`. The validator now
+runs on `$PY` with the parser the repository declares, so the A-54 reading is
+reproducible on the documented environment rather than on a second interpreter
+that happened to have a different parser.
+
+**Where the pin went, and where it did not.** `requirements.txt` only, under its
+existing **Dev tooling** section beside `ruff`, as an exact `==` pin.
+**Not** `requirements-runtime.txt`: that file's own header states it is the
+"Canonical runtime install_requires for BSTPP (consumed by setup.py)" and that
+"Notebook / plotting / dev tools belong in requirements.txt only", and
+`setup.py:9-11,29` reads it and nothing else. PyYAML is a gate dependency, not a
+package dependency, and publishing it in wheel metadata would misdescribe what
+BSTPP needs to run.
+
+**Ruff population: EMPTY / not applicable.** The commit changes no Python file
+(`git diff --name-only` over its file list matches no `*.py`). The instrument was
+**not** invoked: with no arguments it prints its usage and returns **1**, so a
+no-argument run would record an error, not an empty reading.
+
+**Tests.** Not run, per the owner's instruction for this commit. For the record,
+the packaging tests could not have been affected: `tests/test_packaging_runtime_metadata.py`
+builds a wheel and compares its `Requires-Dist` against a `CRITICAL` set derived
+from `requirements-runtime.txt`, and neither of its two tests reads
+`requirements.txt`.

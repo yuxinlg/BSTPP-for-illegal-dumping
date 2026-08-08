@@ -1,0 +1,4 @@
+interpreter : C:\Users\Terhi\miniconda3\envs\illegal-dumping\python.exe
+parser      : PyYAML 6.0.3
+MANIFEST_OK 10 17
+EXIT_STATUS:0

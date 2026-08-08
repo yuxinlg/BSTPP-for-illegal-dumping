@@ -18,3 +18,12 @@ rasterio<1.4
 # Dev tooling: linter used for the refactor. Pure binary wheel, no Python deps,
 # so it does not interact with the numpy<2 / jax 0.4.23 pins above.
 ruff==0.15.21
+
+# Dev tooling: YAML parser for the Phase 3f completion-manifest validator
+# (docs/phase3f_completion_manifest.yaml), which is a standing gate on every
+# commit that changes a Phase 3f status, scope, dependency, blocker, cycle count
+# or exit gate. NOT a package dependency -- setup.py reads
+# requirements-runtime.txt only, and this must not be added there. `pip show`
+# reports an empty Requires, so it pulls in nothing and cannot interact with the
+# numpy<2 / jax 0.4.23 pins above.
+PyYAML==6.0.3
