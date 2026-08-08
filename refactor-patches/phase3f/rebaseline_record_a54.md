@@ -53,8 +53,11 @@ instruction file, and neither is a normative artifact of this repository.
 | `refactor-patches/phase3f/phase3f_operational_reset_amendment.tex` | `2c3169d564607490f8440527d09807ef8d2e85d2e85148a199a245215d91d490` |
 
 The four `docs/` files were installed **unchanged**. The amendment source was
-edited only by the two gate-forced wording repairs recorded in §5, so that the
-integration source and the integrated register text continue to agree.
+edited during integration by the two gate-forced wording repairs recorded in §5,
+and has since been **restored to the byte-exact supplied form** so that it
+remains evidence of what was supplied rather than a copy of what landed. The
+source and the register therefore **differ, deliberately**; every difference is
+enumerated verbatim in §12, and both states are addressable by digest there.
 
 ### Staleness scan (the declared stop condition)
 
@@ -436,3 +439,188 @@ the packaging tests could not have been affected: `tests/test_packaging_runtime_
 builds a wheel and compares its `Requires-Dist` against a `CRITICAL` set derived
 from `requirements-runtime.txt`, and neither of its two tests reads
 `requirements.txt`.
+
+## 12. Integration deviations — what was supplied, what landed, and why
+
+Each deviation is listed individually with the supplied text and the landed text
+verbatim. They are **not** summarized as a count, because a count cannot be
+checked against either artifact.
+
+**The two artifacts, each addressable by hash.** Digests are SHA-256 of the
+**LF content** — the git blob — because `core.autocrlf=true` in this clone
+checks the file out with CRLF, so a `sha256sum` run against the working tree on
+Windows yields a third, platform-dependent value that identifies nothing.
+
+| state | SHA-256 (LF content) |
+|---|---|
+| as supplied in the bundle, and as restored by this commit | `2c3169d564607490f8440527d09807ef8d2e85d2e85148a199a245215d91d490` |
+| as committed at `6072a19` (edited during integration) | `846163c0dcde062169ce6e1e23795509c0d9e8a3b45b58db6f37037495bfc4e4` |
+
+### Deviation 1 — the next-free line in the Part II entry
+
+**Supplied** (`phase3f_operational_reset_amendment.tex:212`):
+
+```
+\textbf{A-55, D-63, CI-11, OP-32}.
+```
+
+**Landed** (`phase3_record.tex:4202`):
+
+```
+\textbf{A-55, CI-11, OP-32}; the decision register stands at \textbf{62 rows, D-1 to D-62}, so the next decision number follows D-62.
+```
+
+**Why.** Check 4c of `results/_a25_content_checks.py` collects every `D-n` token
+in the register and requires each to have a section 8 decision row. A next-free
+identifier has no row by definition, so **naming `D-63` in the register
+red-lights the gate by construction**. The gate is right; the supplied text was
+written without it in view.
+
+**The convention followed is the register's own, not an invention.** A-51 wrote
+"51 rows, D-1 to D-51" and A-53 wrote "Next free remains CI-11" — both state the
+next free identifier without spelling an unissued decision number. `AGENTS.md:96`
+carries the literal **"Next free: A-55, D-63, CI-11, OP-32"** and is outside
+check 4c's population, which reads `phase3_record.tex` only. So the number is on
+the record in full; it is simply not spelled in the one file a gate sweeps for it.
+
+No gate was modified, no allowlist added, and no audit apparatus created.
+
+### Deviation 2 — the header/date next-free clause
+
+**Supplied.** The amendment carries no header sentence; the `\date{}` line is the
+register's own.
+
+**Landed** (`phase3_record.tex:121`), the clause added by the integration:
+
+```
+\textbf{Next free: A-55, CI-11, OP-32}, the decision register standing at 62 rows, D-1 to D-62.
+```
+
+**Why.** Identical to deviation 1 — same gate, same token, same convention. It is
+listed separately because it is a second site, in a different part of the file,
+and a reader checking only the Part II entry would not find it.
+
+### Deviation 3 — the D-60 decision row's line break
+
+**Supplied** (`phase3f_operational_reset_amendment.tex:148`), one line:
+
+```
+revise the old census. G-B is closed by D-54. & DOC / process & team; bounded
+```
+
+**Landed** (`phase3_record.tex`), the same text across two lines:
+
+```
+revise the old census. G-B is closed by D-54.
+& DOC / process & team; bounded
+```
+
+**Why.** Check 3 of `_a25_content_checks.py` reads a row's decision label from the
+text **before the first ampersand** on each line that has one. With the supplied
+wrapping, the prose sentence "G-B is closed by D-54." sat on the same line as the
+row's closing cells, so the parser read `D-54` as a row label appearing after
+`D-60` and reported **"section 8 decision rows are not strictly increasing:
+D-54 follows D-60"**. The rendered LaTeX is identical; only the line break moved.
+RED capture: `refactor-patches/captures/a54_content_checks_red.log`.
+
+### Deviation 4 — the amendment source was edited, and has now been reverted
+
+**What happened.** During the A-54 installation, deviations 1 and 3 were applied
+to the amendment source as well as to the register, and the source was committed
+at `6072a19` in that edited form (`846163c0…`). **This commit restores it to the
+byte-exact supplied form (`2c3169d5…`).**
+
+**The conflict that caused it, named.** Two instructions were in force and they
+are not compatible:
+
+- the installation prompt's section 8 required that "the amendment source and the
+  integrated register text agree";
+- the remediation prompt's commit 3 required that the source **not** be edited to
+  match the register, because it is evidence of what was supplied, and editing it
+  destroys the only record that the two ever differed.
+
+**Section 8 is the one that was wrong.** An integration source and an integrated
+text that are required to agree cannot record an integration that changed
+anything, and this integration changed three things. The source's value is
+precisely that it differs. Agreement was the wrong invariant; **faithfulness to
+what was supplied** is the right one, and the register is where the landed form
+lives.
+
+**Population check, before and after.** The file is **outside every declared gate
+population** in both states, so restoring text containing `D-63` cannot red-light
+anything. Verified against each population by name rather than assumed:
+`CITATION_SOURCE_PATHS` in `_a46_capture_population.py` is a closed three-tuple
+(`findings_ledger.md`, `traceability_matrix.md`, `phase3_record.tex`) — **out**;
+`POPULATION_GLOBS` in `_a51_anchor_census.py` is `("phase3_record.tex",
+"docs/*.md", "AGENTS.md")` — **out**; `_a25_content_checks.py` reads
+`phase3_record.tex`, the `wp*_*entry.md` glob (8 files), and reuses
+`POPULATION_GLOBS` — **out** of all three; `_a26_ascii_sweep.py` globs `*.py` —
+**out**, this being a `.tex` file. It is reachable only as a citation *target*,
+which requires it to be tracked — it is — and imposes no constraint on its
+content. Confirmed by execution after the revert: content checks, citation sweep,
+anchor census and ASCII sweep all exit 0.
+
+### Deviation 5 — two bundle files were not installed
+
+`REVISION_NOTES.md` is the supplier's changelog for the v2 revision: it describes
+how the bundle was corrected, not what the repository should do, and its claims
+are already reflected in the documents themselves.
+`cursor_install_operational_reset.md` is an agent instruction file. Neither is a
+normative artifact of this repository, and installing an instruction file as
+documentation would make instructions look like adopted policy. Both remain
+available in the source bundle.
+
+### Deviation 6 — the manifest validator's YAML parser
+
+A-54 validated the manifest on a second interpreter
+(`C:\Users\Terhi\miniconda3\python.exe`, `ruamel.yaml 0.18.16`) because no YAML
+parser was importable from `$PY`. **Closed** by the follow-up commit that added
+`PyYAML==6.0.3` to `requirements.txt` under Dev tooling and installed it into the
+`illegal-dumping` env with `--no-deps`; full before/after in section 11. The
+validator now runs on `$PY` with the declared parser: `MANIFEST_OK 10 17`, exit 0.
+
+### Deviation 7 — the capture-population gate could not report a status
+
+`results/_a46_capture_population.py` is listed in `GATE_INSTRUMENTS` and
+hash-pinned in `_a52_gate_manifest.json`, but had no `__main__`. A-54 caught this
+when the bare invocation produced empty output, and took the reading through the
+module's declared API instead. **Closed** by the follow-up commit that added a
+`__main__` block calling that same API with an independent `git ls-files`
+cross-check. RED capture of the original behaviour, 16 bytes and exit 0:
+`refactor-patches/captures/a55_a46_bare_run_red.log`.
+
+**No landed amendment was ever affected.** Every capture-population reading in the
+register series — 550 (A-48), 589 (A-50), 601 (A-51), 622 (A-52), 643 (A-53),
+657 (A-54) — was produced by an instrument that *imports* this module, and
+import-time use is unaffected by a missing `__main__`. Measured, not assumed.
+
+## 13. Which A-54 commit holds which files
+
+Recorded here so the split is on the record rather than reconstructed later.
+
+**`6072a19` — the installation commit, 30 files:**
+
+| group | count |
+|---|---|
+| documents (5 new + 14 edited) | 19 |
+| this rebaseline record | 1 |
+| `results/_a54_*` gate outputs | 8 |
+| `refactor-patches/captures/a54_*` RED captures | 2 |
+| **total** | **30** |
+
+**`29efe7c` — the adoption-hash follow-up, 3 files:**
+`docs/phase3f_completion_manifest.yaml`,
+`refactor-patches/phase3f/rebaseline_record_a54.md`,
+`results/_a54_manifest_validate_followup.txt`.
+
+**Note on the arithmetic.** The split is *not* 19 + 9 + 2. There are **eight**
+`_a54_` gate outputs in the installation commit, and the rebaseline record is a
+separate file rather than one of them. The ninth `_a54_` output,
+`_a54_manifest_validate_followup.txt`, belongs to the follow-up commit.
+
+**This record landed in `6072a19` and was completed afterwards.** Section 9 was a
+forward reference when it landed — the post-commit file-list comparison cannot
+exist inside the commit it describes — and was filled in `29efe7c` along with
+section 10. Sections 11 to 13 were added later still, by the remediation commits.
+The record therefore describes both A-54 commits and its own later completion,
+and says so here rather than leaving a reader to infer it from timestamps.

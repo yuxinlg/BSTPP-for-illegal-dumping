@@ -1,0 +1,33 @@
+COMMIT 3 GATE POPULATION DETERMINATION
+
+Changed files: refactor-patches/phase3f/rebaseline_record_a54.md (M)
+               refactor-patches/phase3f/phase3f_operational_reset_amendment.tex (M, reverted)
+
+Both are checked against every declared document-gate population BY NAME.
+
+TARGET: refactor-patches/phase3f/rebaseline_record_a54.md
+  _a46 CITATION_SOURCE_PATHS  : OUT ('refactor-patches/pre-3f-stabilization/findings_ledger.md', 'refactor-patches/pre-3f-stabilization/traceability_matrix.md', 'phase3_record.tex')
+  _a51 POPULATION_GLOBS       : OUT ('phase3_record.tex', 'docs/*.md', 'AGENTS.md')
+  _a25_content_checks         : OUT (reads phase3_record.tex; wp*_*entry.md glob; reuses POPULATION_GLOBS for check 5)
+      in wp*_*entry.md glob   : OUT
+  _a26_ascii_sweep (*.py)     : OUT
+
+TARGET: refactor-patches/phase3f/phase3f_operational_reset_amendment.tex
+  _a46 CITATION_SOURCE_PATHS  : OUT ('refactor-patches/pre-3f-stabilization/findings_ledger.md', 'refactor-patches/pre-3f-stabilization/traceability_matrix.md', 'phase3_record.tex')
+  _a51 POPULATION_GLOBS       : OUT ('phase3_record.tex', 'docs/*.md', 'AGENTS.md')
+  _a25_content_checks         : OUT (reads phase3_record.tex; wp*_*entry.md glob; reuses POPULATION_GLOBS for check 5)
+      in wp*_*entry.md glob   : OUT
+  _a26_ascii_sweep (*.py)     : OUT
+
+VERDICT: both files are OUT of every declared document-gate population.
+No document gate has an input that moved, so none is required.
+Both remain citation TARGETS, which requires only that they stay tracked.
+
+CONFIRMATORY RUNS (not required; run because the reverted source reintroduces
+the literal token D-63, and 'outside the population' is worth demonstrating
+rather than only asserting):
+  content_checks   exit 0
+  citation_sweep   exit 0
+  anchor_census    exit 0
+  ascii_sweep      exit 0
+EXIT_STATUS:0
