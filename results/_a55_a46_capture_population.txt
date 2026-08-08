@@ -1,0 +1,17 @@
+A-46 / D-46 CAPTURE POPULATION
+  capture root                 : refactor-patches/captures
+  declared exclusion pathspec  : :(exclude)refactor-patches/captures/
+  measurement point            : post-staging, pre-commit (A-52)
+
+  CENSUS_POPULATION            : 664
+  git ls-files cross-check     : 664
+  citation resolution set      : 686  (capture root INCLUDED, so captures stay citable)
+  capture root members         : 22
+
+  CROSS_CHECK_HOLDS            : True
+
+  The exclusion is BY CONSTRUCTION: the capture root is removed by
+  the pathspec that produces the listing, so no capture-root path
+  was ever a member of the census population.
+CAPTURE_POPULATION_EXIT:0
+EXIT_STATUS:0

@@ -141,3 +141,76 @@ def citation_sources(repo: Path | None = None) -> dict[str, str]:
             + ", ".join(inside))
     return {p: (root / p).read_text(encoding="utf-8")
             for p in CITATION_SOURCE_PATHS}
+
+
+def _main() -> int:
+    """Print the capture population and its mandatory cross-check.
+
+    WHY THIS EXISTS. This file is listed in `GATE_INSTRUMENTS` and hash-pinned
+    in `_a52_gate_manifest.json`, but until now it had no `__main__`. Invoked
+    directly -- which is how every other declared gate is run -- it printed
+    nothing and exited 0, so it reported success having evaluated nothing. That
+    is the masked-status hazard the gate rules forbid, arriving from the one
+    direction no rule covered: not a wrapper hiding a real status, but a
+    declared gate with no status to hide. Adding a reading here does not create
+    a new instrument; it makes the declared one answerable.
+
+    The cross-check is computed by a SECOND, INDEPENDENT `git ls-files`
+    invocation rather than by reusing `_ls_files`. A cross-check that shares the
+    code path it is checking is not a cross-check, and A-52 made this reading
+    part of the DEFINITION of taking the measurement, not an optional extra.
+    """
+    import subprocess as _sp
+
+    print("A-46 / D-46 CAPTURE POPULATION")
+    print(f"  capture root                 : {CAPTURE_ROOT}")
+    print(f"  declared exclusion pathspec  : {_EXCLUDE_PATHSPEC}")
+    print("  measurement point            : post-staging, pre-commit (A-52)")
+    print()
+
+    census = census_population()
+    citation = citation_resolution_set()
+    root_members = capture_root_members()
+
+    if not census:
+        raise CapturePopulationError(
+            "census population is empty; a population is never returned empty")
+
+    try:
+        raw = _sp.run(
+            ["git", "ls-files", "--", ".", _EXCLUDE_PATHSPEC],
+            cwd=REPO, text=True, capture_output=True, check=True).stdout
+    except (OSError, _sp.CalledProcessError) as exc:
+        raise CapturePopulationError(
+            f"cross-check git ls-files failed in {REPO}: {exc}") from exc
+    crosscheck = len([line for line in raw.splitlines() if line.strip()])
+
+    print(f"  CENSUS_POPULATION            : {len(census)}")
+    print(f"  git ls-files cross-check     : {crosscheck}")
+    print(f"  citation resolution set      : {len(citation)}"
+          "  (capture root INCLUDED, so captures stay citable)")
+    print(f"  capture root members         : {len(root_members)}")
+    print()
+
+    agree = len(census) == crosscheck
+    print(f"  CROSS_CHECK_HOLDS            : {agree}")
+    if not agree:
+        print("  READING REJECTED: population and cross-check disagree, so no")
+        print("  number here is admissible as evidence.")
+    print()
+    print("  The exclusion is BY CONSTRUCTION: the capture root is removed by")
+    print("  the pathspec that produces the listing, so no capture-root path")
+    print("  was ever a member of the census population.")
+    print(f"CAPTURE_POPULATION_EXIT:{0 if agree else 1}")
+    return 0 if agree else 1
+
+
+if __name__ == "__main__":
+    import sys as _sys
+
+    try:
+        _sys.exit(_main())
+    except CapturePopulationError as exc:
+        print(f"CAPTURE_POPULATION_ERROR: {exc}")
+        print("CAPTURE_POPULATION_EXIT:1")
+        _sys.exit(1)

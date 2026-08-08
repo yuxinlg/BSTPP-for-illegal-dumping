@@ -1,0 +1,20 @@
+RUFF_POPULATION
+  declared population : 1 file(s), named below
+  baseline            : each file's own HEAD version, linted with HEAD's pyproject.toml
+                        (so a newly added per-file ignore shows as a negative delta,
+                         not as an absence)
+
+  results/_a46_capture_population.py
+    state    : MODIFIED
+    before   : 0 {}
+    after    : 0 {}
+    delta    : none
+
+  TOTALS over the declared population
+    INTRODUCED (modified files) : 0 {}
+    INHERITED  (modified files) : 0 {}
+    IN NEW FILES (no baseline)  : 0 {}
+  A new file's findings are listed separately because subtracting them against
+  an absent baseline is what made A-47's '13 against 10' look like a comparison.
+RUFF_POPULATION_EXIT:0
+EXIT_STATUS:0

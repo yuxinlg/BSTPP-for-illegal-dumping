@@ -1,0 +1,4 @@
+MANIFEST_OK 10 17
+known_tooling_debt entries: 1 -> a46-capture-population-had-no-main closed
+next_free_ids UNCHANGED: {'amendment': 'A-55', 'decision': 'D-63', 'config_invariant': 'CI-11', 'open_item': 'OP-32'}
+EXIT_STATUS:0

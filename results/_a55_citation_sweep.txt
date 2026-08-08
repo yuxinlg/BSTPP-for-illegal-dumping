@@ -1,0 +1,37 @@
+D-46 populations: 3 closed source document(s); resolution set 679 tracked file(s), refactor-patches/captures/ INCLUDED so captures stay citable.
+
+--- refactor-patches/pre-3f-stabilization/findings_ledger.md
+    18 path citations, 15 tracked, 3 not tracked
+    ALLOWED   refactor-patches/sbc1/test_sbc_smoke.py
+              reason: A-25 / ledger: named precisely BECAUSE it is untracked — it is the contamination that produced the wrong 582.
+    ALLOWED   refactor-patches/sbc2/test_sbc_smoke_v2.py
+              reason: as above.
+    ALLOWED   refactor-patches/test_sbc_smoke_v3.py
+              reason: as above.
+
+--- refactor-patches/pre-3f-stabilization/traceability_matrix.md
+    24 path citations, 24 tracked, 0 not tracked
+
+--- phase3_record.tex (Part II)
+    175 path citations, 166 tracked, 9 not tracked
+    ALLOWED   Illegal-Dumping/replication/README.md
+              reason: A-40: a path in yuxinlg/Illegal-Dumping, a DIFFERENT repository. Cited to flag a defect that is theirs to fix (the README installs from this fork's URL while 03_analysis.py requires a module that URL does not supply). It can never be tracked here, and naming the file is the point of the flag.
+    ALLOWED   baselines-2026-07/pins.json
+              reason: A-24 shorthand inside a sentence that names the refactor-patches/ prefix; the full path is cited too.
+    ALLOWED   bstpp/cox_hawkes_shared.py
+              reason: A-39/A-41: named precisely BECAUSE it is absent. It looks like a path in THIS repo and is not one: it is untracked in a downstream working checkout on another machine, and the scope limit A-40 records is exactly that no claim here covers it. A reader who could reach it would be reading a different file.
+    ALLOWED   docs/phase3_baseline_and_decisions.tex
+              reason: A-21: historical snapshot removed from the tree; git history preserves it. Labelled in place.
+    ALLOWED   refactor-patches/sbc1/test_sbc_smoke.py
+              reason: A-25 / ledger: named precisely BECAUSE it is untracked — it is the contamination that produced the wrong 582.
+    ALLOWED   refactor-patches/sbc2/test_sbc_smoke_v2.py
+              reason: as above.
+    ALLOWED   refactor-patches/test_sbc_smoke_v3.py
+              reason: as above.
+    ALLOWED   replication/cox_hawkes_offset.py
+              reason: A-41: a path in yuxinlg/Illegal-Dumping at f5f1382, read from a read-only clone that was discarded. Its measured dependency surface is committed as refactor-patches/phase3f/wp2/a41_vendored_dependency_extract.json, which IS tracked, so the citation's evidence is reachable even though the file is not.
+    ALLOWED   tests/test_config_matrix.py
+              reason: A-24: the closeout's proposed deliverable, explicitly recorded as NOT implemented.
+
+PASS — every path citation is either tracked or an explicitly recorded exemption.
+EXIT_STATUS:0

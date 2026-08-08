@@ -730,6 +730,36 @@ phase3_exit_not_phase3f_exit:
     - Final equation-to-code and implementation documentation.
     - Final real-analysis confirmation for the cbg-park-seasonal pipeline.
 
+known_tooling_debt:
+  # Nonblocking. Recorded here, not as an amendment or an OP number: this is
+  # instance eight of the apparatus class enumerated at seven, and under the
+  # execution protocol a further instance of an already-named class becomes a
+  # census row rather than a new number. Next free remains A-55, D-63, CI-11,
+  # OP-32.
+  - id: a46-capture-population-had-no-main
+    state: closed
+    closed_by: "test-infra(3f): _a46_capture_population is invocable (IV)"
+    finding: >-
+      results/_a46_capture_population.py was listed in GATE_INSTRUMENTS and
+      hash-pinned in results/_a52_gate_manifest.json, but had no __main__
+      block. Invoked directly, as every other declared gate is, it printed
+      nothing and exited 0 -- a declared gate reporting success having
+      evaluated nothing.
+    why_it_never_produced_false_evidence: >-
+      Measured, not assumed. Every landed capture-population reading in the
+      register series (550 at A-48, 589 at A-50, 601 at A-51, 622 at A-52,
+      643 at A-53, 657 at A-54) was produced by an instrument that IMPORTS
+      this module and calls its API, not by invoking this file. Import-time
+      use is unaffected by a missing __main__. No amendment ever cited a
+      bare-run reading, and no capture of one was ever committed.
+    remedy: >-
+      A __main__ block that calls the module's own declared API, prints the
+      census population with an independent git ls-files cross-check and the
+      declared exclusion pathspec, and exits nonzero if the two disagree or if
+      CapturePopulationError is raised. No existing function, signature,
+      constant or pathspec changed; the census population did not move.
+    red_capture: refactor-patches/captures/a55_a46_bare_run_red.log
+
 explicit_exclusions:
   - Decoder retraining or invented training provenance.
   - Sampled spatial or seasonal field-amplitude parameters.
