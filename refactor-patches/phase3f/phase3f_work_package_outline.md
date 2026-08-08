@@ -1,5 +1,10 @@
 # Phase 3f work-package outline — the source the entries derive from
 
+> **Superseded for current execution by A-54.** Current Phase 3f status, scope,
+> dependencies, gates, corrective-cycle counts, and completion are governed only
+> by `docs/phase3f_completion_manifest.yaml`. This file remains historical or
+> supporting evidence and must not be updated as a parallel task tracker.
+
 **Origin: OUTSIDE THIS REPOSITORY.** This table was supplied by the project
 owner in the round brief of 2026-08-06 (A-43). It had never been in the
 repository, in the register, in `AGENTS.md`, or in any commit message. It is

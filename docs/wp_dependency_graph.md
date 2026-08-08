@@ -1,5 +1,10 @@
 # Phase 3f work-package dependency graph
 
+> **Superseded for current execution by A-54.** Current Phase 3f status, scope,
+> dependencies, gates, corrective-cycle counts, and completion are governed only
+> by `docs/phase3f_completion_manifest.yaml`. This file remains historical or
+> supporting evidence and must not be updated as a parallel task tracker.
+
 **Authority:** D-47 (A-49). The work-package index is an identifier; this
 file governs execution order. Where this graph and the index disagree, the
 graph wins and the disagreement is recorded here rather than resolved by

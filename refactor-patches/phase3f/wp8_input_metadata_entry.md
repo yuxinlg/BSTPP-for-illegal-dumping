@@ -1,5 +1,10 @@
 # WP8 — input metadata: entry
 
+> **Superseded for current execution by A-54.** Current Phase 3f status, scope,
+> dependencies, gates, corrective-cycle counts, and completion are governed only
+> by `docs/phase3f_completion_manifest.yaml`. This file remains historical or
+> supporting evidence and must not be updated as a parallel task tracker.
+
 **Class: BP *or* API — the outline does not decide, and neither does this
 entry.** (`phase3f_work_package_outline.md`.)
 **Status: PLACEHOLDER.** Seams named, scope not yet specified.

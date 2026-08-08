@@ -1,0 +1,741 @@
+schema_version: 1
+document_id: phase3f-completion-manifest
+title: Phase 3f completion manifest
+
+# ---------------------------------------------------------------------------
+# This file is YAML, not register prose. It is deliberately outside the
+# populations of the LaTeX/Markdown document gates (anchor census, citation
+# sweep, content checks, hypertarget and label checks), whose declared globs
+# are phase3_record.tex, docs/*.md and AGENTS.md. A commit that edits only
+# this file runs the manifest validator and nothing else.
+# ---------------------------------------------------------------------------
+
+as_of:
+  date: "2026-08-07"
+  branch: refactor
+  commit: c4e069fca3018a7471c824d8bb26e25724943a29
+  commit_short: c4e069f
+  register_tip: A-53 / D-52
+  # Evidence baseline (`commit` above) and adoption commit are deliberately
+  # distinct fields. `commit` is the tip every claim in this file was verified
+  # against and is never rewritten. `adopted_at_commit` names the A-54
+  # integration commit, which cannot contain its own hash, so it is filled by
+  # the immediate DOC-only follow-up. This sentinel lives for exactly one
+  # commit; it is not a fill-anchor of the class the census counts, and this
+  # file is in no anchor-census population.
+  adopted_at_commit: PENDING_INTEGRATION_COMMIT
+  next_free_ids:
+    amendment: A-55
+    decision: D-63
+    config_invariant: CI-11
+    open_item: OP-32
+  evidence_basis:
+    - phase3_record.tex through A-53, decisions D-1 through D-52
+    - AGENTS.md at c4e069f
+    - production source and tests at c4e069f
+    - refactor-patches/phase3f/phase3f_work_package_outline.md (historical)
+    - docs/wp_dependency_graph.md (historical)
+    - docs/seam_sets.md (historical; see seam_set_disposition below)
+    - Phase 3f work-package entry records (historical)
+
+authority:
+  role: >-
+    Sole source of current Phase 3f execution truth for scope, status,
+    dependencies, open decisions, gate applicability, corrective-cycle counts,
+    and completion.
+  replaces_operational_role_of:
+    - docs/wp_dependency_graph.md
+    - docs/seam_sets.md
+    - refactor-patches/phase3f/phase3f_work_package_outline.md
+    - refactor-patches/phase3f/wp2/wp2_opening_conditions_proposal.md
+    - refactor-patches/phase3f/wp3_config_objects_entry.md
+    - refactor-patches/phase3f/wp4_prepared_data_entry.md
+    - refactor-patches/phase3f/wp5_excitation_support_entry.md
+    - refactor-patches/phase3f/wp6_mutators_membership_entry.md
+    - refactor-patches/phase3f/wp7_decoder_contract_entry.md
+    - refactor-patches/phase3f/wp8_input_metadata_entry.md
+    - refactor-patches/phase3f/wp9_results_io_entry.md
+    - refactor-patches/phase3f/wp10_args_removal_entry.md
+  does_not_replace:
+    phase3_record: >-
+      The append-only scientific and historical authority, including all
+      settled model semantics, change classifications, and amendments.
+    tests_and_evidence: >-
+      Executable gates and committed captures remain evidence. The manifest
+      reports their applicability and state; it does not substitute for them.
+  historical_documents_rule: >-
+    Superseded planning files remain unchanged except for a short supersession
+    banner. They are evidence of what was known and decided when written, not
+    current task trackers. Their placeholders are not filled and their old
+    measurements are not repaired.
+  update_rule: >-
+    Any commit that changes a Phase 3f deliverable's status, scope,
+    dependency, blocker, corrective-cycle count, or exit gate updates this
+    manifest in the same commit. Commit count and WPn.m labels never determine
+    progress.
+
+status_vocabulary:
+  not_started: No production deliverable for the declared scope exists.
+  partial: Some production foundation exists, but at least one required exit
+    condition is unsatisfied.
+  complete: Every listed exit condition is satisfied by named evidence.
+  blocked: Work cannot proceed without a recorded external/user decision.
+  deferred: Explicitly outside Phase 3 and assigned to a later phase or project.
+  historical: Retained as evidence but not part of current completion state.
+
+# ---------------------------------------------------------------------------
+# Settled decisions carried by the adopting amendment.
+# ---------------------------------------------------------------------------
+
+settled_decisions:
+
+  standardization:
+    open_item: OP-28
+    state: closed
+    accepted_values: [null, domain_area]
+    default: null
+    booleans: rejected
+    already_implemented: true
+    implementation_evidence:
+      - bstpp/config.py validate_standardize_cov accepts only None and
+        'domain_area'
+      - bstpp/preparation.py attach_covariate_partitions weights each row by
+        the area of its clipped support C_c intersect A, keeping zero-area rows
+        at zero weight
+    domain_area_semantics: >-
+      Area-weight each covariate row by its exact clipped domain mass
+      |C_c intersection A|. Zero-area rows have zero influence.
+    cross_site_rule: >-
+      In-package domain_area standardization is a single-fitted-domain
+      convenience. Analyses comparing coefficients across districts, parks,
+      sites, or time periods standardize once against an external fixed
+      reference distribution and pass standardize_cov=None.
+    comparability: >-
+      Results produced with legacy standardize_cov=True and results produced
+      with standardize_cov='domain_area' are not comparable and are never
+      relabeled as though they used the same estimator.
+    consequence: >-
+      G-B is closed. The bind-time relocation of standardize_cov is BP for the
+      accepted path.
+
+  seam_set_disposition:
+    state: retired_as_opening_precondition
+    replaced_by: the per-work-package `scope` field in this manifest
+    reason: >-
+      The declared seam set existed to supply a denominator for the pin
+      reachability ratio. With that ratio retired as an opening precondition,
+      the seam set's only remaining function is scope declaration, which the
+      `scope` and `completion_owner_for` fields below perform directly. Moving
+      one artifact's job into a file that already exists removes an artifact
+      rather than relocating it.
+    enumerated_reach: [WP1, WP3, WP4, WP5, WP6, WP7, WP8, WP9, WP10]
+    wp2_note: >-
+      WP2's seam set was declared retroactively and remains valid; nothing
+      about it is reopened.
+    docs_seam_sets_md: historical
+
+  pin_reachability:
+    state: retired_as_opening_precondition
+    retained_as: optional diagnostic at a fixed tree
+    coverage_discipline_survives_in:
+      - pin_compare verdict lines carrying compared=n/m with candidate_only and
+        baseline_only populations
+      - the touched-file ruff population instrument
+      - the capture population instrument
+    reason: >-
+      A gate must still declare its coverage before it is read as evidence.
+      That principle is now mechanized in the instruments that print their own
+      populations, which is cheaper and harder to get wrong than a hand-derived
+      statement-count ratio that is only comparable within a fixed tree.
+
+  corrective_depth:
+    cap: 3
+    unit: work_package
+    counted: corrective cycles
+    not_counted:
+      - planned commits
+      - documentation updates
+      - RED-to-GREEN completion of the same declared change
+      - WPn.m label increments
+    definition: >-
+      A corrective cycle is a landed production implementation that must be
+      repaired because its own declared exit gate fails.
+    on_third: >-
+      Record the failed assumption, split or narrow the work package, and take
+      a decision. Do not respond with a fourth general audit.
+    wp2_grandfathering: >-
+      WP2 carries labels WP2.3 through WP2.8. The label sequence is not a cycle
+      count and reconstructing the cycle count from it would require re-reading
+      a settled history. WP2 is grandfathered with the ambiguity recorded, and
+      its counter below starts at 0 from the adopting amendment forward.
+
+  wp8_ownership:
+    class: BP
+    constructor_api: preserved
+    spatial_cov_crs_owner: ModelData
+    data_contracts_owner: InferenceRunConfig
+    compatibility_rule: >-
+      Existing constructor keywords remain accepted and are adapters into the
+      typed owners. Their accepted values and behavior do not change in WP8.
+
+  decoder_identity:
+    packaged_artifacts: verified_sha256
+    custom_decoders: declared_decoder_id
+    path_is_identity: false
+    unknown_provenance: allowed_and_preserved
+    contract: docs/decoder_contract.md
+    artifacts_under_contract:
+      temporal: bstpp/decoders/decoder_1d_T50_fixed_ls
+      seasonal: bstpp/decoders/decoder_1d_T24_circ_small_l8
+      spatial: bstpp/decoders/2d_decoder_15_5_large.pkl
+    artifacts_not_under_contract: >-
+      The six remaining files under bstpp/decoders/ are unreferenced by
+      production code. They are out of contract; WP7 neither hashes nor
+      validates them and does not delete them.
+
+  results_format:
+    format: versioned_pickle_envelope
+    schema_version: 1
+    args_independent: true
+    wp10_may_change_schema: false
+    contract: docs/results_format.md
+    g2_test_note: >-
+      The existing strict xfail asserts a top-level 'cutoff_provenance' key.
+      Schema v1 stores cutoff provenance at excitation.cutoffs, so implementing
+      the schema alone leaves the xfail xfailing and the gate cannot detect its
+      own satisfaction. The WP9 commit rewrites the assertion path and
+      preserves the pre-rewrite xfail as the RED capture.
+
+  unsupported_historical_consumer:
+    name: bstpp.cox_hawkes_shared.Cox_Hawkes_Shared
+    state: excluded
+    reason: >-
+      It was discovered only through an old analysis file, is absent from the
+      tracked package, and is not used by the cbg-park-seasonal analysis that
+      Phase 3 targets. It may describe a feature that was later deleted.
+    obligations:
+      audit: false
+      migrate: false
+      preserve_compatibility: false
+      block_wp2_or_wp10: false
+
+  orphaned_op23:
+    state: reserved_absent_and_nonblocking
+    finding: >-
+      The descriptive phrase is already absent from AGENTS.md at c4e069f. It
+      survives only inside the register's own quotation of it, which is a
+      record of what was cited and is not edited.
+    action: >-
+      Record OP-23 as nonblocking. Invent no content and do not reissue the
+      number. No AGENTS.md edit is required for this item.
+
+  historical_document_gate_gap:
+    name: G-A
+    state: historical_nonblocking_tooling_debt
+    action: >-
+      Do not manufacture further capability captures solely to close the old
+      census. Run document gates only when their input surface changes.
+
+  public_class_surface:
+    classes: [Hawkes_Model, LGCP_Model]
+    configurations: [plain_hawkes, cox_hawkes, lgcp]
+    note: >-
+      Cox-Hawkes is Hawkes_Model(cox_background=True), not a third class.
+      Deliverables and smoke gates say two classes and three configurations.
+
+# ---------------------------------------------------------------------------
+# Execution.
+# ---------------------------------------------------------------------------
+
+execution:
+  protocol: docs/phase3f_execution_protocol.md
+  tracking_unit: deliverable
+  implementation_shape: vertical_slices
+  indicative_commit_budget: 12 to 18 production commits across S1 to S4
+  amendment_budget: at most one register amendment per slice, for decisions,
+    classifications, and corrections only
+  stop_rule: >-
+    Phase 3f stops when every required deliverable below is complete, every
+    blocker is closed or explicitly deferred under this manifest, and every
+    applicable exit gate passes. The absence of findings on another general
+    audit pass is not a completion criterion.
+
+milestones:
+  analysis_resumption_point:
+    at: S3 boundary
+    status: not_reached
+    meaning: >-
+      The commit at which downstream analysis may resume against the package.
+      At this point the five typed configs exist, runtime ownership is
+      consolidated, the decoder contract validates before inference, and
+      results schema v1 records the fitted problem. The public API has been
+      stable throughout.
+    required:
+      - S1, S2, and S3 exit gates pass at one named commit.
+      - Fast and slow lanes pass as separate invocations in the pinned
+        environment.
+      - Canonical 2026-07 pins report zero diffs over their four shared
+        configurations, with the comparison population printed.
+      - Forward 2026-08 polygon pins report six-of-six MATCH.
+      - End-to-end fit and simulation smoke runs pass for plain Hawkes,
+        cox_hawkes, and LGCP.
+      - Results schema v1 and decoder-contract negative tests pass.
+    not_required:
+      - self.args removal
+      - plotting delegation
+      - thin model-family wrappers
+    rationale: >-
+      S4 is internal hygiene behind an unchanged public surface. Holding the
+      analysis until S4 lands couples a downstream schedule to work that cannot
+      change a downstream result.
+  phase3f_exit:
+    at: S4 boundary
+    status: not_reached
+
+vertical_slices:
+
+  S0_operational_reset:
+    status: in_progress
+    work_packages: []
+    deliverables:
+      - Install this manifest, the execution protocol, the decoder contract,
+        the results-format contract, and the adopting amendment.
+      - Mark older planning documents as historical/supporting.
+      - Replace the mutable Phase 3f status block in AGENTS.md with a concise
+        pointer to this manifest and immutable technical cautions.
+    exit_gate:
+      - Documents agree on authority, decisions, IDs, and source commit.
+      - YAML parses; every work package WP1-WP10 is present; every original
+        section 10.f responsibility maps to exactly one completion owner.
+      - Register structure, label, citation, hypertarget, and anchor checks
+        pass over their declared populations.
+      - No file under bstpp/ or tests/ changed.
+
+  S1_configuration_spine:
+    status: not_started
+    work_packages: [WP2, WP1, WP3]
+    scope_declared: true
+    planned_commit_boundaries:
+      - ModelConfig frozen dataclass and factory, constructor kept as adapter.
+      - PriorConfig frozen dataclass and factory, constructor kept as adapter.
+      - NumericalConfig unresolved-metric sentinel plus bind-time resolution
+        from ModelData/PreparedDomain CRS.
+      - Cutoff-tolerance construction sites routed through the bound instance.
+      - PartitionDecoderConfig and InferenceRunConfig with factories and
+        deterministic to_record snapshots.
+      - Slice boundary rebaseline record.
+    exit_gate:
+      - All five frozen config objects exist and validate their own invariants
+        in __post_init__.
+      - Every accepted constructor and run argument has exactly one typed
+        canonical owner.
+      - Each config exposes a deterministic to_record() suitable for schema v1.
+      - Valid legacy calls preserve traces and both pin baselines; declared
+        rejected inputs fail through their canonical CI-n clause identities.
+      - No config object reads ModelData; data-dependent fields hold an
+        explicit sentinel until bind.
+
+  S2_runtime_ownership:
+    status: not_started
+    work_packages: [WP4, WP5, WP6]
+    scope_declared: false
+    order:
+      - Make prepared objects the runtime owners of data, geometry, partitions,
+        maps, refinements, areas, and W.
+      - Consolidate excitation support, mass-table, cutoff, and provenance
+        ownership against the resolved config objects.
+      - Make public mutation transactional over typed canonical state and
+        single-source membership through PreparedDomain.covers_xy.
+    exit_gate:
+      - Runtime consumers read canonical typed/prepared state rather than
+        duplicated args entries.
+      - Simulator and likelihood consume the same support, mass, and cutoff
+        atoms.
+      - set_window remains sentinel-aware and transactional on all three
+        overrides, and LGCP continues to reject every form with one clause.
+
+  S3_artifacts_and_interfaces:
+    status: not_started
+    work_packages: [WP7, WP8, WP9]
+    scope_declared: false
+    order:
+      - Implement decoder contracts and identities for the three artifacts
+        under contract.
+      - Move input metadata to typed owners behind stable constructor adapters.
+      - Implement results schema v1, rewrite the G2 assertion path, and turn
+        the strict xfail into a passing test.
+    exit_gate:
+      - Decoder role, shape, partition, flattening, and gain mismatches fail
+        before inference.
+      - UNKNOWN training provenance remains explicit and survives round trip.
+      - Results round-trip configs, data identity, decoder identity, and
+        excitation/cutoff provenance without serializing args.
+      - Incompatible result attachment fails before model mutation.
+      - The analysis resumption point conditions are satisfied at this commit.
+
+  S4_architectural_cutover:
+    status: not_started
+    work_packages: [WP10]
+    scope_declared: false
+    order:
+      - Delegate plotting while preserving the nine model.plot_* methods.
+      - Reduce the two public model classes to thin wrappers over shared
+        orchestration.
+      - Make inference and simulation consume typed state directly.
+      - Remove args as canonical state, then remove the adapter.
+    exit_gate:
+      - No production code reads or writes self.args or accepts an args dict as
+        canonical runtime state.
+      - Public sampled-site and deterministic-site names are unchanged.
+      - Plotting, fitting, scoring, simulation, save/load, and mutation work
+        through the thin wrappers.
+      - All Phase 3f exit gates pass.
+
+# ---------------------------------------------------------------------------
+# Work packages. `scope` replaces the retired seam-set artifact. Packages whose
+# slice has not opened declare scope in the commit that opens the slice.
+# ---------------------------------------------------------------------------
+
+work_packages:
+
+  WP1:
+    name: NumericalConfig
+    class: BP_with_declared_SC_at_bind_time
+    slice: S1_configuration_spine
+    status: partial
+    corrective_cycles_used: 0
+    scope:
+      declared: true
+      files: [bstpp/config.py, bstpp/polygon_mass.py, bstpp/cutoffs.py]
+      quantities:
+        - resolved sigma bounds and budget policy
+        - panel_h_m and the mass-table builder settings
+        - cutoff tolerance precedence and design scales
+    completed:
+      - Frozen NumericalConfig exists behind the args adapter.
+      - Object invariants, canonical clauses, and a single factory exist.
+      - Resolved sigma bounds and budget policy are represented.
+    remaining:
+      - Represent unresolved metric panel_h_m with an explicit bind-time
+        sentinel rather than the module default DEFAULT_PANEL_H_M = 20.0, which
+        is silently wrong by orders of magnitude for CRS-less domains.
+      - Resolve metric defaults from ModelData/PreparedDomain CRS only at bind.
+      - Route cutoff tolerance construction sites through the bound instance.
+    depends_on: [WP2]
+    completion_owner_for:
+      - numerical configuration
+
+  WP2:
+    name: ModelConfig and PriorConfig
+    class: BP_except_predeclared_API_or_SC_validation_changes
+    slice: S1_configuration_spine
+    status: partial
+    corrective_cycles_used: 0
+    progress_note: >-
+      CI-9, CI-10, and CI-7 at the sp_var_mu site have landed as enforcement at
+      pre-object sites. Neither named config class exists at c4e069f. The
+      deliverable is the two classes; enforcement commits are not deliverable
+      completion.
+    scope:
+      declared: true
+      files: [bstpp/config.py, bstpp/main.py]
+      model_config_owns:
+        - model family and cox_background mode
+        - sp_var_mu value
+        - standardize_cov policy
+        - model-level trigger/support selections not owned by WP5 runtime
+          objects
+      prior_config_owns:
+        - a_0 prior
+        - w prior when covariates are present
+        - alpha prior
+        - beta prior
+        - sigmax_2 prior and its resolved truncation provenance
+    remaining:
+      - Implement both frozen dataclasses with one factory each.
+      - Move canonical ownership from constructor locals and kwargs into them.
+      - Relocate the already-landed CI-7, CI-9, and CI-10 enforcement into
+        __post_init__ without changing clause text or exception identity.
+      - Preserve the legacy constructor as an adapter.
+    depends_on: []
+    completion_owner_for:
+      - frozen typed model configuration
+      - separate prior configuration
+
+  WP3:
+    name: PartitionDecoderConfig and InferenceRunConfig
+    class: BP
+    slice: S1_configuration_spine
+    status: not_started
+    corrective_cycles_used: 0
+    scope:
+      declared: true
+      files: [bstpp/config.py, bstpp/main.py, bstpp/inference_functions.py]
+      partition_decoder_config_owns:
+        - temporal, seasonal, and spatial partition dimensions
+        - decoder contract references and roles
+        - latent and output shape compatibility
+        - gain convention compatibility
+      inference_run_config_owns:
+        - data_contracts enforcement policy
+        - inference method and run hyperparameters
+        - explicit RNG/key provenance for fit operations
+    remaining:
+      - Implement both frozen dataclasses and factories.
+      - Define deterministic to_record snapshots for results schema v1.
+      - Preserve run_svi and run_mcmc keyword interfaces through adapters.
+    depends_on: [WP2]
+    completion_owner_for:
+      - separate partition and decoder configuration
+      - separate inference and run configuration
+      - explicit fitting RNG
+
+  WP4:
+    name: Prepared data, domain, partitions, and likelihood boundary
+    class: BP
+    slice: S2_runtime_ownership
+    status: partial
+    corrective_cycles_used: 0
+    scope:
+      declared: false
+      declare_at: S2 opening commit
+    completed:
+      - ModelData, PreparedDomain, and PreparedPartitions exist.
+      - PreparedDomain owns union geometry, bounds, area ratio, axis scales,
+        CRS, and covers_xy.
+      - PreparedPartitions owns partition products and integration arrays.
+      - Likelihood atoms are separated from NumPyro orchestration.
+    remaining:
+      - Make these objects canonical runtime owners rather than sources copied
+        into args.
+      - Move the temporary event-side covariate membership asymmetry to the
+        canonical membership owner without changing tie semantics.
+      - Remove duplicated internal-unit literal ownership.
+      - Keep city-scale evolution possible without adding unused abstractions.
+    depends_on: [WP3]
+    completion_owner_for:
+      - prepared data and geometry outside frozen configuration
+      - grid and partition ownership of maps, intersections, areas,
+        refinements, and W
+      - likelihood atoms separated from NumPyro orchestration
+
+  WP5:
+    name: Excitation support, polygon mass, cutoffs, and provenance
+    class: BP_with_named_correctness_fixes
+    slice: S2_runtime_ownership
+    status: partial
+    corrective_cycles_used: 0
+    scope:
+      declared: false
+      declare_at: S2 opening commit
+      expected_files: [bstpp/excitation_support.py, bstpp/polygon_mass.py,
+        bstpp/cutoffs.py]
+    completed:
+      - Rectangle and polygon support modes exist.
+      - PolygonMassTable compatibility and hashes exist.
+      - CutoffProvenance exists.
+      - Forward polygon and rectangle-mode pins exist.
+    blockers_cleared:
+      - OP-24 entry precondition discharged.
+      - OP-23 nonblocking; content absent and not reconstructed.
+      - G-A historical tooling debt, not an entry condition.
+      - G-B closed by the standardization decision.
+      - The seam-set opening precondition is retired; scope is declared here at
+        S2 opening.
+    remaining:
+      - Pass the bound NumericalConfig through held-out mass-table validation.
+      - Give max_sigma=None a named validation path or prevent it from reaching
+        install validation by construction.
+      - Record the actual bound cutoff tolerances in CutoffProvenance.
+      - Remove duplicate ownership under OP-27.
+      - Ensure simulator and likelihood consume the same support, mass, and
+        cutoff atoms through typed state.
+    depends_on: [WP4, WP1]
+    completion_owner_for:
+      - simulator consumption of the same mass, support, and cutoff atoms
+
+  WP6:
+    name: Public mutators and membership single-source
+    class: BP
+    slice: S2_runtime_ownership
+    status: partial
+    corrective_cycles_used: 0
+    scope:
+      declared: false
+      declare_at: S2 opening commit
+    completed:
+      - set_window distinguishes omission from explicit None.
+      - set_window validates before transactional mutation.
+      - PreparedDomain.covers_xy exists.
+      - LGCP_Model.set_window rejects every call form with one clear clause.
+    remaining:
+      - Enumerate the supported public mutators explicitly; do not infer an
+        open-ended class. The three set_window overrides are the known members.
+      - Mutate typed canonical state and rebuild compatibility views only after
+        all validation succeeds.
+      - Consolidate validation and simulation membership on covers_xy while
+        preserving the exact boundary-inclusive contract.
+    depends_on: [WP4, WP5]
+    completion_owner_for:
+      - transactional public mutation
+      - membership single-sourcing
+
+  WP7:
+    name: Decoder contract, identity, gain, and provenance
+    class: IV_and_BP
+    slice: S3_artifacts_and_interfaces
+    status: not_started
+    corrective_cycles_used: 0
+    scope:
+      declared: false
+      declare_at: S3 opening commit
+      expected_files: [bstpp/main.py, bstpp/decode_fields.py,
+        bstpp/vae_functions.py, bstpp/config.py]
+    remaining:
+      - Implement docs/decoder_contract.md.
+      - Hash the three artifacts under contract from the bytes the loader
+        already holds, before deserialization.
+      - Validate role, shapes, partition, flattening, and gain.
+      - Require declared stable IDs for custom in-memory decoders.
+      - Preserve explicit UNKNOWN training provenance.
+      - Do not add a sampled amplitude and do not retrain decoders.
+    depends_on: [WP3, WP4]
+    completion_owner_for:
+      - decoder contract validation
+
+  WP8:
+    name: Input metadata ownership
+    class: BP
+    slice: S3_artifacts_and_interfaces
+    status: not_started
+    corrective_cycles_used: 0
+    scope:
+      declared: false
+      declare_at: S3 opening commit
+    remaining:
+      - Add spatial_cov_crs to ModelData's canonical input metadata.
+      - Add the data_contracts mode to InferenceRunConfig.
+      - Preserve constructor keywords as compatibility adapters.
+      - Preserve the rule that tabular covariate CRS is explicit and is never
+        inferred by copying the domain CRS.
+    nonblocking_open_item:
+      id: OP-25
+      state: deferred_decision
+      rule: >-
+        Do not broaden the Phase 3f scope to another apparatus census. If the
+        warning surface is changed, take a focused decision and a targeted test
+        in that same commit.
+    depends_on: [WP3, WP4]
+    completion_owner_for:
+      - input metadata and enforcement-policy ownership
+
+  WP9:
+    name: Results I/O and provenance
+    class: API
+    slice: S3_artifacts_and_interfaces
+    status: not_started
+    corrective_cycles_used: 0
+    scope:
+      declared: false
+      declare_at: S3 opening commit
+      expected_files: [bstpp/main.py, bstpp/config.py,
+        tests/test_lane_b_config_matrix.py]
+    completed:
+      - A strict xfail names the missing G2 provenance round trip.
+    remaining:
+      - Implement docs/results_format.md schema v1.
+      - Save versioned typed snapshots and provenance without args.
+      - Validate compatibility before mutating an existing model.
+      - Rewrite the G2 assertion from the top-level cutoff_provenance key to
+        excitation.cutoffs, preserving the pre-rewrite xfail as the RED
+        capture, and land it as a passing test.
+    depends_on: [WP2, WP3, WP7, WP8]
+    completion_owner_for:
+      - versioned results persistence
+
+  WP10:
+    name: Architectural cutover and args removal
+    class: BP_with_preserved_public_adapters
+    slice: S4_architectural_cutover
+    status: not_started
+    corrective_cycles_used: 0
+    intake_freeze: c4e069fca3018a7471c824d8bb26e25724943a29
+    scope:
+      declared: false
+      declare_at: S4 opening commit
+    remaining:
+      - Remove self.args as canonical internal state; 176 references exist at
+        c4e069f, all in bstpp/main.py.
+      - Remove args-dict inputs from inference and simulation internals.
+      - Replace internal-unit literals with named owned quantities.
+      - Delegate the nine plotting methods while preserving model.plot_*.
+      - Make Hawkes_Model and LGCP_Model thin wrappers over shared
+        orchestration.
+      - Ensure fit, simulation, scoring, mutation, and results I/O all consume
+        typed/prepared state directly.
+    depends_on: [WP1, WP2, WP3, WP4, WP5, WP6, WP7, WP8, WP9]
+    completion_owner_for:
+      - plotting separation with delegated public methods
+      - thin model-family wrappers
+      - removal of args as canonical state
+      - explicit simulation RNG
+
+responsibility_coverage:
+  source: phase3_record.tex section 10.f
+  rule: Every original responsibility has exactly one completion owner.
+  items:
+    frozen_typed_model_configuration: WP2
+    separate_prior_configuration: WP2
+    separate_partition_decoder_configuration: WP3
+    separate_inference_run_configuration: WP3
+    prepared_data_and_geometry_outside_config: WP4
+    grid_partition_module_ownership: WP4
+    likelihood_atoms_separate_from_numpyro: WP4
+    simulator_same_mass_support_atoms: WP5
+    plotting_delegation: WP10
+    thin_model_family_wrappers: WP10
+    explicit_fit_rng: WP3
+    explicit_simulation_rng: WP10
+    args_removal: WP10
+    decoder_contract_validation: WP7
+    input_metadata_ownership: WP8
+    results_io: WP9
+    transactional_mutators_and_membership: WP6
+
+phase3f_exit:
+  required:
+    - Every WP1-WP10 status is complete.
+    - Every section 10.f responsibility has exactly one completion owner and
+      named passing evidence.
+    - No production self.args reads or writes and no canonical args-dict
+      parameters.
+    - Public sampled-site and deterministic-site names are unchanged unless a
+      separately approved API/semantic amendment says otherwise.
+    - Fast and slow lanes pass as separate invocations in the pinned
+      environment.
+    - Canonical 2026-07 pins report zero diffs over their four shared
+      configurations, with the comparison population printed.
+    - Forward 2026-08 polygon pins report six-of-six MATCH and zero diffs.
+    - End-to-end fit and simulation smoke runs pass for plain Hawkes,
+      cox_hawkes, and LGCP.
+    - Results schema v1 and decoder-contract negative tests pass.
+    - The guide implementation-section inputs are ready for Phase 3g.
+
+phase3_exit_not_phase3f_exit:
+  owner: Phase 3g
+  required:
+    - New full Cox-Hawkes Stage 3 SBC run at R=200 at the Phase 3 tip, with
+      harness hash and comparison to the 2026-07-18 baseline.
+    - Final equation-to-code and implementation documentation.
+    - Final real-analysis confirmation for the cbg-park-seasonal pipeline.
+
+explicit_exclusions:
+  - Decoder retraining or invented training provenance.
+  - Sampled spatial or seasonal field-amplitude parameters.
+  - Arbitrary user-supplied standardization weights.
+  - City-scale or multiresolution inference implementation.
+  - New ReportingRegions or ComputationPartition classes without a separate
+    approved need.
+  - Migration or preservation of cox_hawkes_shared.
+  - General re-audits or new audit-apparatus layers used as a stopping rule.
+  - Validation or deletion of the six decoder artifacts out of contract.

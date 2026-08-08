@@ -1,0 +1,19 @@
+CHECK A -- gate substrate pinning
+  Each gate's bytes are hashed HERE. This module is not a gate and
+  consumes none of them, so no instrument certifies itself --
+  which is the `mass_table_sha256` property, generalised.
+  gates pinned : 12
+  verified     : 12
+  problems     : none
+
+CHECK B -- explicit encoding in document instruments
+  A platform-default decode makes an instrument answer differently
+  for a different reader, which is indistinguishable from the tree
+  having changed. Binary modes are exempt by definition.
+  files scanned: 9
+  problems     : none
+
+PASS -- gate substrate pinned by an instrument that consumes none
+       of it; every document instrument declares its encoding.
+APPARATUS_CHECKS_EXIT:0
+EXIT_STATUS:0

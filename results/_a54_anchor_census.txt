@@ -1,0 +1,92 @@
+ANCHOR CENSUS -- `[[FILL]]` over a declared population
+
+FILE POPULATION (git ls-files; globs phase3_record.tex, docs/*.md, AGENTS.md)
+    AGENTS.md
+    docs/boundary_and_window_semantics.md
+    docs/config_matrix.md
+    docs/sbc_runbook.md
+    docs/seam_sets.md
+    docs/wp_dependency_graph.md
+    phase3_record.tex
+  EXCLUDED, and named rather than dropped: baseline snapshots under
+  refactor-patches/baselines-*/ (frozen artifacts -- an anchor
+  there is a historical fact, not an open item), and commit-message
+  captures under results/ (they QUOTE anchors, they do not carry
+  them).
+
+  docs/wp_dependency_graph.md
+    anchor USES                   : 12
+    lines containing an anchor    : 8   <- the two differ; `grep -c` reports this one
+    DISTINCT decisions anchored   : 0  
+    by anchor text (USES only; mentions excluded above):
+        4x  [deferring]  [[FILL: enumerate]]
+        8x  [deferring]  [[FILL: measure]]
+    introduced by:
+      51c98f8   11 anchor(s)  docs(register): adopt WP sequencing, gate coverage, termin
+      96c01ba    1 anchor(s)  WP2.6 [DOC]: the anchors discharged, the citations repaire
+
+  phase3_record.tex
+    anchor USES                   : 4
+    MENTIONS (marked, not counted): 1
+        line 4022: [[FILL:~\dots]]
+    lines containing an anchor    : 5   <- the two differ; `grep -c` reports this one
+    DISTINCT decisions anchored   : 1  ['D-50']
+    by anchor text (USES only; mentions excluded above):
+        1x  [deferring]  [[FILL: state in the ledger]]
+        3x  [narrative]  [[FILL]]
+    introduced by:
+      938e32b    2 anchor(s)  Pre-3f: correctness/API freeze before architectural 3f.
+      beb0482    1 anchor(s)  docs(register): adopt closeout decisions as A-24 / D-36-D-
+      96c01ba    1 anchor(s)  WP2.6 [DOC]: the anchors discharged, the citations repaire
+      db55ee1    1 anchor(s)  WP2.7 [DOC/process]: use and mention; D-48 amended where c
+
+TOTALS -- three classes, because collapsing them is how a harmless
+anchor and an unexecutable rule come to look like the same number.
+  anchor USES, whole population        : 16
+  MENTIONS (marked; not uses)          : 1
+  OPERATIVE  (in a decision clause,
+              unclassified -> blocks a RULE) : 0
+  deferring  (in a decision clause,
+              classified -> blocks a RECORD) : 1
+  narrative  (outside any decision clause)   : 15
+
+COVERAGE OF THIS CLASSIFICATION (D-39: a gate states its own)
+  Decision-clause detection is LATEX-SPECIFIC -- it keys on
+  `\textbf{D-nn} &` rows and `\paragraph{D-nn` headings. MARKDOWN
+  FILES HAVE NEITHER, so every anchor in docs/*.md and AGENTS.md
+  falls to `narrative` BY CONSTRUCTION, not by judgement. The
+  live instance is docs/wp_dependency_graph.md's rho_w and
+  routed-items cells: those ARE governed by D-48/D-44 and are
+  legitimately open (an unfilled rho_w cell is D-48's precondition
+  working, not broken), but this instrument is not what
+  establishes that -- DEFERRING_ANCHORS is, and it is consulted
+  only for anchors already inside a decision clause.
+  SO: `OPERATIVE 0` is a claim about the LATEX REGISTER only.
+  It is not a claim that every Markdown anchor is harmless.
+
+NARRATIVE ANCHORS -- reported, never gated on. In the register
+these leave an incomplete sentence, not an unexecutable rule,
+and predate A-49; a gate failing on them could only be made to
+pass by editing Part I. In Markdown, see the coverage note.
+    docs/wp_dependency_graph.md:43  [[FILL: measure]]
+    docs/wp_dependency_graph.md:45  [[FILL: measure]]
+    docs/wp_dependency_graph.md:45  [[FILL: enumerate]]
+    docs/wp_dependency_graph.md:46  [[FILL: measure]]
+    docs/wp_dependency_graph.md:46  [[FILL: enumerate]]
+    docs/wp_dependency_graph.md:48  [[FILL: measure]]
+    docs/wp_dependency_graph.md:49  [[FILL: measure]]
+    docs/wp_dependency_graph.md:50  [[FILL: measure]]
+    docs/wp_dependency_graph.md:50  [[FILL: enumerate]]
+    docs/wp_dependency_graph.md:51  [[FILL: measure]]
+    docs/wp_dependency_graph.md:51  [[FILL: enumerate]]
+    docs/wp_dependency_graph.md:52  [[FILL: measure]]
+    phase3_record.tex:2160  [[FILL]]
+    phase3_record.tex:2467  [[FILL]]
+    phase3_record.tex:2846  [[FILL]]
+
+No operative anchor: every remaining anchor defers a record,
+not a rule, and each is classified in DEFERRING_ANCHORS with
+its reason.
+
+ANCHOR_CENSUS_EXIT:0
+EXIT_STATUS:0

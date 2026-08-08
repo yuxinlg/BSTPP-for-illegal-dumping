@@ -1,5 +1,14 @@
 # Declared seam sets (D-48, amended A-52)
 
+> **Superseded for current execution by A-54.** Current Phase 3f status, scope,
+> dependencies, gates, corrective-cycle counts, and completion are governed only
+> by `docs/phase3f_completion_manifest.yaml`. This file remains historical or
+> supporting evidence and must not be updated as a parallel task tracker.
+>
+> The declared seam set is retired as an opening precondition for WP1 and
+> WP3-WP10 under D-59; scope is declared in the manifest's per-package `scope`
+> field. S_WP2's retroactive declaration stands as a historical record.
+
 **Authority:** D-48 as amended at A-52, clause 3 — *a declared seam set is an
 opening precondition for a work package*. This file is where a declaration
 lives. A package whose seam set is not declared here has not met the

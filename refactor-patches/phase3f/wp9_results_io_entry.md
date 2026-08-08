@@ -1,5 +1,10 @@
 # WP9 — results I/O (G2): entry
 
+> **Superseded for current execution by A-54.** Current Phase 3f status, scope,
+> dependencies, gates, corrective-cycle counts, and completion are governed only
+> by `docs/phase3f_completion_manifest.yaml`. This file remains historical or
+> supporting evidence and must not be updated as a parallel task tracker.
+
 **Class: API — declared**, and this is the one package the outline marks as
 not-BP (`phase3f_work_package_outline.md`).
 **Status: PLACEHOLDER with one substantive element** — G2's deliverable and

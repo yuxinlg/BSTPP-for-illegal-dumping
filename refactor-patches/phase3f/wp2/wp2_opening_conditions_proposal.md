@@ -1,5 +1,10 @@
 # WP2 opening conditions --- a PROPOSAL, not a decision
 
+> **Superseded for current execution by A-54.** Current Phase 3f status, scope,
+> dependencies, gates, corrective-cycle counts, and completion are governed only
+> by `docs/phase3f_completion_manifest.yaml`. This file remains historical or
+> supporting evidence and must not be updated as a parallel task tracker.
+
 **Status: proposed at A-40, awaiting review. Establishes nothing.** Under the
 standing rule adopted at A-39, a decision held for review does not enter
 register text in the same pass that raises it, so this lives here and not in

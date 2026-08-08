@@ -1,0 +1,21 @@
+A-54 CAPTURE POPULATION -- D-46 / A-52 declared measurement point
+  measurement point            : post-staging, pre-commit
+  CENSUS_POPULATION            : 657
+  git ls-files cross-check     : 657
+  citation resolution set      : 678  (capture root INCLUDED)
+  capture root members         : 21
+
+  a54_ captures in the root    : 2
+    refactor-patches/captures/a54_citation_sweep_red.log
+    refactor-patches/captures/a54_content_checks_red.log
+  a53_ captures, untouched     : 2
+    refactor-patches/captures/a53_ci7_red.log
+    refactor-patches/captures/a53_citation_sweep_red.log
+
+  CROSS_CHECK_HOLDS            : True
+
+  The exclusion is BY CONSTRUCTION: the capture root is removed by the
+  pathspec that produces the listing, so no capture-root path was ever
+  in the census population.
+CAPTURE_POPULATION_EXIT:0
+EXIT_STATUS:0

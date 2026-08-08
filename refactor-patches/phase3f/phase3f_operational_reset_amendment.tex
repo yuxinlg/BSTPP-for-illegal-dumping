@@ -1,0 +1,478 @@
+% Phase 3f operational reset -- append/integration source for A-54.
+% Authored against refactor tip c4e069f on 2026-08-07.
+%
+% This is not a standalone TeX document. Integrate it into phase3_record.tex
+% using the companion Cursor prompt. Preserve Part I under the existing
+% \amdnew / \supsd amendment conventions and append the Part II subsection.
+%
+% RENUMBERED FROM THE FIRST DRAFT. That draft was authored against db55ee1 and
+% took A-53. A-53 is occupied by c4e069f (WP2.8, CI-7 at the sp_var_mu site,
+% SC/API), which is a production commit and not a documentation descendant.
+% This entry is A-54; next free after integration is A-55.
+
+% -------------------------------------------------------------------------
+% DECISION-REGISTER ROWS: insert in section 8 with \amdnew{A-54} marking.
+% Next free after integration: the decision number following D-62.
+% -------------------------------------------------------------------------
+
+\amdnew{A-54} \textbf{D-53} &
+\textbf{One operational authority.} \texttt{docs/phase3f\_completion\_manifest.yaml}
+is the sole source of current Phase~3f execution truth for scope, status,
+dependencies, open decisions, gate applicability, corrective-cycle counts, and
+completion. The append-only register remains the scientific and historical
+authority. \texttt{docs/wp\_dependency\_graph.md},
+\texttt{docs/seam\_sets.md}, the work-package outline, and the WP entry files
+remain historical evidence and no longer govern current status. A
+status-changing commit updates the manifest in the same commit. \textbf{The
+manifest is YAML and is therefore outside the declared populations of the
+document-prose gates} (\texttt{phase3\_record.tex}, \texttt{docs/*.md},
+\texttt{AGENTS.md}); a manifest-only edit runs the manifest validator and
+nothing else. &
+process / DOC & team; operational reset, 2026-08-07 \\
+
+\amdnew{A-54} \textbf{D-54} &
+\textbf{Standardization intent (closes OP-28).} The public accept set is exactly
+\texttt{None} (default/off) and explicit
+\texttt{standardize\_cov='domain\_area'}; booleans remain rejected.
+\texttt{'domain\_area'} weights each row by its exact clipped domain mass, so
+zero-area rows have zero influence. \textbf{Both facts are the shipped
+behaviour}, verified at \texttt{c4e069f} in \texttt{config.py}'s
+\texttt{validate\_standardize\_cov} and \texttt{preparation.py}'s
+\texttt{attach\_covariate\_partitions}; this decision settles intent and
+requires no code change. This is an in-package convenience for one fitted
+domain. Cross-site coefficient comparisons use one externally fixed reference
+distribution and pass \texttt{None}. Legacy \texttt{True} results and
+\texttt{'domain\_area'} results are not comparable and are never relabeled.
+\textbf{Closes gap G-B} and makes the bind-time relocation BP for the accepted
+path.
+& model/API decision; existing accepted-path semantics & team; OP-28 decision,
+2026-08-07 \\
+
+\amdnew{A-54} \textbf{D-55} &
+\textbf{WP8 is a BP ownership migration with a stable constructor API.}
+\texttt{spatial\_cov\_crs} is canonical input metadata owned by
+\texttt{ModelData}; \texttt{data\_contracts} is enforcement policy owned by
+\texttt{InferenceRunConfig}. Existing constructor keywords remain accepted as
+thin adapters and retain their accepted values and behavior. Tabular
+covariate CRS remains explicit and is never inferred by copying the domain
+CRS. Any later keyword removal or rename is a separate API decision. & BP & team;
+WP8 decision, 2026-08-07 \\
+
+\amdnew{A-54} \textbf{D-56} &
+\textbf{Decoder identity and contract.} A file-backed/package decoder is
+identified by exact artifact SHA-256 plus contract schema, role, shapes,
+partition compatibility, flattening, and gain. The path is only a locator. A
+custom in-memory decoder without stable bytes requires a caller-declared
+stable \texttt{decoder\_id}, recorded with identity strength
+\texttt{declared}; BSTPP does not pretend to hash a callable reproducibly.
+Training provenance that cannot be recovered remains literal
+\texttt{UNKNOWN}. \textbf{Three artifacts are under contract} ---
+\texttt{decoder\_1d\_T50\_fixed\_ls}, \texttt{decoder\_1d\_T24\_circ\_small\_l8},
+and \texttt{2d\_decoder\_15\_5\_large.pkl}, the only three
+\texttt{\_load\_decoder} reaches. \textbf{The other six files under
+\texttt{bstpp/decoders/} are out of contract}: unreferenced by production code,
+neither hashed nor validated nor deleted. The normative schema is
+\texttt{docs/decoder\_contract.md}. & IV / BP & team; WP7 decision, 2026-08-07
+\\
+
+\amdnew{A-54} \textbf{D-57} &
+\textbf{Results schema v1.} WP9 implements an \texttt{args}-independent,
+versioned trusted-pickle envelope under
+\texttt{docs/results\_format.md}. It stores posterior samples, typed config
+snapshots, data/partition identity, decoder identities, standardization,
+excitation/mass/cutoff provenance, and package/environment provenance. WP10
+may change the producer, not the serialized schema. Unsupported schema,
+malformed required state, or fitted-problem incompatibility hard-fails before
+model mutation; package/commit/dependency drift warns after compatibility
+passes. Unversioned legacy dictionaries are rejected rather than attached
+without provenance. \textbf{The strict G2 xfail cannot detect its own
+satisfaction as written}: it asserts a top-level \texttt{cutoff\_provenance}
+key and schema~v1 stores that record at \texttt{excitation.cutoffs}. The WP9
+commit rewrites the assertion path, preserves the pre-rewrite xfail as its RED
+capture, and lands the test green. & API & team; G2 / WP9 decision, 2026-08-07 \\
+
+\amdnew{A-54} \textbf{D-58} &
+\textbf{The absent historical \texttt{cox\_hawkes\_shared} consumer is
+unsupported.} It was found only through an old analysis file, is not present
+in the tracked package, and is not used by the \texttt{cbg-park-seasonal}
+analysis Phase~3 targets. It may describe a feature later deleted. Phase~3
+does not audit, integrate, migrate, or preserve it, and it blocks neither WP2
+nor WP10. & DEF / scope & team; downstream-scope decision, 2026-08-07 \\
+
+\amdnew{A-54} \textbf{D-59} &
+\textbf{Deliverables and vertical slices govern execution; four earlier process
+decisions are amended by name.} Phase~3f proceeds through the configuration
+spine (WP2, remaining WP1, WP3), runtime ownership (WP4--WP6),
+artifacts/interfaces (WP7--WP9), and final cutover (WP10). The manifest assigns
+every original \S10.f responsibility exactly one completion owner and declares
+each package's \texttt{scope} at slice opening. Per-commit gates are
+risk-based; full fast and slow lanes, both pin baselines, and affected family
+smokes run at slice boundaries. Completion is the manifest's finite exit
+predicate, never ``audit until clean.''
+\textbf{Enumerated reach, per D-52 clause~2.}
+\textbf{(a) D-47:} the dependency graph's operational role passes to the
+manifest's \texttt{depends\_on} fields; \texttt{docs/wp\_dependency\_graph.md}
+becomes historical. The rule that order is a graph and not an integer stands.
+\textbf{(b) D-48:} clause~3's separate seam-set artifact and the pin
+reachability ratio $\rho_w$ are \textbf{retired as opening preconditions} for
+WP1 and WP3--WP10; WP2's retroactive declaration is untouched. The principle
+that a gate declares its coverage before it is read as evidence \textbf{stands
+and is now discharged mechanically}, by the instruments that print their own
+populations --- \texttt{pin\_compare}'s \texttt{compared=$n$/$m$} with
+\texttt{candidate\_only}/\texttt{baseline\_only}, the touched-file ruff
+population, and the capture population. $\rho_w$ remains admissible as an
+optional diagnostic at a fixed tree.
+\textbf{(c) D-49:} discharged at A-47 and unchanged; named so this enumeration
+is complete.
+\textbf{(d) D-50:} the cap of three stands and remains \textbf{per work
+package}, not per slice. What is amended is the unit: the count is
+\textbf{corrective cycles}, defined as landed production implementations that
+must be repaired because their own declared exit gate failed. Planned commits,
+documentation updates, RED-to-GREEN completion of the same declared change, and
+\texttt{WP$n$.$m$} label increments are not cycles. \textbf{WP2's labels run to
+\texttt{WP2.8} and its cycle count is not recoverable from them}; WP2 is
+grandfathered under D-52 clause~1 with that ambiguity recorded rather than
+resolved by re-audit, and its counter starts at zero from this amendment.
+& process & team; execution reset, 2026-08-07 \\
+
+\amdnew{A-54} \textbf{D-60} &
+\textbf{Close the two recursive planning blockers without recreating them.}
+OP-23 remains reserved with absent content and is \textbf{nonblocking}. Its
+descriptive phrase is \textbf{already absent from \texttt{AGENTS.md} at
+\texttt{c4e069f}}; it survives only inside this register's own quotation of it
+at A-36, which is a record of what was cited and is not edited. No content is
+invented, the number is not reissued, and \textbf{no \texttt{AGENTS.md} edit is
+required for this item}. G-A's old document-gate census remains historical
+tooling debt and is not a work-package entry condition; document gates run when
+their input surface changes, and no new captures are manufactured only to
+revise the old census. G-B is closed by D-54.
+& DOC / process & team; bounded
+cleanup, 2026-08-07 \\
+
+\amdnew{A-54} \textbf{D-61} &
+\textbf{A normative technical contract is a self-contained specification.}
+\texttt{docs/decoder\_contract.md} and \texttt{docs/results\_format.md} state
+rules, not their register lineage: no D-, A-, CI-, or OP-numbers appear in
+them. Provenance for those rules lives in this amendment and in the manifest's
+\texttt{settled\_decisions} block, each in exactly one place. \textbf{The
+reason is a measured cost, not a style preference}: every register citation
+placed in a document joins the citation-resolution set, and a specification that
+carries lineage becomes a second register that must be swept, censused, and
+amended whenever the first one moves. Process documents (the execution
+protocol, \texttt{AGENTS.md}) may name IDs, because naming the governing
+decision is their content. & DOC / process & team; gate-load reduction,
+2026-08-07 \\
+
+\amdnew{A-54} \textbf{D-62} &
+\textbf{Analysis resumption is a named milestone at the S3 boundary, distinct
+from Phase~3f exit.} At the S3 boundary the five typed configs exist, runtime
+ownership is consolidated, the decoder contract validates before inference, and
+results schema~v1 records the fitted problem; the public API has been stable
+throughout. \textbf{Downstream analysis may resume there.} S4 --- \texttt{args}
+removal, plotting delegation, thin wrappers --- is internal hygiene behind an
+unchanged public surface and \textbf{cannot change a downstream result}, so
+holding the analysis for it couples a scientific schedule to work that has no
+scientific content. The resumption commit satisfies both pin baselines, both
+test lanes, the three end-to-end family smokes, and the schema-v1 and
+decoder-contract negative tests, and is named in the manifest. \textbf{This
+creates no phase boundary}: 3a--3g are unchanged, Phase~3f still closes at S4,
+and Phase~3g still owns final statistical verification. & process / scope &
+team; resumption milestone, 2026-08-07 \\
+
+% -------------------------------------------------------------------------
+% OPEN-ITEM TABLE INTEGRATION NOTES (section 11)
+% -------------------------------------------------------------------------
+%
+% 1. Mark OP-28 CLOSED under A-54 and cite D-54. Preserve the complete old row
+%    and add the resolution with \amdnew{A-54}; do not rewrite A-41/A-42.
+% 2. Keep OP-23 reserved/absent, but mark it NONBLOCKING and cite D-60. Do not
+%    edit A-36's quotation of the withdrawn phrase and do not edit AGENTS.md
+%    for this item -- the phrase is already gone from it.
+% 3. Preserve OP-25 as deferred/nonblocking; A-54 does not decide the general
+%    warning-surface ASCII policy.
+% 4. Record that G-B is closed by D-54 and G-A is historical/nonblocking under
+%    D-60. Do not alter old C2 counts or captures.
+% 5. OP-27 stays open and routed to WP5. No new OP number is opened here.
+
+% -------------------------------------------------------------------------
+% PART II ENTRY: append before \end{document}.
+% -------------------------------------------------------------------------
+
+\hypertarget{a-54}{%
+\subsection{A-54 --- Phase 3f operational reset: one manifest, four slices, the
+artifact contracts, and a resumption point that is not the phase
+boundary}\label{a-54}}
+
+\textbf{Opened 2026-08-07 against \texttt{c4e069f}.}
+\textbf{Class DOC/process, with model/API decisions explicitly named in
+D-54--D-58.} Establishes D-53--D-62. Adopts
+\texttt{docs/phase3f\_completion\_manifest.yaml},
+\texttt{docs/phase3f\_execution\_protocol.md},
+\texttt{docs/decoder\_contract.md}, and
+\texttt{docs/results\_format.md}. Next free after this amendment:
+\textbf{A-55, CI-11, OP-32}; the decision register stands at \textbf{62 rows, D-1 to D-62}, so the next decision number follows D-62.
+
+\paragraph{The number, first, because the first draft got it wrong.}
+
+This entry was drafted as A-53 against tip \texttt{db55ee1}. \textbf{A-53 was
+taken while it was being drafted}, by \texttt{c4e069f} --- WP2.8, CI-7 enforced
+at the \texttt{sp\_var\_mu} site, class SC/API. That commit touches
+\texttt{bstpp/main.py} and adds \texttt{tests/test\_ci7\_sp\_var\_mu.py}, so it
+is \emph{not} the documentation-only descendant the draft's own precondition
+permitted, and \texttt{results/\allowbreak{}\_a53\_*} is already populated with
+twenty of its gate captures. \textbf{Both errors would have been destructive
+had the draft been installed}: the amendment number would have collided with a
+published entry, and the gate outputs would have overwritten a production
+commit's evidence --- the A-40/A-41 failure this register has already named
+once. The draft is superseded here rather than repaired in place, and its
+baseline moves from \texttt{db55ee1} to \texttt{c4e069f}.
+
+\paragraph{Why this amendment exists.}
+
+At \texttt{c4e069f}, Phase~3f had a strong regression foundation and its
+original architectural outcome was substantially unbuilt. \textbf{The sharpest
+measurement is not the commit count.} Since WP2 opened at A-45 there have been
+nine amendments, three of which touch \texttt{bstpp/}, and \textbf{zero of the
+five frozen configuration objects have been created}: \texttt{NumericalConfig}
+exists and landed before WP2 opened; \texttt{ModelConfig} and
+\texttt{PriorConfig} are enumerated and absent; \texttt{PartitionDecoderConfig}
+and \texttt{InferenceRunConfig} are unstarted. \texttt{main.py} still owns the
+public wrappers, simulation, metrics, nine plotting methods, and 176
+\texttt{self.args} references. Meanwhile current truth was spread across the
+register, an outline, a dependency graph, a seam-set file, ten work-package
+entries, findings, captures, and \texttt{AGENTS.md}. The result was high local
+traceability and weak global executability.
+
+\paragraph{The generator, named, because renaming the authority does not remove
+it.}
+
+Each of the nine amendments was individually justified, and most were justified
+by an \emph{apparatus obligation rather than a deliverable}: A-51 existed
+because A-49 left anchors; A-52 existed because A-51 silently edited landed
+text; A-53 existed because A-52's seam-set declaration made an unenforcing site
+visible. \textbf{The mechanism is that documents which cite the register join
+the populations of the instruments that sweep the register}, and each sweep can
+produce a finding that requires another document. A tenth document that cites
+the register would extend the cycle, not end it. \textbf{Hence two structural
+choices rather than one more authority claim}: the manifest is YAML and sits
+outside the declared \texttt{.tex}/\texttt{.md} gate populations by
+construction (D-53), and the two technical contracts carry no register IDs at
+all (D-61). What remains inside the prose gates is the register itself, the
+execution protocol, and \texttt{AGENTS.md} --- three files, which is what those
+instruments were built for.
+
+\paragraph{D-53 --- one operational authority.}
+
+The manifest is authoritative for present-tense execution state. A commit that
+changes a deliverable's scope, status, dependency, blocker, cycle count, or
+exit gate changes the manifest in the same commit. Older planning files remain
+readable and citable, with a banner pointing to the manifest, but are not
+synchronized as parallel task trackers. \texttt{AGENTS.md} retains stable
+engineering rules and points to the manifest instead of reproducing its mutable
+status narrative.
+
+\paragraph{D-54 --- OP-28 answered, and answered at no cost.}
+
+The package intends exact clipped-domain area weighting for its explicit
+\texttt{'domain\_area'} convenience. \textbf{That is already what it does.}
+\texttt{validate\_standardize\_cov} accepts \texttt{None} and
+\texttt{'domain\_area'} and nothing else; \texttt{attach\_covariate\_partitions}
+builds its weights from the area of \texttt{cov\_support}, the covariate layer
+clipped to the domain, and keeps zero-area rows so covariate indexing is
+unchanged. The decision therefore settles intent without a code change, which
+makes it the cheapest item in this amendment and the reason it should land
+first if this amendment is ever split. It is not a cross-site normalization
+scheme: analysts comparing coefficients across sites use an externally fixed
+reference and pass \texttt{None}. The measured A-41 difference from legacy
+\texttt{True} remains on the record and is not reinterpreted as numerical
+noise. This closes G-B; the earlier API narrowing that rejected booleans remains
+the SC/API change already recorded.
+
+\paragraph{D-55 --- WP8 ownership without public churn.}
+
+\texttt{spatial\_cov\_crs} describes input data and therefore belongs to
+\texttt{ModelData}. \texttt{data\_contracts} selects an enforcement policy and
+therefore belongs to \texttt{InferenceRunConfig}. Relocation changes canonical
+ownership, not the public constructor contract. In particular, BSTPP still
+requires an explicit CRS for plain tabular covariates paired with a CRS-bearing
+domain and never makes them look valid by copying the domain CRS.
+
+\paragraph{D-56 --- decoder identity, and which artifacts it covers.}
+
+Partition sizes are configuration constrained in practice by the trained
+decoder grids, and the spatial gain is a convention paired with the trained
+decoder rather than a derived formula. The contract records exactly those
+executable facts. File-backed artifacts use content identity; custom decoders
+use declared identity because hashing a callable would be false
+reproducibility. \textbf{Scope is stated because the directory does not state
+it}: \texttt{bstpp/decoders/} ships nine files and \texttt{\_load\_decoder}
+reaches three. Naming the three keeps WP7 from discovering the other six as a
+corrective cycle. The digest is computable without new machinery ---
+\texttt{\_load\_decoder} already holds the raw bytes from
+\texttt{pkgutil.get\_data} before \texttt{pickle.loads}, so hashing before
+deserialization is a two-line change at one site. The seasonal sidecar's
+unknown training facts remain \texttt{UNKNOWN}. A required compatibility fact
+--- role, shape, partition, flattening, or gain --- may not be made unknown.
+
+\paragraph{D-57 --- results schema v1, and the gate that could not see itself.}
+
+The old result file is a pickle of \texttt{samples} and optional opaque
+inference state. It cannot establish which events, domain, decoder, support,
+cutoffs, standardization, or config produced the samples. Schema~v1 keeps the
+trusted-pickle container to bound Phase~3 work, but wraps it in a versioned,
+\texttt{args}-independent record with transactional validation and attachment.
+
+\textbf{The strict G2 xfail is itself an instance of the apparatus class A-52
+enumerated.} It asserts \texttt{blob["cutoff\_provenance"]} at the envelope's
+top level. Schema~v1 places that record at \texttt{excitation.cutoffs}. A WP9
+commit implementing the contract exactly and completely would therefore leave
+the xfail \emph{still xfailing}, and the gate meant to certify G2 would report
+nothing when G2 was satisfied. Naming it here, rather than discovering it in
+the WP9 commit, is the difference between a planned test edit and a corrective
+cycle.
+
+\paragraph{D-58 --- the historical external consumer.}
+
+The old analysis reference to
+\texttt{bstpp.cox\_hawkes\_shared.Cox\_Hawkes\_Shared} creates no supported
+surface: the module is absent, the focused analysis does not use it, and the
+repository cannot verify code it does not contain. No inventory, migration
+mapping, vendoring, or WP10 block is created for it.
+
+\paragraph{D-59 --- execution by four vertical slices, and the four decisions
+it amends by name.}
+
+The configuration spine lands the five typed configs while the adapter still
+exists. Runtime ownership then makes prepared/support objects canonical.
+Artifact/interface work lands decoder identity, metadata ownership, and results
+schema before the final cutover removes \texttt{args}, delegates plotting, and
+thins the model wrappers. Per-commit verification is targeted plus the fast
+lane; full lanes, both pin baselines and affected smokes run at slice
+boundaries. The exact trigger matrix and stop rule live in the execution
+protocol.
+
+\textbf{D-52 requires that retroactive reach be enumerated and not asserted, so
+it is enumerated.} \textbf{D-47} keeps its principle and loses its artifact:
+the graph is now the manifest's \texttt{depends\_on} fields. \textbf{D-48}
+keeps its principle and loses its manual instrument. Its clause~3 seam-set
+artifact existed to give $\rho_w$ a denominator; with $\rho_w$ retired as an
+opening precondition, the seam set's only remaining job is scope declaration,
+which the manifest's \texttt{scope} field does directly --- \textbf{so this
+removes an artifact rather than relocating one}. The coverage-declaration
+principle is not weakened: it is discharged by instruments that print their own
+populations, which A-48 already built. \textbf{The reach is WP1 and WP3--WP10};
+WP2's retroactive declaration stands untouched. \textbf{D-49} is discharged and
+unchanged, named only so the enumeration is complete.
+
+\textbf{D-50 is the one that had to be faced rather than clarified.} Its cap is
+three per work package and its sub-packages are numbered \texttt{WP$n$.1}
+through \texttt{WP$n$.3}. \textbf{The tip is \texttt{WP2.8}.} Read literally,
+WP2 closed as not decomposable as scoped five commits ago; read as intended, the
+label was never the count. \textbf{Neither reading was written down, which is
+precisely the defect D-52 was established to name}, so it is written down here:
+the count is corrective cycles, the cap stays at three and stays \emph{per work
+package} rather than moving to the slice, and WP2's historical count is
+\textbf{not recoverable} from its labels and is \textbf{not reconstructed},
+because reconstructing it is the re-audit A-44's cap forbids. WP2 is
+grandfathered under D-52 clause~1 with the ambiguity on the record and its
+counter reset to zero. The manifest carries a
+\texttt{corrective\_cycles\_used} field per package so the next occurrence is
+counted rather than argued about.
+
+The old statement-count reachability ratio remains admissible as a diagnostic
+at a fixed tree. D-48's historical measurements remain evidence; the manifest
+and protocol supersede their use as current workflow.
+
+\paragraph{D-60 --- bounded cleanup, one item of which is already done.}
+
+OP-23's content was never present. Its descriptive citation \textbf{has already
+been withdrawn from \texttt{AGENTS.md}}: measured at \texttt{c4e069f}, the
+phrase appears in no tracked file except this register's own quotation of it at
+A-36 and the WP5 entry record's quotation of the same. \textbf{The first draft
+instructed an edit with no target}, which would have sent an implementer either
+to a no-op it had to explain or to A-36's landed text. The instruction is
+withdrawn; the number stays reserved so it cannot be reissued; OP-23 is
+nonblocking. The old G-A gate census remains an honest historical finding, is
+not reread or ``closed'' by creating another apparatus layer, and no longer
+blocks production architecture. G-B is closed by D-54. OP-25 remains deferred
+and nonblocking; if its warning surface is changed, the change receives a
+focused decision and test in that same commit.
+
+\paragraph{D-61 --- contracts do not carry lineage.}
+
+A specification that cites the register must be swept whenever the register
+moves, and a reader of the specification must hold the register open to
+understand it. Both costs are avoidable and neither buys correctness: the
+decoder contract's authority comes from being adopted here, not from repeating
+that fact inside itself. Provenance lives in exactly two places --- this
+amendment and the manifest's \texttt{settled\_decisions} block. Process
+documents are exempt, because for them the governing decision \emph{is} the
+content.
+
+\paragraph{D-62 --- the resumption point, and why it is not a phase boundary.}
+
+The stated purpose of finishing Phase~3f is to resume the analysis. Those are
+not the same commit. \textbf{Everything the analysis consumes is in place at
+the S3 boundary}: typed configuration, consolidated runtime ownership, a
+decoder contract that fails before inference rather than after it, and a
+results envelope that records which events, domain, decoder, cutoffs, and
+standardization produced a posterior. \textbf{Everything S4 does is invisible
+from outside the package} --- \texttt{self.args} is internal state, plotting
+delegation preserves \texttt{model.plot\_*}, and thin wrappers preserve the two
+public classes. A downstream result computed at the S3 boundary and recomputed
+after S4 must be identical, or S4 was misclassified.
+
+\textbf{So the milestone is named and the phase boundary is not moved.} Phase~3f
+still closes at S4 and Phase~3g still owns the SBC run, the equation-to-code
+documentation, and the \texttt{cbg-park-seasonal} confirmation. What changes is
+that a slipped S4 no longer holds the science. \textbf{This is a scheduling
+decision and not a quality concession}: the resumption commit carries the same
+pin baselines, both test lanes, all three family smokes, and the schema-v1 and
+decoder-contract negative tests that Phase~3f exit requires. It omits only the
+gates that exist to certify internal structure.
+
+\paragraph{Responsibility completeness.}
+
+The manifest maps every original \S10.f responsibility to exactly one
+completion owner: WP2 owns model/prior config; WP3 partition-decoder and run
+config plus fitting RNG; WP4 prepared state, partition products and the
+likelihood boundary; WP5 shared support/mass/cutoff atoms; WP6 mutators and
+membership; WP7 decoder contract; WP8 input metadata; WP9 results I/O; WP10
+plotting delegation, thin wrappers, simulation RNG and \texttt{args} removal.
+A package cannot close by completing a narrower entry while leaving its
+original responsibility unmapped.
+
+\paragraph{One correction to the public surface as previously described.}
+
+Earlier planning text names ``Hawkes, LGCP, and Cox--Hawkes public classes.''
+\textbf{There are two public classes}, \texttt{Hawkes\_Model} and
+\texttt{LGCP\_Model}; Cox--Hawkes is \texttt{Hawkes\_Model(cox\_background=True)}.
+The distinction matters only where a deliverable is stated: WP10 thins
+\emph{two} classes, and the end-to-end smokes cover \emph{three}
+configurations. Stated so the WP10 exit gate does not name a class that cannot
+be produced.
+
+\paragraph{Phase boundary and exit.}
+
+Phase~3f closes at one named commit satisfying the finite manifest predicate.
+Phase~3g still owns the new Cox--Hawkes Stage~3 SBC run at $R=200$ at the final
+Phase~3 tip, final equation-to-code and implementation documentation, and the
+\texttt{cbg-park-seasonal} confirmation. Decoder retraining, sampled field
+amplitudes, arbitrary standardization weights, city-scale inference, new
+reporting/computation classes, the historical shared consumer, validation of the
+six out-of-contract decoder artifacts, and further general audit loops remain
+outside Phase~3f.
+
+\paragraph{Evidence required when integrated.}
+
+This amendment is document-only. Its integration commit records the exact
+changed-file list; parses the YAML manifest; checks that every \S10.f
+responsibility has exactly one owner and every WP1--WP10 entry exists; runs the
+register content/decision, hypertarget, label, citation, anchor and apparatus
+checks whose input surface changed; and records why no production test, pin,
+slow lane or SBC run applies. \textbf{Gate outputs are written under the
+\texttt{\_a54\_} prefix}; the \texttt{\_a53\_} prefix belongs to \texttt{c4e069f}
+and is not written to. The manifest's \texttt{as\_of.commit} stays at
+\texttt{c4e069f} as the evidence baseline; the adoption commit is recorded in a
+separate field in the immediate documentation follow-up, and the register states
+that the two-commit form was used because a commit cannot contain its own hash.

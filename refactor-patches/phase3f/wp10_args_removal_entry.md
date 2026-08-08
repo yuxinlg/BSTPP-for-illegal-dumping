@@ -1,5 +1,10 @@
 # WP10 — legacy-`args` removal: entry, and its inbound items
 
+> **Superseded for current execution by A-54.** Current Phase 3f status, scope,
+> dependencies, gates, corrective-cycle counts, and completion are governed only
+> by `docs/phase3f_completion_manifest.yaml`. This file remains historical or
+> supporting evidence and must not be updated as a parallel task tracker.
+
 **What WP10 is.** The work package that removes the legacy `args` dict. The
 register has always had this package — A-22's ordering paragraph says *"OP-8
 (legacy-`args` removal) is the final work package, not the first"* — but it
