@@ -313,18 +313,257 @@ vertical_slices:
       - No file under bstpp/ or tests/ changed.
 
   S1_configuration_spine:
-    status: not_started
+    status: in_progress
+    opened_at: S1.0
+    closes_under_amendment: A-55
     work_packages: [WP2, WP1, WP3]
     scope_declared: true
+
+    # ---- protocol section 4 slice brief ----------------------------------
+
+    deliverables:
+      - ModelConfig, frozen, one factory, CI-7/CI-9/CI-10 relocated into
+        __post_init__ without clause-text or exception-identity change. Owner
+        WP2.
+      - PriorConfig, frozen, one factory, owning a_0/alpha/beta/sigmax_2 and the
+        w prior, with sigmax_2 truncation provenance. Owner WP2.
+      - NumericalConfig's unresolved panel_h_m sentinel and the config bind API
+        that resolves it, with the cutoff-tolerance construction sites routed
+        through the bound instance. Owner WP1.
+      - PartitionDecoderConfig and InferenceRunConfig, frozen, one factory each.
+        Owner WP3.
+      - A deterministic to_record() on all five config objects, including
+        NumericalConfig, which has none at the slice baseline.
+      - One declared keyword-to-owner registry in bstpp/config.py, replacing
+        per-call-site shims. This table is what WP10 deletes.
+
+    production_files_expected_to_change:
+      - bstpp/config.py
+      - bstpp/main.py
+      - bstpp/cutoffs.py
+      - bstpp/inference_functions.py
+    production_files_not_expected_to_change:
+      - bstpp/polygon_mass.py
+      - bstpp/preparation.py
+      - bstpp/excitation_support.py
+      - bstpp/likelihood.py
+      - bstpp/decode_fields.py
+      - bstpp/data_contracts.py
+      - bstpp/trigger.py
+      - bstpp/utils.py
+      - bstpp/vae_functions.py
+    new_test_files:
+      - tests/test_model_config.py
+      - tests/test_config_bind.py
+      - tests/test_prior_config.py
+      - tests/test_wp3_configs.py
+    existing_tests_edited: none
+    existing_test_edit_rule: >-
+      No planned test edit is named for any S1 commit. Protocol section 5.3
+      permits a planned edit only when the slice brief names it and it is signed
+      off. An existing row that must change is therefore evidence the accept set
+      moved: stop and report rather than editing.
+
+    public_behavior_expected_to_remain_stable:
+      - Public constructor signatures of Hawkes_Model, LGCP_Model and
+        Point_Process_Model.
+      - The accept set of every constructor argument, in both directions.
+      - run_svi(num_steps, lr, ...) and run_mcmc(...) keyword interfaces; lr
+        stays a required positional.
+      - Every args key these quantities feed, written exactly as now, including
+        args['sp_var_mu'], args['model'], args['priors'] and
+        self.standardization.
+      - Sampled-site and deterministic-site names.
+      - Canonical clause text and exception identity at every relocated site.
+    declared_behavior_or_api_change: >-
+      None in S1. Every S1 production commit is BP, with S1.2 additionally
+      carrying IV for the panel_h_m sentinel. The one API change this slice
+      identified is routed out of it: see wp9_intake below.
+
+    tests_characterizing_pre_change_behavior:
+      - The existing fast lane at the slice baseline, run before each commit's
+        edit, as the accept-set reference.
+      - Per commit, a RED capture taken against HEAD before bstpp/ is touched,
+        preserved under refactor-patches/captures/ (D-45/D-46).
+      - S1.1 specifically captures pre-change two-invalid-argument exception
+        ordering from HEAD before editing, because the relocation must reproduce
+        the order main.py:2027 -> :333 -> :564 fires today.
+    targeted_negative_tests_for_new_validation:
+      - Each relocated invariant rejects, asserting on the canonical clause text
+        rendered by the shared clause function and, in addition, on the
+        exception type. Never the type instead of the text (A-26).
+      - Ordering rows for (cox_background bad, standardize_cov bad) and
+        (standardize_cov bad, sp_var_mu bad).
+      - Accept-set rows in both directions -- nothing previously rejected is now
+        accepted, nothing previously accepted is now rejected.
+      - Reading an unresolved sentinel field raises a named clause.
+      - The panel ratio prefilter still fires on the same inputs with the same
+        clause.
+      - Frozen -- mutation raises FrozenInstanceError on every config object.
+      - to_record() is byte-stable across two constructions of the same
+        configuration.
+
+    order:
+      - S1.0 open the slice (this commit)
+      - S1.1 ModelConfig, to_record, adapter, keyword registry
+      - S1.2 bind API and the panel_h_m sentinel
+      - S1.3 PriorConfig
+      - S1.4 PartitionDecoderConfig and InferenceRunConfig
+      - S1.5 slice boundary
+    order_note: >-
+      This is a within-slice reordering of the protocol section 9 list and of
+      planned_commit_boundaries below. It is not a scope change: the same
+      deliverables land, in the same slice, under the same exit gate. The bind
+      API moves ahead of PriorConfig because two PriorConfig fields are
+      ModelData-dependent and need exactly the machinery panel_h_m needs. The w
+      prior's support dimension comes from num_cov (main.py:546, from
+      main.py:507) and the sigmax_2 truncation comes from resolve_sigma_bounds
+      with the prepared domain CRS (main.py:2100-2102). Building the bind
+      machinery once and consuming it twice is cheaper than generalising an
+      ad-hoc resolution one commit later, and it keeps the sentinel discipline
+      in protocol section 5.1 single-sourced. WP1's depends_on [WP2] still
+      holds, because ModelConfig lands at S1.1, before the bind API at S1.2.
     planned_commit_boundaries:
-      - ModelConfig frozen dataclass and factory, constructor kept as adapter.
-      - PriorConfig frozen dataclass and factory, constructor kept as adapter.
-      - NumericalConfig unresolved-metric sentinel plus bind-time resolution
-        from ModelData/PreparedDomain CRS.
-      - Cutoff-tolerance construction sites routed through the bound instance.
-      - PartitionDecoderConfig and InferenceRunConfig with factories and
-        deterministic to_record snapshots.
-      - Slice boundary rebaseline record.
+      superseded_by: order
+      note: >-
+        Retained as the boundary list declared when the slice was planned. The
+        executed order is `order` above. Both describe the same deliverables.
+      list:
+        - ModelConfig frozen dataclass and factory, constructor kept as adapter.
+        - PriorConfig frozen dataclass and factory, constructor kept as adapter.
+        - NumericalConfig unresolved-metric sentinel plus bind-time resolution
+          from ModelData/PreparedDomain CRS.
+        - Cutoff-tolerance construction sites routed through the bound instance.
+        - PartitionDecoderConfig and InferenceRunConfig with factories and
+          deterministic to_record snapshots.
+        - Slice boundary rebaseline record.
+
+    decisions:
+      # Protocol section 4: all decisions the slice needs, raised together,
+      # before production work. None of these takes a new D- number; each is an
+      # application of a settled decision to this slice.
+      model_config_construction_site:
+        decision: >-
+          ModelConfig is constructed inside Point_Process_Model.__init__.
+          Hawkes_Model keeps its validate_cox_background call at main.py:2027.
+          Two sites, one clause, rendered byte-for-byte.
+        basis: D-40, and the A-45 precedent that did exactly this for
+          standardize_cov.
+        why_the_second_site_stays: >-
+          It fires before expensive base construction, so the argument the
+          caller passed is still the object being checked, and Hawkes_Model
+          derives its family name from cox_background at main.py:2029-2032,
+          before super() at main.py:2058 is reached.
+      bind_api_precedes_prior_config:
+        decision: The bind API lands at S1.2, before PriorConfig at S1.3.
+        basis: order_note above.
+      bare_exception_at_main_569:
+        decision: >-
+          main.py:569 raises a bare Exception on the unknown-prior-kwarg path.
+          The exception type is a public failure mode, so changing it is an API
+          change. It is routed to WP9 intake and is NOT fixed in S1. The line
+          moves verbatim into PriorConfig at S1.3, type included.
+        note: >-
+          AGENTS.md's general prohibition on bare exception raising, read
+          literally, calls for fixing it here. Protocol section 5.4 and the S1
+          BP classification win: a slice declared behaviour-preserving does not
+          change a public failure mode in passing.
+        routed_to: WP9
+      s1_closes_under_a55:
+        decision: >-
+          S1 closes under amendment A-55, which also registers the four
+          post-A-54 remediation commits (1da6a60, 1b42897, c04c989, a72f5f4)
+          whose _a55_ gate-output prefix S1 inherits.
+        basis: >-
+          Protocol section 6.1 makes the gate-output prefix the amendment
+          number. Those four commits already wrote nine _a55_ artifacts, so S1
+          cannot take a different number without either renaming committed
+          evidence or opening a second amendment for one slice. Their detail is
+          in refactor-patches/phase3f/rebaseline_record_a54.md sections 11-13
+          and is cited by A-55, not restated.
+        next_free_after_a55: {amendment: A-56, decision: D-63,
+          config_invariant: CI-11, open_item: OP-32}
+
+    pin_reachability:
+      # Qualitative, per protocol section 4. No ratio is recorded.
+      harness: refactor-patches/pin_check_v2.py
+      configurations: [hawkes, cox_hawkes, lgcp, hawkes_nonsquare_4to1,
+        hawkes_notched_4to1_polygon_mode, hawkes_notched_4to1_rectangle_mode]
+      model_config:
+        cox_background: >-
+          Reached by all six. Configurations 1, 4, 5 and 6 pass False and
+          configuration 2 passes True explicitly; configuration 3 is LGCP, where
+          the field is None by construction and the None-skip branch is the
+          reached path.
+        sp_var_mu: >-
+          Reached by all six, at its 2.0 default. No pin overrides it, so the
+          pins gate the default path and not the accept set.
+        standardize_cov: >-
+          Reached by none. No pinned configuration supplies covariates or a
+          standardization method, so the pins carry no evidence about this
+          quantity and the targeted rows in tests/test_model_config.py are its
+          only instrument.
+      prior_config: >-
+        Reached by all six. Configurations 1, 2, 4, 5 and 6 pass a_0, alpha,
+        beta and sigmax_2 as constructor kwargs (pin_check_v2.py:100-101, :121,
+        :126, :149, :224-227); configuration 3 passes a_0 (:131). Configurations
+        5 and 6 additionally exercise sigmax_2 truncation against resolved sigma
+        bounds on a polygon domain (min_sigma=0.05, max_sigma=0.5). This makes
+        S1.3 genuinely pin-reachable.
+      panel_h_m: >-
+        Reached only by configurations 5 and 6, which pass POLY_PANEL_H = 0.4
+        explicitly (pin_check_v2.py:174, :206) because the shipped 20 m default
+        is ~20x this domain and the panel ratio guard would reject it. The
+        2026-08 forward baseline is therefore the ONLY verdict that gates this
+        quantity; the canonical 2026-07 baseline does not contain those two
+        records.
+      wp3_quantities: >-
+        Reached by no pin. The harness traces the model directly rather than
+        running inference, so no pin observes run hyperparameters, RNG
+        provenance or decoder-contract references. Targeted tests carry that
+        surface entirely.
+
+    boundary_gates:
+      - Fast and slow lanes as separate processes, stating that the two lanes
+        partition the suite exactly.
+      - Canonical 2026-07 pin comparison, stating its four-of-six shared
+        population; PARTIAL is not a failure.
+      - Forward 2026-08 polygon pin comparison, requiring six-of-six MATCH.
+      - refactor-patches/pin_corpus_identity.py.
+      - End-to-end family smokes for plain Hawkes, cox_hawkes and LGCP.
+      - results/_a26_ascii_sweep.py, stating its coverage fraction.
+      - results/_a48_ruff_population.py over the touched-file population.
+      - Document gates, whose populations change for the first time in this
+        slice at S1.5 -- results/_a25_content_checks.py, the hypertarget
+        structural check, the citation sweep and the label sweep.
+      - The manifest validator.
+    per_commit_gate_note: >-
+      Protocol section 6.1 applies per production commit: targeted tests, the
+      fast lane, the touched-file ruff population, the ASCII sweep, both pin
+      populations, and the section 6.3 escalations that actually fire. Document
+      gates do not run before S1.5 because no file in their declared population
+      (phase3_record.tex, docs/*.md, AGENTS.md) changes before it.
+    exclusions:
+      - SBC, for the whole slice. Protocol section 6.7 assigns the Cox-Hawkes
+        Stage 3 R=200 run to Phase 3g as a parallel exit track; it is not a
+        per-commit or per-slice gate and no S1 commit reruns it.
+      - Decoder contract validation. WP7, S3. S1.4 gives the contract a typed
+        place to live and validates nothing.
+      - Results schema v1 implementation. WP9, S3. S1 designs to_record for it
+        and does not write the envelope.
+      - Removal of args as canonical state. WP10, S4. S1 keeps every args key.
+      - Any repair of the bare Exception at main.py:569. See
+        decisions.bare_exception_at_main_569.
+    non_goals:
+      - No new D-, OP- or CI- number. If one looks necessary, stop and report.
+      - No renaming of any public symbol.
+      - No new exception class per config object; the CI-n sequence and the
+        existing require_config_* helpers are reused.
+      - No abstraction for city scale, multiresolution, reporting regions or
+        computation partitions.
+      - No general audit pass, and no new audit apparatus.
+      - No edit to phase3_record.tex or AGENTS.md before S1.5.
+
     exit_gate:
       - All five frozen config objects exist and validate their own invariants
         in __post_init__.
@@ -407,7 +646,17 @@ work_packages:
     corrective_cycles_used: 0
     scope:
       declared: true
-      files: [bstpp/config.py, bstpp/polygon_mass.py, bstpp/cutoffs.py]
+      files: [bstpp/config.py, bstpp/polygon_mass.py, bstpp/cutoffs.py,
+        bstpp/main.py]
+      files_note: >-
+        bstpp/main.py was added at the S1 opening commit. It was absent from the
+        original declaration while carrying every one of WP1's four
+        NumericalConfig.create sites (main.py:2108 polygon, :2116 rectangle,
+        :2346 set_window, :2926 LGCP) and both cutoff-tolerance construction
+        sites (main.py:2145-2158 constructor, :2352-2353 set_window). All three
+        of WP1's `remaining` items edit that file, so the omission would have
+        made the declared scope disagree with the declared remaining work. The
+        tree is the authority; the manifest was corrected to match it.
       quantities:
         - resolved sigma bounds and budget policy
         - panel_h_m and the mass-table builder settings
@@ -643,6 +892,27 @@ work_packages:
         tests/test_lane_b_config_matrix.py]
     completed:
       - A strict xfail names the missing G2 provenance round trip.
+    intake:
+      # Items routed here from another slice. Not deliverables until WP9 opens
+      # at S3; recorded so the routing is findable rather than remembered.
+      - id: bare-exception-unknown-prior-kwarg
+        from_slice: S1
+        routed_at: S1.0
+        site: bstpp/main.py:569
+        finding: >-
+          The unknown-prior-kwarg path raises a bare Exception rather than a
+          named type. The line reads: raise Exception(f"Unknown argument {par}.
+          Prior distributions must be instances of numpyro Distribution.")
+        why_not_fixed_in_s1: >-
+          The raised type is part of the public failure surface. A caller
+          catching Exception keeps working under any narrowing, but a caller
+          that would newly be able to catch a specific type is an accept-set
+          change on the failure side, which is an API change. S1 is declared BP
+          and does not make one in passing. The line moves verbatim into
+          PriorConfig at S1.3, type included, so this item's site becomes the
+          PriorConfig factory rather than main.py:569 once S1.3 lands.
+        classification: API
+        state: routed_not_scheduled
     remaining:
       - Implement docs/results_format.md schema v1.
       - Save versioned typed snapshots and provenance without args.

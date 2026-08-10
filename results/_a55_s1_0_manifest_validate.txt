@@ -1,0 +1,108 @@
+interpreter : C:\Users\Terhi\miniconda3\envs\illegal-dumping\python.exe
+parser      : PyYAML 6.0.3
+MANIFEST_OK 10 17
+S1 status: in_progress  scope_declared: True  closes_under: A-55
+S1 order: 6 commits; decisions: 4; exclusions: 5
+WP1 scope.files: bstpp/config.py, bstpp/polygon_mass.py, bstpp/cutoffs.py, bstpp/main.py
+WP9 intake rows: 1 -> bare-exception-unknown-prior-kwarg
+corrective_cycles_used: WP1=0, WP2=0, WP3=0, WP4=0, WP5=0, WP6=0, WP7=0, WP8=0, WP9=0, WP10=0
+next_free_ids UNCHANGED: {'amendment': 'A-55', 'decision': 'D-63', 'config_invariant': 'CI-11', 'open_item': 'OP-32'}
+EXIT_STATUS:0
+
+==============================================================
+INSTRUMENT SOURCE (run from the repository root on $PY).
+A-54 ran this validator inline and recorded its assertion set in
+prose only (rebaseline_record_a54.md section 3). The source is
+reproduced here so the reading above is reproducible rather than
+described. Assertion set unchanged from A-54; the scope.files
+existence check is added and is what caught nothing new here.
+==============================================================
+"""Phase 3f completion-manifest validator.
+
+Same assertion set the A-54 integration and its follow-up ran (recorded in
+refactor-patches/phase3f/rebaseline_record_a54.md section 3): schema_version,
+the immutable evidence-baseline commit, next_free_ids, the WP1-WP10 set, the
+responsibility_coverage mapping onto declared packages, the five vertical
+slices, and corrective_cycles_used present on every package. Prints
+MANIFEST_OK <n_work_packages> <n_responsibility_items> and its own exit status.
+"""
+import sys
+
+import yaml
+
+PATH = "docs/phase3f_completion_manifest.yaml"
+EXPECTED_WPS = {f"WP{i}" for i in range(1, 11)}
+EXPECTED_SLICES = {
+    "S0_operational_reset", "S1_configuration_spine", "S2_runtime_ownership",
+    "S3_artifacts_and_interfaces", "S4_architectural_cutover",
+}
+
+
+def main() -> int:
+    print(f"interpreter : {sys.executable}")
+    print(f"parser      : PyYAML {yaml.__version__}")
+    with open(PATH, encoding="utf-8") as fh:
+        d = yaml.safe_load(fh)
+
+    fails = []
+
+    def check(cond, msg):
+        if not cond:
+            fails.append(msg)
+
+    check(d["schema_version"] == 1, "schema_version != 1")
+    check(d["as_of"]["commit_short"] == "c4e069f",
+          "as_of.commit_short moved off the immutable evidence baseline")
+    check(d["as_of"]["adopted_at_commit_short"] == "6072a19",
+          "as_of.adopted_at_commit_short moved")
+    nf = d["as_of"]["next_free_ids"]
+    check(nf == {"amendment": "A-55", "decision": "D-63",
+                 "config_invariant": "CI-11", "open_item": "OP-32"},
+          f"next_free_ids moved: {nf}")
+
+    wps = d["work_packages"]
+    check(set(wps) == EXPECTED_WPS, f"work packages are not WP1-WP10: {sorted(wps)}")
+    for name, wp in sorted(wps.items()):
+        check("corrective_cycles_used" in wp,
+              f"{name} has no corrective_cycles_used")
+        check("scope" in wp, f"{name} has no scope block")
+
+    slices = d["vertical_slices"]
+    check(set(slices) == EXPECTED_SLICES, f"vertical_slices moved: {sorted(slices)}")
+
+    items = d["responsibility_coverage"]["items"]
+    check(bool(items), "responsibility_coverage.items is empty")
+    for k, v in items.items():
+        check(v in wps, f"responsibility '{k}' names undeclared owner {v!r}")
+
+    # Every declared scope.files entry must exist in the tree.
+    import os
+    for name, wp in sorted(wps.items()):
+        for f in wp.get("scope", {}).get("files", []) or []:
+            check(os.path.isfile(f), f"{name} scope.files names missing {f}")
+
+    if fails:
+        for f in fails:
+            print(f"FAIL: {f}")
+        return 1
+
+    print(f"MANIFEST_OK {len(wps)} {len(items)}")
+    s1 = slices["S1_configuration_spine"]
+    print(f"S1 status: {s1['status']}  scope_declared: {s1['scope_declared']}"
+          f"  closes_under: {s1['closes_under_amendment']}")
+    print(f"S1 order: {len(s1['order'])} commits; decisions: "
+          f"{len(s1['decisions'])}; exclusions: {len(s1['exclusions'])}")
+    print("WP1 scope.files: " + ", ".join(wps["WP1"]["scope"]["files"]))
+    print(f"WP9 intake rows: {len(wps['WP9']['intake'])} -> "
+          + ", ".join(r["id"] for r in wps["WP9"]["intake"]))
+    print("corrective_cycles_used: " + ", ".join(
+        f"{k}={v['corrective_cycles_used']}" for k, v in sorted(
+            wps.items(), key=lambda kv: int(kv[0][2:]))))
+    print(f"next_free_ids UNCHANGED: {nf}")
+    return 0
+
+
+if __name__ == "__main__":
+    rc = main()
+    print(f"EXIT_STATUS:{rc}")
+    sys.exit(rc)
