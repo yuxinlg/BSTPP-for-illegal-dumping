@@ -5,6 +5,8 @@ dev/
 output/
 BSTPP.egg*/
 dist/
+# setuptools' other output dir, the sibling of dist/ that was never listed.
+/build/
 **/*.pkl
 # ...but the trained VAE decoders shipped with the package must be tracked
 # (bstpp/main.py loads them at model construction, e.g. 2d_decoder_15_5_large.pkl).
@@ -14,3 +16,11 @@ html/
 doc_temp/
 VAE_Training.ipynb
 Notes.txt
+# Machine-local golden-pin scratch dropped at the repo root by ad-hoc
+# pin_check_v2.py runs. Root-anchored on purpose: the DECLARED baselines
+# refactor-patches/baselines-2026-07/pins.json and
+# refactor-patches/baselines-2026-08-polygon/pins.json are tracked and gate
+# the corpus-identity check, so they must not match this pattern.
+/pins*.json
+# Stray recover_test.py --nuts transcript, likewise machine-local.
+/nuts_recover_log.txt
