@@ -1,0 +1,11 @@
+interpreter : C:\Users\Terhi\miniconda3\envs\illegal-dumping\python.exe
+parser      : PyYAML 6.0.3
+MANIFEST_OK 10 17
+S1 status: in_progress  scope_declared: True  closes_under: A-55
+S1 order: 6 commits; decisions: 4; exclusions: 5
+WP1 scope.files: bstpp/config.py, bstpp/polygon_mass.py, bstpp/cutoffs.py, bstpp/main.py
+WP9 intake rows: 1 -> bare-exception-unknown-prior-kwarg
+corrective_cycles_used: WP1=0, WP2=0, WP3=0, WP4=0, WP5=0, WP6=0, WP7=0, WP8=0, WP9=0, WP10=0
+next_free_ids UNCHANGED: {'amendment': 'A-55', 'decision': 'D-63', 'config_invariant': 'CI-11', 'open_item': 'OP-32'}
+EXIT_STATUS:0
+EXIT_STATUS:0

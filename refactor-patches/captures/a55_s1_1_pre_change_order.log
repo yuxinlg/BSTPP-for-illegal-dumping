@@ -1,0 +1,74 @@
+bstpp.__file__ : C:\Users\Terhi\dev\BSTPP_terhi\BSTPP-refactor\bstpp\__init__.py
+interpreter    : C:\Users\Terhi\miniconda3\envs\illegal-dumping\python.exe
+
+== SINGLE INVALID ARGUMENT (the identity each site raises today) ==
+--- cox_background='cox'
+    RAISED ValueError: cox_background selects the background form and must be a bool (True = Gaussian-process background, False = plain hawkes); use cox_background=True for the same model; got 'cox'
+--- standardize_cov=True
+    RAISED ValueError: standardize_cov no longer accepts booleans; standardize_cov must be None (off, default) or 'domain_area' (area-weighted over |C_c intersect A|); got True
+--- sp_var_mu='2.0'
+    RAISED NumericalConfigError: sp_var_mu must be a real number (int or float; bool and str rejected); got '2.0' (str)
+
+== TWO INVALID ARGUMENTS (the ordering rows S1.1 must preserve) ==
+--- cox_background BAD + standardize_cov BAD
+    RAISED ValueError: cox_background selects the background form and must be a bool (True = Gaussian-process background, False = plain hawkes); use cox_background=True for the same model; got 'cox'
+--- cox_background BAD + sp_var_mu BAD
+    RAISED ValueError: cox_background selects the background form and must be a bool (True = Gaussian-process background, False = plain hawkes); use cox_background=True for the same model; got 'cox'
+--- standardize_cov BAD + sp_var_mu BAD
+    RAISED ValueError: standardize_cov no longer accepts booleans; standardize_cov must be None (off, default) or 'domain_area' (area-weighted over |C_c intersect A|); got True
+
+== ALL THREE INVALID ==
+--- cox_background + standardize_cov + sp_var_mu all BAD
+    RAISED ValueError: cox_background selects the background form and must be a bool (True = Gaussian-process background, False = plain hawkes); use cox_background=True for the same model; got 'cox'
+
+== LGCP (no cox_background argument on this class) ==
+--- LGCP standardize_cov BAD
+    RAISED ValueError: standardize_cov no longer accepts booleans; standardize_cov must be None (off, default) or 'domain_area' (area-weighted over |C_c intersect A|); got True
+--- LGCP sp_var_mu BAD
+    RAISED NumericalConfigError: sp_var_mu must be a real number (int or float; bool and str rejected); got '2.0' (str)
+--- LGCP standardize_cov BAD + sp_var_mu BAD
+    RAISED ValueError: standardize_cov no longer accepts booleans; standardize_cov must be None (off, default) or 'domain_area' (area-weighted over |C_c intersect A|); got True
+
+== VALID CONSTRUCTIONS (the accept set must not move) ==
+--- hawkes valid
+    CONSTRUCTED (no exception)
+--- cox_hawkes valid
+    CONSTRUCTED (no exception)
+--- lgcp valid
+    CONSTRUCTED (no exception)
+--- standardize_cov='domain_area' with no covariates
+    CONSTRUCTED (no exception)
+--- sp_var_mu=np.float64(2.5)
+    CONSTRUCTED (no exception)
+
+== ORDERING AGAINST NON-CONFIG WORK ==
+    sp_var_mu is validated at main.py:564 today, AFTER the data
+    contract leg (main.py:325) and AFTER prepared-domain work.
+    ModelConfig is constructed at main.py:333's position, which
+    keeps sp_var_mu after the data contracts but moves it ahead of
+    the covariate leg. Both orderings are measured here.
+--- bad EVENTS + sp_var_mu BAD (data contracts must still win)
+    RAISED DataContractError: BSTPP data-contract report: 1 violation check(s), 0 diagnostic(s) over 2 events (mode=reject).
+--- bad EVENTS + standardize_cov BAD (data contracts win today)
+    RAISED DataContractError: BSTPP data-contract report: 1 violation check(s), 0 diagnostic(s) over 2 events (mode=reject).
+--- unknown kwarg that IS a Distribution -- accepted at main.py:566
+    CONSTRUCTED (no exception)
+--- unknown kwarg that is NOT a Distribution (the WP9 intake site, main.py:569 bare Exception)
+    RAISED Exception: Unknown argument nonsense_prior. Prior distributions must be instances of numpyro Distribution.
+--- non-Distribution kwarg + sp_var_mu BAD (sp_var_mu at :564 fires before the kwarg loop at :565)
+    RAISED NumericalConfigError: sp_var_mu must be a real number (int or float; bool and str rejected); got '2.0' (str)
+
+== THE PAIR THE BRIEF DOES NOT COVER: sp_var_mu vs THE COVARIATE LEG ==
+    The covariate leg (main.py:440-520) runs BETWEEN standardize_cov
+    at :333 and sp_var_mu at :564. Constructing ModelConfig at :333
+    therefore moves sp_var_mu AHEAD of it. No accept set moves --
+    both arguments are invalid in both trees and both raise -- but
+    WHICH error a caller sees changes, so it is measured here
+    pre-change and declared rather than discovered later.
+--- covariates naming a MISSING column, sp_var_mu VALID
+    RAISED DataContractError: BSTPP data-contract report: 3 violation check(s), 0 diagnostic(s) over 15 events (mode=reject).
+--- covariates naming a MISSING column + sp_var_mu BAD (PRE-CHANGE: the covariate error wins)
+    RAISED DataContractError: BSTPP data-contract report: 3 violation check(s), 0 diagnostic(s) over 15 events (mode=reject).
+--- covariates naming a MISSING column + standardize_cov BAD (standardize_cov wins in BOTH trees -- :333 already precedes it)
+    RAISED ValueError: standardize_cov no longer accepts booleans; standardize_cov must be None (off, default) or 'domain_area' (area-weighted over |C_c intersect A|); got True
+EXIT_STATUS:0

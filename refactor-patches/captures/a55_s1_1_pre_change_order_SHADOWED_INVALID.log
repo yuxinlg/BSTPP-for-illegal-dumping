@@ -1,0 +1,58 @@
+bstpp.__file__ : C:\Users\Terhi\miniconda3\envs\illegal-dumping\Lib\site-packages\bstpp\__init__.py
+interpreter    : C:\Users\Terhi\miniconda3\envs\illegal-dumping\python.exe
+
+== SINGLE INVALID ARGUMENT (the identity each site raises today) ==
+--- cox_background='cox'
+    CONSTRUCTED (no exception)
+--- standardize_cov=True
+    CONSTRUCTED (no exception)
+--- sp_var_mu='2.0'
+    RAISED Exception: Unknown argument sp_var_mu. Prior distributions must be instances of numpyro Distribution.
+
+== TWO INVALID ARGUMENTS (the ordering rows S1.1 must preserve) ==
+--- cox_background BAD + standardize_cov BAD
+    CONSTRUCTED (no exception)
+--- cox_background BAD + sp_var_mu BAD
+    RAISED Exception: Unknown argument sp_var_mu. Prior distributions must be instances of numpyro Distribution.
+--- standardize_cov BAD + sp_var_mu BAD
+    RAISED Exception: Unknown argument sp_var_mu. Prior distributions must be instances of numpyro Distribution.
+
+== ALL THREE INVALID ==
+--- cox_background + standardize_cov + sp_var_mu all BAD
+    RAISED Exception: Unknown argument sp_var_mu. Prior distributions must be instances of numpyro Distribution.
+
+== LGCP (no cox_background argument on this class) ==
+--- LGCP standardize_cov BAD
+    CONSTRUCTED (no exception)
+--- LGCP sp_var_mu BAD
+    RAISED Exception: Unknown argument sp_var_mu. Prior distributions must be instances of numpyro Distribution.
+--- LGCP standardize_cov BAD + sp_var_mu BAD
+    RAISED Exception: Unknown argument sp_var_mu. Prior distributions must be instances of numpyro Distribution.
+
+== VALID CONSTRUCTIONS (the accept set must not move) ==
+--- hawkes valid
+    CONSTRUCTED (no exception)
+--- cox_hawkes valid
+    CONSTRUCTED (no exception)
+--- lgcp valid
+    CONSTRUCTED (no exception)
+--- standardize_cov='domain_area' with no covariates
+    CONSTRUCTED (no exception)
+--- sp_var_mu=np.float64(2.5)
+    RAISED Exception: Unknown argument sp_var_mu. Prior distributions must be instances of numpyro Distribution.
+
+== ORDERING AGAINST NON-CONFIG WORK ==
+    sp_var_mu is validated at main.py:564 today, AFTER the data
+    contract leg (main.py:325) and AFTER prepared-domain work.
+    ModelConfig is constructed at main.py:333's position, which
+    keeps sp_var_mu after the data contracts but moves it ahead of
+    the covariate leg. Both orderings are measured here.
+--- bad EVENTS + sp_var_mu BAD (data contracts must still win)
+    RAISED Exception: Computational grid does not encompass all data points!
+--- bad EVENTS + standardize_cov BAD (data contracts win today)
+    RAISED Exception: Computational grid does not encompass all data points!
+--- unknown prior kwarg + sp_var_mu BAD (main.py:569 bare Exception, routed to WP9)
+    RAISED Exception: Unknown argument sp_var_mu. Prior distributions must be instances of numpyro Distribution.
+--- unknown prior kwarg alone (the WP9 intake site, main.py:569)
+    CONSTRUCTED (no exception)
+EXIT_STATUS:0

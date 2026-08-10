@@ -296,7 +296,32 @@ milestones:
 vertical_slices:
 
   S0_operational_reset:
-    status: in_progress
+    status: complete
+    completed_at: 6072a19
+    status_note: >-
+      Closed at S1.1. The value was `in_progress`, which is not in this file's
+      own status_vocabulary; closing the slice removes the non-conforming value
+      without needing an erratum, because every exit-gate item below was
+      already satisfied by named evidence and none of it was re-derived here.
+    exit_evidence:
+      documents_agree: >-
+        A-54 landed the manifest, the execution protocol, the decoder contract
+        and the results-format contract at 6072a19, with the adoption commit
+        recorded by the immediate DOC follow-up 29efe7c.
+      yaml_and_coverage: >-
+        MANIFEST_OK 10 17 -- WP1-WP10 all present, and all 17 section 10.f
+        responsibilities map to exactly one completion owner. Re-read at S1.0
+        (results/_a55_s1_0_manifest_validate.txt) and again at S1.1.
+      document_gates: >-
+        Passed over their declared populations at 6072a19. NOT a stale
+        citation: the populations are phase3_record.tex, docs/*.md and
+        AGENTS.md, and `git log 6072a19..HEAD -- phase3_record.tex docs/*.md
+        AGENTS.md` is EMPTY, so no input to those gates has moved since they
+        last ran green. They are re-run at S1.5, where the populations change
+        for the first time in this slice.
+      no_production_change: >-
+        `git diff c4e069f..abe0f8b -- bstpp/ tests/` was empty at the S1.0
+        precondition check, so S0 changed no file under bstpp/ or tests/.
     work_packages: []
     deliverables:
       - Install this manifest, the execution protocol, the decoder contract,
@@ -376,9 +401,37 @@ vertical_slices:
       - Sampled-site and deterministic-site names.
       - Canonical clause text and exception identity at every relocated site.
     declared_behavior_or_api_change: >-
-      None in S1. Every S1 production commit is BP, with S1.2 additionally
-      carrying IV for the panel_h_m sentinel. The one API change this slice
-      identified is routed out of it: see wp9_intake below.
+      Every S1 production commit is BP, with S1.2 additionally carrying IV for
+      the panel_h_m sentinel. The one API change this slice identified is
+      routed out of it: see WP9's intake block. One exception-ORDERING change
+      is declared at S1.1 and recorded below; no accept set moves anywhere in
+      the slice.
+    declared_ordering_change_s1_1:
+      what: >-
+        CI-7's sp_var_mu check moves from main.py:564 to ModelConfig's
+        __post_init__, constructed at main.py:333's position. The covariate leg
+        (main.py:440-520) runs between those two points, so sp_var_mu now
+        precedes it. A caller passing BOTH an invalid sp_var_mu and invalid
+        covariates previously saw DataContractError and now sees the CI-7
+        clause.
+      why_it_is_still_BP: >-
+        No argument's accept set moves in either direction. Every value either
+        tree rejects is still rejected, through the same canonical clause and
+        the same NumericalConfigError identity; every value either tree accepts
+        is still accepted. Only which of two simultaneous errors surfaces
+        first changes. The ordering among the three relocated clauses
+        themselves -- CI-10, then CI-9, then CI-7 -- is preserved exactly, and
+        the data-contract leg still precedes all three.
+      why_it_is_unavoidable_at_this_position: >-
+        The three clauses must live in one __post_init__ in their firing
+        order. main.py:333 is the earliest of the two base-class positions, so
+        it is the only one that keeps CI-9 unconditional and ahead of the
+        covariate leg, which is the property A-45 landed CI-9 for.
+      measured_before_the_change: >-
+        refactor-patches/captures/a55_s1_1_pre_change_order.log, final block.
+      pinned_after_the_change: >-
+        tests/test_model_config.py::
+        test_sp_var_mu_now_precedes_the_covariate_leg_A_DECLARED_ORDER_CHANGE
 
     tests_characterizing_pre_change_behavior:
       - The existing fast lane at the slice baseline, run before each commit's

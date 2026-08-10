@@ -1,15 +1,21 @@
 """Frozen configuration objects for Phase 3f (behind the args adapter).
 
-WP1 introduces ``NumericalConfig`` only. Objects are ``@dataclass(frozen=True)``
-with all validation in ``__post_init__``, constructed through a single factory
-per type (A-23; D-35). No Pydantic dependency.
+``NumericalConfig`` (WP1) and ``ModelConfig`` (WP2, S1.1). Objects are
+``@dataclass(frozen=True)`` with all validation in ``__post_init__``,
+constructed through a single factory per type (A-23; D-35). No Pydantic
+dependency.
+
+Every object exposes a deterministic ``to_record()`` returning only versioned
+mappings, scalars, strings, booleans and ``None`` (protocol section 5.1).
+Results schema v1 (WP9) consumes these; they are designed here rather than at
+WP9 because a snapshot designed late ends up serializing internals.
 """
 
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Literal, NoReturn, Optional
+from typing import Any, Literal, NoReturn, Optional
 
 from .cutoffs import DEFAULT_SPATIAL_TOL, DEFAULT_TEMPORAL_TOL
 from .polygon_mass import (
@@ -22,6 +28,10 @@ from .polygon_mass import (
 )
 
 ExcitationSupportMode = Literal["rectangle", "polygon"]
+
+#: Deterministic ``to_record()`` envelope version. One sequence across all five
+#: config objects, bumped only by a declared results-schema change (WP9).
+CONFIG_RECORD_SCHEMA_VERSION = 1
 
 
 class NumericalConfigError(ValueError):
@@ -657,3 +667,182 @@ class NumericalConfig:
             min_sigma=min_sigma,
             max_sigma=max_sigma,
         )
+
+    def to_record(self) -> dict[str, Any]:
+        """Deterministic schema-v1 snapshot (protocol section 5.1).
+
+        Key order is the contract, not an accident: two equal mappings can
+        serialize to different bytes, so the literal below IS the declared
+        order and a row asserts it. Every value is a scalar, string or
+        ``None`` -- ``__post_init__`` has already coerced the numeric fields,
+        so nothing here can emit an ``np.float64`` that schema v1 cannot
+        store.
+        """
+        return {
+            "schema_version": CONFIG_RECORD_SCHEMA_VERSION,
+            "config_type": "NumericalConfig",
+            "support_mode": self.support_mode,
+            "panel_h_m": self.panel_h_m,
+            "gl_order": self.gl_order,
+            "min_sigma": self.min_sigma,
+            "max_sigma": self.max_sigma,
+            "default_temporal_tol": self.default_temporal_tol,
+            "default_spatial_tol": self.default_spatial_tol,
+            "production_tau_abs": self.production_tau_abs,
+            "budget_reference_gl_order": self.budget_reference_gl_order,
+            "budget_reference_oracle_bound": self.budget_reference_oracle_bound,
+            "max_panel_to_min_sigma_ratio": self.max_panel_to_min_sigma_ratio,
+        }
+
+
+@dataclass(frozen=True)
+class ModelConfig:
+    """Typed owner of the model-level configuration quantities (WP2, S1.1).
+
+    Four quantities that lived as constructor locals and ``args`` entries:
+
+    ``model``
+        The resolved family name -- ``'hawkes'``, ``'cox_hawkes'`` or
+        ``'lgcp'``. Stored, NOT validated: nothing validates it today and
+        narrowing an accept set is not behaviour-preserving. See the note in
+        ``__post_init__``.
+    ``cox_background``
+        ``None`` for LGCP, which has no background switch at all; a ``bool``
+        otherwise.
+    ``sp_var_mu``
+        The paired spatial-decoder log-gain. Stored coerced, as
+        ``args['sp_var_mu']`` has been since A-53.
+    ``standardize_cov``
+        ``None`` (off) or ``'domain_area'`` (D-54).
+
+    Immutable after construction. Construct only via :meth:`create`.
+    """
+
+    model: str
+    cox_background: Optional[bool]
+    sp_var_mu: float
+    standardize_cov: Optional[str]
+
+    def __post_init__(self) -> None:
+        # ORDER IS THE CONTRACT, NOT A PREFERENCE. These three clauses are
+        # RELOCATED, not written: CI-10 fired at main.py:2027 (before
+        # super() at :2058), CI-9 at main.py:333, CI-7 at main.py:564 --
+        # in that order. A caller passing two invalid arguments must still see
+        # the same exception, so the sequence below reproduces the sequence
+        # those sites fired in. Measured before the move and captured in
+        # refactor-patches/captures/a55_s1_1_pre_change_order.log.
+        #
+        # Every clause is REUSED, never retyped. The validators are the same
+        # functions the old sites called, so the text and the exception
+        # identity cannot drift by construction (D-40).
+        if self.cox_background is not None:
+            # Skipped for LGCP, where None means "this family has no
+            # background switch". CI-10 rejects every non-bool, so without the
+            # skip LGCP could not build a ModelConfig at all.
+            validate_cox_background(self.cox_background)
+
+        validate_standardize_cov(self.standardize_cov)
+
+        # CI-7 keeps ONE identity across both its sites (D-40): this raises
+        # NumericalConfigError exactly as main.py:564 did. A ModelConfig-owned
+        # sibling exception would split CI-7 into two identities, which D-40
+        # and protocol section 5.1 both forbid -- and the class subclasses
+        # ValueError, so no caller's except clause changes either way.
+        #
+        # The coerced return is STORED, because args['sp_var_mu'] has been the
+        # coerced float since A-53 and the adapter now reads this field.
+        object.__setattr__(
+            self, "sp_var_mu", require_config_real("sp_var_mu", self.sp_var_mu))
+
+        # `model` is deliberately NOT validated. Point_Process_Model accepts
+        # any string for it today and nothing checks it; adding a family check
+        # here would NARROW an accept set, which is an SC change needing its
+        # own decision and its own CI number. S1 is declared BP. A test row
+        # pins the absence so this cannot be added later as tidying-up.
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        model: str,
+        cox_background: Optional[bool],
+        sp_var_mu: float,
+        standardize_cov: Optional[str],
+    ) -> ModelConfig:
+        """Single factory for ``ModelConfig`` (D-35 / A-23).
+
+        EVERY ARGUMENT IS REQUIRED, deliberately, and this differs from
+        ``NumericalConfig.create``. Those defaults live in the public
+        constructor signature (``sp_var_mu=2.0``, ``standardize_cov=None``,
+        ``cox_background=True`` on ``Hawkes_Model``), and repeating them here
+        would be the same quantity written twice with nothing reconciling the
+        two -- the defect A-41/A-42 and OP-27 already record against the
+        internal-unit literals. One default, one home; the adapter passes all
+        four through explicitly.
+
+        Passes arguments through unchanged; all validation runs in
+        ``__post_init__``. Do not coerce here (the WP1.4a precedent).
+        """
+        return cls(
+            model=model,
+            cox_background=cox_background,
+            sp_var_mu=sp_var_mu,
+            standardize_cov=standardize_cov,
+        )
+
+    def to_record(self) -> dict[str, Any]:
+        """Deterministic schema-v1 snapshot (protocol section 5.1).
+
+        ``cox_background`` is normalised to a plain ``bool`` because CI-10
+        accepts ``np.bool_``, which is not a JSON type; ``None`` survives as
+        ``None`` because it means something different from ``False``.
+        """
+        cox = self.cox_background
+        return {
+            "schema_version": CONFIG_RECORD_SCHEMA_VERSION,
+            "config_type": "ModelConfig",
+            "model": self.model,
+            "cox_background": None if cox is None else bool(cox),
+            "sp_var_mu": self.sp_var_mu,
+            "standardize_cov": self.standardize_cov,
+        }
+
+
+# ------------------------------------------- protocol section 5.2: the registry --
+# ONE declared keyword-to-owner table, not shims scattered across call sites.
+# Legacy constructor and run_svi/run_mcmc keywords stay accepted throughout
+# Phase 3f; this table is the single place that records which typed object owns
+# each of them and which legacy `args` key it feeds. Later S1 commits ADD ROWS
+# here; they do not add shims elsewhere. WP10 deletes this table wholesale,
+# which is the point of keeping it in one place.
+
+@dataclass(frozen=True)
+class KeywordOwner:
+    """One row of the keyword registry.
+
+    ``args_key`` is ``None`` when the keyword feeds no ``args`` entry at all --
+    recorded honestly rather than invented, because a table that names a key
+    that does not exist is worse than one that admits the gap.
+    """
+
+    owner: str
+    args_key: Optional[str]
+
+
+CONFIG_KEYWORD_OWNERS: dict[str, KeywordOwner] = {
+    "model": KeywordOwner(owner="ModelConfig", args_key="model"),
+    "cox_background": KeywordOwner(owner="ModelConfig", args_key=None),
+    "sp_var_mu": KeywordOwner(owner="ModelConfig", args_key="sp_var_mu"),
+    "standardize_cov": KeywordOwner(owner="ModelConfig", args_key=None),
+}
+
+
+def config_owner_of(keyword: str) -> Optional[str]:
+    """Name the typed owner of a legacy keyword, or ``None`` if unregistered.
+
+    Returns ``None`` rather than raising or guessing: an unregistered keyword
+    is a quantity that has not landed a typed owner yet, which is a fact about
+    Phase 3f's progress and not an error at the call site.
+    """
+    row = CONFIG_KEYWORD_OWNERS.get(keyword)
+    return None if row is None else row.owner

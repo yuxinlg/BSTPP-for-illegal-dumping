@@ -39,8 +39,7 @@ from .data_contracts import (validate_events, validate_covariates,
 from .preparation import (ModelData, prepare_domain, prepare_partitions,
                           attach_covariate_partitions,
                           finalize_integration_arrays, T_INTERNAL)
-from .config import (NumericalConfig, require_config_real,
-                     validate_cox_background, validate_standardize_cov)
+from .config import (ModelConfig, NumericalConfig, validate_cox_background)
 from .excitation_support import (
     build_excitation_support,
     resolve_excitation_support_mode,
@@ -237,7 +236,7 @@ def add_month_grid_and_labels(ax, start_date, num_days,label_every_n_months=3):
 class Point_Process_Model:
     def __init__(self,model,data,A,T,offset_seasonal=0,spatial_cov=None,cov_names=None,
                  cov_grid_size=None,spatial_cov_crs=None,standardize_cov=None,sp_var_mu=2.0,
-                 data_contracts='reject',**kwargs):
+                 data_contracts='reject',*,_cox_background=None,**kwargs):
         """
         Spatiotemporal Point Process Model.
         The data is rescaled to fit in a 1x1 spatial grid and a lenght 50 time window. Posterior samples must be interpreted with this in mind.
@@ -325,12 +324,33 @@ class Point_Process_Model:
         self.data_contract_report = enforce(
             validate_events(data, A, T), len(data), data_contracts)
 
-        # CI-9: the enumerated value is validated HERE, unconditionally, before
-        # anything is reported -- not in the covariate leg, which runs only when
-        # spatial_cov is supplied. Without this a rejected value constructs and
-        # then reports the well-formed 'none' record below, which is
+        # Phase 3f WP2 (S1.1): ModelConfig is the typed owner of the four
+        # model-level quantities. It is constructed HERE, at the position the
+        # CI-9 standardize_cov check used to hold, because that position is
+        # what preserves the order the relocated clauses fire in: CI-10
+        # (Hawkes_Model:2026, before super()), then CI-9, then CI-7.
+        #
+        # CI-9's original reason for being here is unchanged and still load-
+        # bearing: the enumerated value is validated unconditionally, before
+        # anything is reported -- not in the covariate leg, which runs only
+        # when spatial_cov is supplied. Without it a rejected value constructs
+        # and then reports the well-formed 'none' record below, which is
         # indistinguishable from a legitimate standardize_cov=None.
-        validate_standardize_cov(standardize_cov)
+        #
+        # DECLARED ORDERING CHANGE, measured before it was made. CI-7's old
+        # site was main.py:564, AFTER the covariate leg; owning it here moves
+        # sp_var_mu ahead of that leg. No accept set moves in either direction
+        # -- every value both trees reject is still rejected, with the same
+        # clause and the same type -- but a caller who passes BOTH a bad
+        # sp_var_mu and bad covariates now learns about sp_var_mu instead of
+        # the covariates. Pre-change reading:
+        # refactor-patches/captures/a55_s1_1_pre_change_order.log, final block.
+        self.model_config = ModelConfig.create(
+            model=model,
+            cox_background=_cox_background,
+            sp_var_mu=sp_var_mu,
+            standardize_cov=standardize_cov,
+        )
 
         # D-10: always report whether/how covariates were standardized;
         # overwritten by the covariate leg when covariates are supplied.
@@ -358,7 +378,11 @@ class Point_Process_Model:
         args['x_max']=1
         args['y_min']=0
         args['y_max']=1
-        args['model']=model
+        # Adapter: the same value, now read off the typed owner rather than
+        # off the constructor local (protocol section 5.2 -- an adapter
+        # translates, it does not validate or coerce differently).
+        args['model']=self.model_config.model
+        args['model_config'] = self.model_config
 
         args['offset_seasonal'] = offset_seasonal
 
@@ -516,7 +540,8 @@ class Point_Process_Model:
             # parts.cov_gdf; self.spatial_cov uses that owned frame.
             attach_covariate_partitions(parts, self.prepared_domain,
                                         spatial_cov, cov_names,
-                                        standardize_cov, args['model'])
+                                        self.model_config.standardize_cov,
+                                        args['model'])
             self.spatial_cov = parts.cov_gdf
             # D-10 (3c API): the model always reports whether/how it
             # standardized -- method 'none' | 'domain_area' with
@@ -544,24 +569,22 @@ class Point_Process_Model:
         default_priors = {}
         if 'num_cov' in args:
             default_priors["w"] = dist.Normal(jnp.zeros(args['num_cov']),jnp.ones(args["num_cov"]))
-        # CI-7 at a second site. The bare `float()` this replaces WAS the
-        # defect D-42 names: it checks nothing and erases what the caller
-        # passed. `float(True)` is 1.0, so `sp_var_mu=True` silently became a
-        # gain of exp(1.0) against the calibrated exp(2.0) -- and exp(sp_var_mu)
-        # is a PAIRED gain, restoring the log-amplitude factored out of the
-        # spatial draws in VAE training, so an unpaired value is a different
-        # model rather than a mislabelled one. `'2.0'` is worse to find: it
-        # coerces to the right number, so no inspection of results can catch it.
+        # CI-7's enforcement moved to ModelConfig.__post_init__ above; the
+        # invariant, the clause and the NumericalConfigError identity are
+        # unchanged, because the owner calls the SAME require_config_real.
+        # Why that matters is worth keeping: the bare `float()` this originally
+        # replaced WAS the defect D-42 names -- it checks nothing and erases
+        # what the caller passed. `float(True)` is 1.0, so `sp_var_mu=True`
+        # silently became a gain of exp(1.0) against the calibrated exp(2.0),
+        # and exp(sp_var_mu) is a PAIRED gain restoring the log-amplitude
+        # factored out of the spatial draws in VAE training, so an unpaired
+        # value is a different model rather than a mislabelled one. `'2.0'` is
+        # worse to find: it coerces to the right number, so no inspection of
+        # results can catch it.
         #
-        # `require_config_real` is REUSED rather than reimplemented, and the
-        # NumericalConfigError it raises is deliberate: one invariant, one
-        # identity, one clause rendered byte-for-byte wherever detected (D-40).
-        # A ModelConfig-owned sibling raising bare ValueError would split CI-7
-        # in two. The name asserts more ownership than D-42's own scope implies
-        # -- D-42 says all five config objects inherit this policy -- and that
-        # is a naming observation, not a reason to fork the identity. The class
-        # subclasses ValueError, so no caller's except clause changes.
-        args['sp_var_mu'] = require_config_real('sp_var_mu', sp_var_mu)
+        # This line is now pure adapter: the stored value is the SAME coerced
+        # float it has been since A-53, read off the typed owner.
+        args['sp_var_mu'] = self.model_config.sp_var_mu
         for par, prior in kwargs.items():
             if isinstance(prior,dist.Distribution):
                 default_priors[par] = prior
@@ -2055,7 +2078,14 @@ class Hawkes_Model(Point_Process_Model):
             max_sigma=max_sigma,
         )
 
-        super().__init__(name, data, A, T, **kwargs)
+        # `cox_background` is handed to the base explicitly so ModelConfig can
+        # own it. It cannot travel in **kwargs: the base treats every leftover
+        # kwarg as a prior name (main.py:585-589), so a `cox_background` entry
+        # there would be read as a prior and hit the unknown-argument path.
+        # The private keyword-only name says this is the adapter's channel and
+        # not a second public spelling of the argument.
+        super().__init__(name, data, A, T, _cox_background=cox_background,
+                         **kwargs)
 
         temporal_ok = _is_exact_temporal_exponential(temporal_trig)
         spatial_ok = _is_exact_spatial_gaussian(spatial_trig)
