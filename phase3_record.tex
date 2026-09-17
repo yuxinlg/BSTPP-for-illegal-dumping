@@ -118,7 +118,7 @@
 \large \texttt{yuxinlg/\allowbreak{}BSTPP-for-illegal-dumping} --- \texttt{refactor}\\[2pt]
 \large Part I frozen at tip \texttt{476c2a0}; Part II append-only}
 \author{}
-\date{Part I: 2026-07-18. Part II: opened 2026-07-27, entries A-1--A-49\\ (corrections appended 2026-07-28 to A-5, A-12, A-15, A-17; pre-3f freeze A-21 on 2026-07-29; Phase 3f opened A-22/A-23 on 2026-08-04; through A-48 at tip \texttt{f40591e}; WP sequencing / gate coverage / termination adopted A-49 on 2026-08-06). \textbf{Current tip: through A-58 / D-63}, live document gates under \texttt{tools/gates/}, 2026-09-16. \textbf{Next free: A-59, CI-11, OP-33}, the decision register standing at 63 rows, D-1 to D-63. The Phase~3f operational reset remains A-54, adopted 2026-08-07 against \texttt{c4e069f}. Current Phase 3f \emph{execution} state --- scope, status, dependencies, gate applicability, corrective-cycle counts and completion --- is held in \texttt{docs/phase3f\_completion\_manifest.yaml} under D-53; this register remains the append-only scientific and historical authority.}
+\date{Part I: 2026-07-18. Part II: opened 2026-07-27, entries A-1--A-49\\ (corrections appended 2026-07-28 to A-5, A-12, A-15, A-17; pre-3f freeze A-21 on 2026-07-29; Phase 3f opened A-22/A-23 on 2026-08-04; through A-48 at tip \texttt{f40591e}; WP sequencing / gate coverage / termination adopted A-49 on 2026-08-06). \textbf{Current tip: through A-59 / D-63}, ASCII sweep on the conda job, 2026-09-16. \textbf{Next free: A-60, CI-11, OP-33}, the decision register standing at 63 rows, D-1 to D-63. The Phase~3f operational reset remains A-54, adopted 2026-08-07 against \texttt{c4e069f}. Current Phase 3f \emph{execution} state --- scope, status, dependencies, gate applicability, corrective-cycle counts and completion --- is held in \texttt{docs/phase3f\_completion\_manifest.yaml} under D-53; this register remains the append-only scientific and historical authority.}
 
 \begin{document}
 \maketitle
@@ -4509,9 +4509,14 @@ PyYAML~6.0.3). Golden pins remain machine-local (D-27/A-11).
 measured 1.4.4; the disagreement is recorded, not silently widened.
 
 \paragraph{What CI runs, and what it refuses.}
-\texttt{.github/workflows/gates.yml} runs the hypertarget, content, label,
+\supsd{A-59}{\texttt{.github/workflows/gates.yml} runs the hypertarget, content, label,
 ASCII, citation and apparatus checks, the ruff population, a manifest parse,
-and the fast lane on the declared environment. It does \textbf{not} run the pin
+and the fast lane on the declared environment.}
+\texttt{.github/workflows/gates.yml} runs the hypertarget, content, label,
+citation and apparatus checks on the stdlib document-gates job; the ASCII
+sweep on the declared conda environment, because clause evaluation imports
+\texttt{bstpp.config}; the ruff population; a manifest parse; and the fast
+lane. It does \textbf{not} run the pin
 battery. It does \textbf{not} generate a work-package status page. It does
 \textbf{not} sweep historical placeholders in order to fill them.
 
@@ -4722,5 +4727,49 @@ Instruments and documentation only; no production or test path, so
 \textbf{pins and both suite lanes are NOT RUN}. Gates re-run from their new
 location. Citation sweep resolves frozen \texttt{results/} citations through
 the table.
+
+\hypertarget{a-59}{%
+\subsection{A-59 --- The ASCII sweep is a package-importing gate, and a capture
+job must not abort on the first red}\label{a-59}}
+
+\textbf{Opened} 2026-09-16. \textbf{Class} \textbf{IV} --- workflow job
+placement and the instrument's missing-stack message; \textbf{no file under
+\texttt{bstpp/} or \texttt{tests/} is touched}. \textbf{Establishes no
+decision} --- the count stays at \textbf{D-63}. ASCII still runs in CI; the
+pin battery stays the one declared manual gate.
+
+\paragraph{The misclassification.}
+A-55 listed the ASCII sweep with the hypertarget, content, label, citation and
+apparatus checks. Those five are stdlib. The ASCII sweep is not: population~3
+calls every \texttt{*\_invariant\_clause} in \texttt{bstpp.config}, and that
+import pulls \texttt{cutoffs} (numpyro) and \texttt{polygon\_mass} (jax). Hosted
+run \texttt{35170034059} on \texttt{43a8015} failed
+\texttt{document-gates} at \texttt{evaluate\_clauses} with
+\texttt{ModuleNotFoundError: No module named 'numpyro'}. The same import on
+the captures job, under the runner's default \texttt{bash -e}, aborted the
+job on the first nonzero status --- contradicting that job's own comment that
+document-gates is the verdict and captures must not fail. A-58 did not
+introduce the classification; A-55 did. The UTF-8 follow-up failed the same
+way.
+
+\paragraph{What was refused.}
+Putting jax/numpyro on the document job fights A-55's ``seconds, not behind
+the heavy stack''. Skipping clause evaluation when the stack is absent is an
+unreached guard (A-27). Thinning \texttt{config}'s import graph so CI can
+import clauses without numpyro is a production change for a CI convenience.
+
+\paragraph{What moved.}
+The sweep runs on the conda suite job, after the interpreter check and before
+pytest, with \texttt{JAX\_PLATFORM\_NAME=cpu}. A missing numpyro exits
+nonzero with an A-59 message rather than the original traceback. The captures
+loop uses \texttt{set +e} and no longer includes the ASCII sweep: a
+bare-Python capture of it would record the missing stack, not the gate.
+
+\paragraph{Gate profile of this commit.}
+Instruments, workflow and documentation only; no production or test path, so
+\textbf{pins and both suite lanes are NOT RUN} locally, with that enumeration
+as the reason. The hosted run of this workflow is the verification that the
+sweep now executes on the declared environment. Register gates are run from
+the process and stated in the commit body.
 
 \end{document}

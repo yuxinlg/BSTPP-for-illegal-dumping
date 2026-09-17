@@ -15,7 +15,7 @@ as_of:
   branch: refactor
   commit: c4e069fca3018a7471c824d8bb26e25724943a29
   commit_short: c4e069f
-  register_tip: A-58 / D-63
+  register_tip: A-59 / D-63
   # Evidence baseline (`commit` above) and adoption commit are deliberately
   # distinct fields. `commit` is the tip every claim in this file was verified
   # against and is never rewritten. `adopted_at_commit` names the A-54
@@ -26,7 +26,7 @@ as_of:
   adopted_at_commit: 6072a194d67f1b45a4fbb4bd122b2badc1e8ca99
   adopted_at_commit_short: 6072a19
   next_free_ids:
-    amendment: A-59
+    amendment: A-60
     decision: D-64
     config_invariant: CI-11
     open_item: OP-33
@@ -734,7 +734,7 @@ known_tooling_debt:
   # Nonblocking. Recorded here, not as an amendment or an OP number: this is
   # instance eight of the apparatus class enumerated at seven, and under the
   # execution protocol a further instance of an already-named class becomes a
-  # census row rather than a new number. Next free remains A-59, D-64, CI-11,
+  # census row rather than a new number. Next free remains A-60, D-64, CI-11,
   # OP-33.
   - id: a46-capture-population-had-no-main
     state: closed

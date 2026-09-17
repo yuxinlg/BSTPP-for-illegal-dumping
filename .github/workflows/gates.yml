@@ -38,6 +38,26 @@
 # commit body.
 # ---------------------------------------------------------------------------
 #
+# WHERE THE ASCII SWEEP RUNS, AND WHY IT IS NOT ON document-gates (A-59).
+#
+# Clause evaluation imports bstpp.config, which imports cutoffs (numpyro) and
+# polygon_mass (jax). Three alternatives were refused:
+#
+#   putting jax/numpyro on the document job fights A-55's "seconds, not
+#     behind the heavy stack"
+#   skipping clause evaluation when the stack is absent is an unreached
+#     guard (A-27)
+#   thinning config's import graph so CI can import clauses without numpyro
+#     is a production change for a CI convenience
+#
+# So the sweep belongs on the declared conda job. D-63 still holds: the gate
+# runs in CI; the pin battery stays the one declared manual gate. The
+# captures job records EXIT of the stdlib document gates and must not fail
+# the workflow -- document-gates is that verdict, and ASCII is not in that
+# loop because a bare-Python capture of it would record the missing stack,
+# not the gate.
+# ---------------------------------------------------------------------------
+#
 # WHAT THIS FILE DOES NOT RUN, ON PURPOSE.
 #
 #   A generated work-package status page. D-53 makes
@@ -62,7 +82,8 @@ jobs:
   document-gates:
     # The register and documentation gates need the standard library, git, and
     # (for the manifest) PyYAML. They are seconds, so they are not behind the
-    # heavy stack.
+    # heavy stack. They do not import bstpp. The ASCII sweep is not in this
+    # job: clause evaluation needs numpyro/jax (A-59).
     name: register and document gates
     runs-on: ubuntu-latest
     steps:
@@ -85,9 +106,6 @@ jobs:
 
       - name: label sweep
         run: python tools/gates/_a30_label_check.py
-
-      - name: ASCII sweep
-        run: python tools/gates/_a26_ascii_sweep.py
 
       - name: unreachable-citation sweep
         run: python tools/gates/_a25_citation_sweep.py
@@ -179,6 +197,15 @@ jobs:
         run: |
           python -c "import sys, bstpp; print(sys.version); print('bstpp:', bstpp.__file__)"
 
+      - name: ASCII sweep
+        # Clause evaluation imports bstpp.config (numpyro via cutoffs, jax via
+        # polygon_mass). A-59: this is a package-importing gate, not a stdlib
+        # document gate. JAX_PLATFORM_NAME=cpu matches the fast lane.
+        shell: bash -el {0}
+        env:
+          JAX_PLATFORM_NAME: cpu
+        run: python tools/gates/_a26_ascii_sweep.py
+
       - name: fast lane
         shell: bash -el {0}
         env:
@@ -205,10 +232,16 @@ jobs:
         # pipeline's -- `$?` after a `| tail` is tail's (D-41 clause 4). The
         # job does not fail here; document-gates above is the verdict. This
         # exists so the artifacts are readable when something goes red.
+        # `set +e` is required: the runner's default is `bash -e`, which
+        # aborted the job on the first red gate and contradicted the comment
+        # above (A-59). ASCII is not in this loop: a bare-Python capture of
+        # it would record the missing stack, not the gate; the suite job is
+        # that verdict.
         run: |
+          set +e
           mkdir -p ci-captures
           for g in _c1_hypertarget_check _a25_content_checks _a30_label_check \
-                   _a26_ascii_sweep _a25_citation_sweep _a52_apparatus_checks; do
+                   _a25_citation_sweep _a52_apparatus_checks; do
             python "tools/gates/$g.py" > "ci-captures/$g.txt" 2>&1
             echo "GATE $g EXIT:$?" >> ci-captures/summary.txt
           done

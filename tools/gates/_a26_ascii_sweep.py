@@ -29,11 +29,19 @@ the constant chunks of f-strings -- 176 of 183 sites at 426d60a, 96%. Both
 figures are reproduced by `--census`. The gap was never 114 unseen literals;
 it was that clause and remediation text are evaluated NOWHERE, which is what
 this extension fixes.
+
+------------------------------------------------------------------ A-59 -----
+Clause evaluation imports ``bstpp.config``, which imports ``cutoffs``
+(numpyro) and ``polygon_mass`` (jax). This gate therefore belongs on the
+declared conda environment, not on the stdlib document-gates job. Skipping
+the evaluation when the stack is absent would be an unreached guard
+(A-27); the import must succeed or the process must exit nonzero.
 """
 from __future__ import annotations
 
 import argparse
 import ast
+import importlib.util
 import inspect
 import sys
 import unicodedata
@@ -182,6 +190,8 @@ def evaluate_clauses():
     not a hard-coded list, so a clause added for a future config is covered on
     the day it lands rather than the day someone remembers this file.
     """
+    _require_runtime_stack()
+
     from bstpp import config as cfg
 
     names = sorted(n for n in dir(cfg) if n.endswith("_invariant_clause"))
@@ -230,11 +240,21 @@ def evaluate_clauses():
     return results, unevaluated, propagating
 
 
+def _require_runtime_stack() -> None:
+    if importlib.util.find_spec("numpyro") is None:
+        raise SystemExit(
+            "A-59: ASCII clause evaluation imports bstpp.config, which "
+            "imports numpyro via cutoffs. Run this gate on the declared "
+            "conda environment (CI: suite job), not on bare Python."
+        )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--census", action="store_true",
                     help="also print the two raise-site count definitions")
     args = ap.parse_args()
+    _require_runtime_stack()
 
     root = REPO / "bstpp"
     files = sorted(root.rglob("*.py"))
