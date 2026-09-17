@@ -4,9 +4,10 @@
 #   conda activate illegal-dumping
 #
 # SCOPE. This file reproduces the DEVELOPMENT environment: the runtime stack
-# plus the geometry stack, pytest, and ruff. The package's own install_requires
-# lives in requirements-runtime.txt and is consumed by setup.py; this file does
-# not replace it, and the two must not drift.
+# plus the geometry stack, pytest, and ruff. The package's own runtime pins
+# live in requirements-runtime.txt and are consumed through pyproject.toml's
+# dynamic dependencies; this file does not replace them, and the two must not
+# drift.
 #
 # VERSIONS ARE THE MEASURED ONES, not a wish list. Every pin below was read from
 # the working environment with importlib.metadata (recorded 2026-09-15), so a
@@ -32,10 +33,11 @@
 # reproducible; it does not make pin_check_v2.py output portable. Always
 # baseline and compare pins on the same machine (D-27 / A-11).
 #
-# rasterio is MEASURED at 1.4.4. requirements.txt currently pins rasterio<1.4
-# with a comment that names 1.5 as the version requiring numpy>=2, so the pin
-# and its stated reason disagree, and this file records what every measurement
-# in this repository was taken under. The pin is not silently widened here.
+# rasterio is MEASURED at 1.4.4. A-57 closed the A-55 disagreement by widening
+# requirements.txt to rasterio<1.5, matching the constraint this comment always
+# stated (1.5 is the version that requires numpy>=2). 1.4.4 is still the
+# measured pin here; the extra is not frozen to a patch this checkout happened
+# to have.
 
 name: illegal-dumping
 

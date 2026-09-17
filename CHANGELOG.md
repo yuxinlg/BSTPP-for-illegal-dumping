@@ -21,17 +21,6 @@ states its limit -- they can compensate for a limit they can see.
 
 **No release has been cut from this fork.** Everything below is unreleased.
 
-## Distribution name and version are unresolved (OP-32)
-
-`setup.py` still declares `name='BSTPP'`, `version='0.1.3'` -- upstream's PyPI
-name and version, unchanged, on a fork carrying the breaking changes listed
-below. Publishing as-is would collide with upstream on PyPI and would announce
-a patch-level version for a set of changes that are not patch-level.
-
-A `[project]` table in `pyproject.toml` is the natural home for this metadata
-and **has deliberately not been added yet**, because `name` and `version` are
-mandatory in that table and both are open decisions. See OP-32 in the register.
-
 ## [Unreleased]
 
 ### Changed -- breaking
@@ -106,6 +95,9 @@ mandatory in that table and both are open decisions. See OP-32 in the register.
 
 ### Added
 
+- Distribution identity `bstpp-illegal-dumping` 0.1.0 in `pyproject.toml`
+  (`[project]`). The import package remains `bstpp`. Versioning restarts rather
+  than continuing upstream's 0.1.3 series. Closes OP-32.
 - `environment.yml` reproducing the development stack, pinned to the versions
   measured in the working environment (A-55).
 - Continuous integration for the machine-independent gates (D-63). The golden-pin
@@ -115,12 +107,14 @@ mandatory in that table and both are open decisions. See OP-32 in the register.
 - `CONTRIBUTING.md` for the change-class vocabulary, trailer format, and hook
   install.
 
+### Fixed
+
+- `requirements.txt` pins `rasterio<1.5`, matching the constraint its comment
+  always stated (rasterio>=1.5 needs numpy>=2). The working environment holds
+  1.4.4. The A-55 disagreement is closed.
+
 ### Known issues
 
-- **OP-32** -- distribution name and version are still upstream's (`BSTPP`
-  0.1.3) and must be resolved before publication.
-- **`requirements.txt` pins `rasterio<1.4` while the measured environment holds
-  1.4.4** (A-55). The pin's own comment names 1.5 as the constraint. Recorded,
-  not silently widened.
+- None currently tracked in this file. Open items live in the register.
 
 [Unreleased]: https://github.com/yuxinlg/BSTPP-for-illegal-dumping/commits/refactor

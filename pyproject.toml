@@ -1,6 +1,55 @@
 [build-system]
-requires = ['setuptools>=42']
+requires = ['setuptools>=61']
 build-backend = 'setuptools.build_meta'
+
+# Project metadata lives here rather than in setup.py's keyword arguments.
+# Once a [project] table exists setuptools treats it as AUTHORITATIVE, so the
+# same fields must not also be passed to setup(); setup.py is reduced to the
+# dynamic parts that this table cannot express.
+[project]
+# THE DISTRIBUTION NAME IS THE FORK'S, NOT UPSTREAM'S (OP-32, closed).
+# setup.py declared name='BSTPP', version='0.1.3' -- upstream's PyPI name and
+# version, unchanged, on a fork carrying breaking changes. Publishing that
+# would collide with upstream and announce a patch-level version for changes
+# that are not patch-level.
+#
+# The IMPORT package is still `bstpp` and does not change: `import bstpp`
+# keeps working, and only the name you install under is different.
+name = "bstpp-illegal-dumping"
+
+# Versioning restarts at 0.1.0 for the fork rather than continuing upstream's
+# series. Continuing it would imply a lineage of compatible releases that does
+# not exist -- see CHANGELOG.md for what differs.
+version = "0.1.0"
+
+description = "Bayesian spatiotemporal point processes, adapted for Philadelphia illegal-dumping analysis"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+
+# Attribution to the original author is retained because it is a fact about
+# where this code came from. Fork-specific authorship is not asserted here:
+# inventing a maintainer field is worse than leaving the upstream one accurate.
+authors = [{ name = "Isaac Manring", email = "isaacamanring@gmail.com" }]
+
+# requirements-runtime.txt stays the SINGLE OWNER of the runtime pins. Without
+# `dynamic`, this table would silently take over and setup.py's file-read
+# install_requires would stop reaching the wheel -- which
+# tests/test_packaging_runtime_metadata.py asserts directly.
+dynamic = ["dependencies"]
+
+[project.urls]
+Homepage = "https://github.com/yuxinlg/BSTPP-for-illegal-dumping"
+Upstream = "https://github.com/imanring/BSTPP"
+
+[tool.setuptools]
+packages = ["bstpp"]
+
+[tool.setuptools.package-data]
+bstpp = ["decoders/*", "data/*"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements-runtime.txt"] }
 
 [tool.ruff.lint.per-file-ignores]
 # E402 (import not at top of file) is REQUIRED by this file's mechanism, not

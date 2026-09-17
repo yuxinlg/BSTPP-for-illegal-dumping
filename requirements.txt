@@ -11,9 +11,17 @@ seaborn>=0.11
 # Notebook (cbg-park-seasonal) plotting dependencies:
 contextily>=1.3
 matplotlib-scalebar>=0.8
-# rasterio pinned <1.4: rasterio>=1.5 requires numpy>=2, which conflicts with
+# rasterio pinned <1.5: rasterio>=1.5 requires numpy>=2, which conflicts with
 # the numpy<2 pin above (forced by jax 0.4.23). Pulled in by contextily.
-rasterio<1.4
+#
+# The bound was <1.4 until A-57. That was tighter than the constraint this
+# comment states, by a full minor version, and the working environment has run
+# 1.4.4 against numpy 1.26.4 the whole time -- so the declared environment was
+# not the one any measurement in this repository was taken in. Widened to match
+# the stated reason rather than pinning 1.4.4, because the reason is the real
+# constraint and 1.4.x satisfies it. rasterio is imported by no module under
+# bstpp/.
+rasterio<1.5
 
 # Dev tooling: linter used for the refactor. Pure binary wheel, no Python deps,
 # so it does not interact with the numpy<2 / jax 0.4.23 pins above.

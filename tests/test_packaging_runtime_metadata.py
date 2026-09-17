@@ -40,14 +40,13 @@ def _req_key(req: str) -> tuple:
     return (r.name.lower(), specs)
 
 
-def _requires_dist_from_wheel(wheel_path: Path) -> list[str]:
+def _metadata_from_wheel(wheel_path: Path):
     import email
     with zipfile.ZipFile(wheel_path) as zf:
         metas = [n for n in zf.namelist() if n.endswith(".dist-info/METADATA")]
         assert len(metas) == 1, metas
         raw = zf.read(metas[0]).decode("utf-8")
-    parsed = email.message_from_string(raw)
-    return [v for k, v in parsed.items() if k.lower() == "requires-dist"]
+    return email.message_from_string(raw)
 
 
 def _build_wheel(dist_dir: Path) -> Path:
@@ -85,7 +84,13 @@ def _build_wheel(dist_dir: Path) -> Path:
 def test_wheel_requires_dist_contains_critical_runtime_pins():
     with tempfile.TemporaryDirectory() as td:
         wheel = _build_wheel(Path(td))
-        reqs = _requires_dist_from_wheel(wheel)
+        meta = _metadata_from_wheel(wheel)
+        # OP-32: the installable identity is the fork's, not upstream's
+        # BSTPP/0.1.3. The import package remains bstpp; only the name you
+        # install under changed.
+        assert meta.get("Name") == "bstpp-illegal-dumping", meta.get("Name")
+        assert meta.get("Version") == "0.1.0", meta.get("Version")
+        reqs = [v for k, v in meta.items() if k.lower() == "requires-dist"]
         got = {_req_key(r)[0]: _req_key(r) for r in reqs}
         for name, pin in CRITICAL.items():
             want = _req_key(pin)
