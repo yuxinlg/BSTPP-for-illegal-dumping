@@ -118,7 +118,7 @@
 \large \texttt{yuxinlg/\allowbreak{}BSTPP-for-illegal-dumping} --- \texttt{refactor}\\[2pt]
 \large Part I frozen at tip \texttt{476c2a0}; Part II append-only}
 \author{}
-\date{Part I: 2026-07-18. Part II: opened 2026-07-27, entries A-1--A-49\\ (corrections appended 2026-07-28 to A-5, A-12, A-15, A-17; pre-3f freeze A-21 on 2026-07-29; Phase 3f opened A-22/A-23 on 2026-08-04; through A-48 at tip \texttt{f40591e}; WP sequencing / gate coverage / termination adopted A-49 on 2026-08-06). \textbf{Current tip: through A-55 / D-63}, environment declaration and CI for machine-independent gates, 2026-09-16. \textbf{Next free: A-56, CI-11, OP-32}, the decision register standing at 63 rows, D-1 to D-63. The Phase~3f operational reset remains A-54, adopted 2026-08-07 against \texttt{c4e069f}. Current Phase 3f \emph{execution} state --- scope, status, dependencies, gate applicability, corrective-cycle counts and completion --- is held in \texttt{docs/phase3f\_completion\_manifest.yaml} under D-53; this register remains the append-only scientific and historical authority.}
+\date{Part I: 2026-07-18. Part II: opened 2026-07-27, entries A-1--A-49\\ (corrections appended 2026-07-28 to A-5, A-12, A-15, A-17; pre-3f freeze A-21 on 2026-07-29; Phase 3f opened A-22/A-23 on 2026-08-04; through A-48 at tip \texttt{f40591e}; WP sequencing / gate coverage / termination adopted A-49 on 2026-08-06). \textbf{Current tip: through A-56 / D-63}, change-class trailer enforced and changelog backfilled, 2026-09-16. \textbf{Next free: A-57, CI-11, OP-33}, the decision register standing at 63 rows, D-1 to D-63. The Phase~3f operational reset remains A-54, adopted 2026-08-07 against \texttt{c4e069f}. Current Phase 3f \emph{execution} state --- scope, status, dependencies, gate applicability, corrective-cycle counts and completion --- is held in \texttt{docs/phase3f\_completion\_manifest.yaml} under D-53; this register remains the append-only scientific and historical authority.}
 
 \begin{document}
 \maketitle
@@ -1970,6 +1970,7 @@ OP-8 & Exact commit removing legacy \texttt{args} & final 3f commit, after all c
 \amdnew{A-41} OP-28 & \textbf{\texttt{standardize\_cov='domain\_area'} is not a weighted version of \texttt{True}; it is a DIFFERENT ESTIMATOR}, and which one is intended is not established & say which estimator the package intends, and why; then either keep \texttt{'domain\_area'} with that reason recorded, or treat the population restriction as a defect and fix it & \textbf{Severity, in D-36's own terms: engages clause B1 --- it can change the likelihood event term --- and does so with a MEASURED magnitude, which is rarer than that clause's usual instances.} On \texttt{main}, \texttt{standardize\_cov=True} centres and scales each column over \emph{every} supplied covariate row; on \texttt{refactor}, \texttt{'domain\_area'} weights by the clipped \(|C_c \cap A|\), so rows with no domain mass drop out of the moments entirely. On the real Philadelphia layer with a park-box domain that is all 1338 block groups versus the handful inside the box --- \textbf{different populations, not different weights}. Measured (A-40): centre shift to \textbf{0.571} unweighted SD, scale ratios \textbf{0.135--1.223}, and \(\Delta\)\texttt{loglik} \textbf{1574.53 nats / 9.44\%} at identical latents. \textbf{Neither spelling raises.} \textbf{Which is intended is NOT ESTABLISHED}: the refactor made \texttt{'domain\_area'} the spelling, and nothing in this register says the population restriction was a deliberate modelling choice rather than a consequence of where the standardization moved when the covariate leg was extracted. \textbf{The two answers carry different severities} --- deliberate makes it a migration hazard of the recorded magnitude; not deliberate makes it a defect in the estimator, and the magnitude is then the size of the error. \amdnew{A-42} \textbf{Sharpened: the two branches are not symmetric, and the second carries a specific question.} \emph{If} it was deliberate, \texttt{'domain\_area'} must answer this: \textbf{it makes the design matrix a function of the domain}, so the same covariate column is standardized differently for every fitted site and \(w\) is not comparable across them. \textbf{Cross-site comparability is not a nicety in this codebase --- it is already the stated reason the spatial trigger must be isotropic in REAL units} (the constructor warns on degree-like domains because lon/lat makes an isotropic kernel anisotropic on the ground). Domain-dependent standardization breaks the same property one level up, at the covariates. \textbf{Consequently OP-28 blocks the district-wide and city-wide modes in a way it does not block park-level work}: a single-park fit is internally consistent whichever estimator is meant, while a multi-site or city-wide fit \textbf{inherits the incomparability silently} --- coefficients that look like a cross-site comparison and are not one. & carry it as a migration note and let the intended estimator stay unstated & a note is advisory; this changes what the model computes, and the unstated intent is what makes the magnitude uninterpretable & \textbf{escalated}; the intent question is \emph{not} resolved inside A-41 \amdnew{A-54} \textbf{CLOSED by A-54 (D-54).} The intent is settled and settled \emph{as the shipped behaviour}: the public accept set is exactly \texttt{None} (default/off) and explicit \texttt{standardize\_cov='domain\_area'}, booleans stay rejected, and \texttt{'domain\_area'} weights each row by its exact clipped domain mass with zero-area rows kept --- verified at \texttt{c4e069f} in \texttt{config.py}'s \texttt{validate\_standardize\_cov} and \texttt{preparation.py}'s \texttt{attach\_covariate\_partitions}, so \textbf{the decision requires no code change}. It is an in-package convenience for one fitted domain, \textbf{not a cross-site normalization scheme}: cross-site coefficient comparisons fix one reference distribution externally and pass \texttt{None}. \textbf{The A-40/A-41 measurement stands unreinterpreted} --- legacy \texttt{True} results and \texttt{'domain\_area'} results are not comparable and are never relabeled. \textbf{Closes declared gap G-B}, which makes the bind-time relocation BP for the accepted path. The district/city-wide qualification A-42 recorded is answered by the external-reference rule, not withdrawn \\
 \amdnew{A-40}\amdnew{A-41} OP-27 & \textbf{The two-owner class}, of which OP-19 and OP-26 are two members: a \emph{quantity} held in more than one place with no code reconciling the holders & one owner per quantity, or an explicit reconciliation that raises when the owners disagree & \amdnew{A-41} \textbf{The denominator's basis, stated (A-41).} The eleven below is the population of \textbf{config-anchored} two-owner quantities --- those with at least one owner that is a config field --- and it is \emph{complete over that population}. It is \textbf{not} the class denominator: quantities whose owners are \emph{both} outside the config classes are a second population, \textbf{known non-empty and unmeasured}. Non-empty by adjudication, not by heuristic: \texttt{preparation.T\_INTERNAL/S\_INTERNAL/S\_DAYS} name 50/24/365, and \texttt{main.py:338/339/365} write the same three quantities as \emph{bare literals} --- in a module that already imports \texttt{T\_INTERNAL} and uses it elsewhere --- with nothing comparing them. Unmeasured because with no config field in the pair, nothing in the source \emph{asserts} that two bindings are the same quantity, so ``same quantity'' is not decidable mechanically; a literal-matching heuristic returns 68 candidates of unknown precision (\texttt{DEFAULT\_TEMPORAL\_SCALE\_MULTIPLE} and \texttt{DEFAULT\_MAX\_SIGMA\_KM} are both 5.0 and unrelated), which is a candidate count and \textbf{a bound in neither direction}. \amdnew{A-42} \textbf{The closure path, stated so the class is not an open-ended search.} The general result behind the 68: \textbf{a literal's owner set is undecidable precisely because no machine-readable assertion binds it to a constant} --- which is the same fact that makes the config-anchored eleven decidable, seen from the other side. \texttt{create}'s \texttt{panel\_h\_m=DEFAULT\_PANEL\_H\_M} \emph{is} that assertion; a bare \texttt{50} at \texttt{main.py:338} is its absence. \textbf{So the remedy is not a better search --- it is a named binding.} A quantity acquires a decidable owner set the moment one exists, and that is exactly what \textbf{WP6's single-source work} produces. The config-external half therefore has a stated terminus rather than an unbounded audit: it shrinks and becomes measurable in the same motion, and no amount of scanning closes it first. \amdnew{A-42} \textbf{Three rows routed out:} the internal-unit literals go to \textbf{WP10} (\texttt{refactor-patches/\allowbreak{}phase3f/\allowbreak{}wp10\_args\_removal\_entry.md}) --- they are not the same object as the rest of the class, being a named constant against a bare literal with \emph{directional} coupling, one edit from a broken invariant. \textbf{Enumerated, not accumulated} --- per the OP-22 precedent, the class gets one number and the instances are its rows rather than OP-28, OP-29, \dots{} \textbf{Measured} (\texttt{refactor-patches/\allowbreak{}phase3f/wp2/\allowbreak{}probe\_a40\_two\_owner\_census.py}). Denominator: the fields of every \emph{landed} frozen config object, read from the class --- today \texttt{NumericalConfig}, \textbf{11 fields}. Of those, \textbf{3 SINGLE} (no second owner), \textbf{3 RECONCILED} (\texttt{\_\_post\_init\_\_} compares against the module constant and raises), \textbf{5 members}: \texttt{panel\_h\_m} and \texttt{gl\_order} \textbf{LIVE} (= OP-19), \texttt{default\_temporal\_tol} and \texttt{default\_spatial\_tol} \textbf{LATENT} (= OP-26), and \texttt{max\_panel\_to\_min\_sigma\_ratio} \textbf{LATENT} --- \textbf{the one member no prior amendment names}. The denominator \emph{grows} as WP2 and WP5 land their objects; that is why it is sized now. & keep opening a number per instance as each is noticed & the class is the finding; a per-instance ledger hides that they share one cause and one fix & \textbf{WP5} for the fixes; \textbf{WP2} adds rows to the census as its objects land \amdnew{A-54} \textbf{Unchanged by A-54: OPEN, routed to WP5.} A-54 opens no new OP number for this class and does not re-scope it; the manifest carries WP5's \texttt{scope} and the routing stands as recorded \\
 \amdnew{A-47} OP-31 & \textbf{The canonical pin comparison reports \texttt{PIN\_DIFFS 0 MATCH} while gating four of six configurations, and nothing forces the second invocation that gates the other two} & make the omission visible --- e.g.\ have \texttt{pin\_compare.py} fail, or say \texttt{UNGATED $n$}, when the candidate carries keys the baseline does not & \textbf{The residue of the expiry, and the part re-declaring the baseline does NOT fix.} Two eras now exist, so a candidate compared against the 2026-07 file has its two polygon keys reported \texttt{NEW IN CANDIDATE}, and the walker counts a new key as \emph{no diff}: the verdict line reads \texttt{PIN\_DIFFS 0 MATCH \dots{} canonical} and is \textbf{true of what it compared and silent on the polygon regime} --- the exact silence OP-24 was opened to remove, displaced one level from ``no polygon pin exists'' to ``a polygon pin exists and the default invocation does not read it''. \textbf{What is already in place, so the gap is stated at its real size}: the verdict line and the \texttt{PIN\_PROVENANCE} block name the baseline path, its \texttt{sha256}, and \texttt{CANONICAL} versus \texttt{NON-CANONICAL}, so no \emph{existing} artifact is ambiguous about which file it read --- a reader who checks can always tell. \textbf{What is missing is that nothing makes them check}, and a gate line copied from any pre-A-47 runbook is now a four-of-six gate that announces itself as a match. & let the two-invocation rule live in \texttt{AGENTS.md} and the WP5 entry alone & that is precisely the ``documented, unenforced'' shape D-45 and OP-30 already record once each; a third instance in the same round is a pattern, not an oversight & \amdnew{A-48} \textbf{CLOSED by A-48}, one commit after it was opened and by the narrow repair named in the remedy column. Every verdict line now carries \texttt{compared=$n$/$m$}, \texttt{candidate\_only=[\dots]} and \texttt{baseline\_only=[\dots]}, and \texttt{MATCH} is reserved for a comparison covering the whole union --- the canonical run of a six-configuration candidate reads \texttt{PIN\_DIFFS 0 PARTIAL compared=4/6} and names both polygon keys \emph{in the line a runbook greps}. \textbf{Exit status deliberately unchanged}: a re-baseline is a legitimate declared event, and a nonzero exit would leave a per-commit gate red forever, which is the failure A-47 had to undo one gate over. \textbf{The mirror hole closed with it} --- a configuration the baseline pins and the candidate stops emitting was equally counted as no diff, and is now named in \texttt{baseline\_only}. \textbf{This did not require an apparatus round}: the cap forbids re-auditing settled counts, not repairing an instrument known to misreport going forward \\
+\amdnew{A-56} OP-32 & \textbf{Distribution name and version are still upstream's} (\texttt{BSTPP} / \texttt{0.1.3}) on a fork that already carries breaking changes relative to that name and version & pick a fork distribution name and a version that does not claim a patch-level lineage from upstream, and move the static metadata into \texttt{pyproject.toml}'s \texttt{[project]} table & \textbf{Opened at A-56 rather than filled in the same commit} because \texttt{name} and \texttt{version} are mandatory in that table, and once the table exists setuptools treats it as authoritative --- so \texttt{install\_requires} read from \texttt{requirements-runtime.txt} stops reaching the wheel unless \texttt{dynamic} is declared. That is packaging-metadata subject matter and owes the packaging slow test; it cannot ride inside a documentation-profile commit. The import package remains \texttt{bstpp} either way. & keep publishing as \texttt{BSTPP} \texttt{0.1.3} & a PyPI collision with upstream, and a patch-level version for changes that are not patch-level & before any publication; not a Phase~3f production blocker \\
 \amdnew{A-46} OP-30 & \textbf{D-46's routing is a convention, not a mechanically enforced invariant}: nothing stops a future red capture being written to \texttt{results/} instead of the capture root, and one that is lands back inside the census population & make the routing checkable --- for instance pin the set of signature-bearing files outside the capture root, so a new one is a failure rather than a silent population change & \textbf{Stated at adoption rather than discovered later.} The exclusion itself is verified and mutation-tested (\texttt{results/\allowbreak{}\_a46\_exclusion\_discrimination.py}, check~1), so \emph{captures that go to the declared path} are provably out of the population. What is unverified is that captures \emph{go there}. \textbf{The gap is narrow and its shape is known}: it can only be entered by writing a capture to the wrong place, and its effect is bounded by what the census counts --- a red capture outside the root is the one thing that can still move the C2 verdict. \textbf{Recorded because an unenforced rule that reads as enforced is the class this repository keeps correcting}, and D-46 would otherwise read as the stronger claim. & leave the convention undeclared and let ``stationary by construction'' stand unqualified & the phrase would then be true of the instrument and false of the practice, which is the A-27 unreached-guard shape one level up & \textbf{carried as a declared limit} --- no work package. Enforcing it is an apparatus change and \textbf{the seven-round cap (A-44) forbids one}; it is available to whichever package next has reason to touch the census \\
 \end{longtable}
 \end{landscape}
@@ -4521,5 +4522,102 @@ as the reason. The first hosted run of this workflow is the verification that
 the stack installs on a Linux runner; every prior measurement in this
 repository was taken on Windows. Register gates are run from the process and
 stated in the commit body.
+
+\hypertarget{a-56}{%
+\subsection{A-56 --- The change class enforced, and the vocabulary it was nearly
+enforced against}\label{a-56}}
+
+\textbf{Opened} 2026-09-16. \textbf{Class} \textbf{IV/DOC} --- one hook with its
+two-way discrimination, one changelog, the agent-entrypoint vocabulary widened
+from five classes to the six the register uses; \textbf{no file under
+\texttt{bstpp/} or \texttt{tests/} is touched, and \texttt{pyproject.toml} and
+\texttt{setup.py} are untouched}. \textbf{Opens} OP-32. \textbf{Establishes no
+decision} --- the count stays at \textbf{D-63}.
+
+\paragraph{The hook was nearly built to enforce a vocabulary the register does not use.}
+It was written from the \textbf{five} classes the agent entrypoint summarised
+--- BP, CF, SC, IV, DOC. \textbf{The register uses six.} The missing class is
+\texttt{API}, and A-45 --- \texttt{SC/API} --- would have been rejected by the
+hook meant to enforce the convention A-45 followed. \textbf{A summary is a
+second owner of what it summarises}, and the failure mode is not that it is
+wrong but that it is \emph{authoritative-looking and narrower} --- the same
+class A-55 refused when it refused a generated work-package status page.
+\textbf{The order is also free} --- both \texttt{IV/DOC} and \texttt{DOC/IV}
+occur --- and a hook constraining it would have been a second silent rejection.
+\texttt{API} and the reversed order are each pinned as their own accepting case,
+so the vocabulary cannot be narrowed back without a red. \texttt{AGENTS.md}'s
+parenthetical list is widened in this commit to include \texttt{API}; that is
+the summary being corrected, not a second vocabulary.
+
+\paragraph{What the hook rejects, what it only warns about, and why that line is where it is.}
+\texttt{Change-Class} is \textbf{rejected} when missing or misspelled.
+\texttt{Gate-Lane} and \texttt{Pins} are \textbf{warned} about and not rejected,
+because their correct value depends on what the commit touched and a hook cannot
+see that without becoming a second, worse copy of the gate-profile rules ---
+\textbf{the two-owner class (OP-27), one file further out}. Warning where it
+cannot check is honest; rejecting on a guess would teach \texttt{--no-verify},
+which disables the part that works. Merge, revert, \texttt{fixup!} and
+\texttt{squash!} messages are exempt \textbf{by the shape of the generated
+message rather than by a flag}, so the exemption cannot be borrowed by a
+hand-written commit that would rather not declare a class.
+
+\paragraph{Discrimination, and then the same thing again on the path that matters.}
+\textbf{18 cases, both directions}, at
+\texttt{refactor-patches/captures/a56\_hook\_selftest.txt}: six rejected (no
+trailer, class outside the vocabulary, lowercase trailer name, class in the
+subject line only --- \emph{the old convention} --- class inside a comment line,
+compound with one invalid half) and twelve accepted. \textbf{But the self-test
+invokes the hook directly, which shows the logic is right and says nothing
+about whether git calls it} --- A-27's finding, which is about a guard nothing
+reaches. So it is driven through \texttt{git commit} as well
+(\texttt{refactor-patches/captures/a56\_hook\_real\_path.txt}): a real
+untrailered commit in this repository \textbf{\texttt{EXIT:1}} with
+\textbf{HEAD unmoved}, and a real trailered commit in a scratch repository
+\textbf{\texttt{EXIT:0}} with the commit landed, the same scratch repository
+then rejecting an untrailered one. \textbf{The accepting half is not
+demonstrated with \texttt{git commit --dry-run}}: \texttt{--dry-run} does not
+invoke \texttt{commit-msg} at all, so its \texttt{EXIT:0} would have shown the
+hook \emph{was never called} and would have been read as the hook approving.
+\textbf{A capture that cannot distinguish ``passed'' from ``never ran'' is
+non-discriminating by construction} (D-41 clause 3).
+
+\paragraph{The changelog is backfilled and says so, which is the only honest way to write it.}
+\texttt{CHANGELOG.md} records the breaking changes against upstream identified
+from the register and verified against the source --- including
+\texttt{standardize\_cov} boolean rejection, \texttt{'domain\_area'} as a
+different estimator with its measured magnitude (intent settled at D-54, not
+left open), CI-7/CI-8 argument types, the two builder sites moving from
+\texttt{TypeError} to \texttt{NumericalConfigError}, the real-unit spatial
+trigger with no default \texttt{sigmax\_2} prior, polygon mode's hard-required
+mass table, and \texttt{cox\_background} becoming a bool at A-50.
+\textbf{Its completeness is explicitly not asserted}, and the reason is
+measurable: \textbf{the register contains no ``breaking change'' label}, so
+there was no list to transcribe. \textbf{A floor, not a census}, stated in the
+file itself.
+
+\paragraph{The \texttt{[project]} table is not added, and the reason is not caution.}
+\textbf{\texttt{name} and \texttt{version} are mandatory in that table}, and
+both are open decisions --- so adding one either re-asserts upstream's
+\texttt{BSTPP}/\texttt{0.1.3} in a file \emph{more} authoritative than
+\texttt{setup.py}, or picks values that are not this commit's to pick.
+\textbf{A second hazard is independent of the first}: once \texttt{[project]}
+exists setuptools treats it as authoritative, and \texttt{install\_requires}
+read from \texttt{requirements-runtime.txt} stops reaching the wheel unless
+\texttt{dynamic} is declared --- which
+\texttt{tests/test\_packaging\_runtime\_metadata.py} asserts directly.
+\textbf{That makes it packaging-metadata subject matter, owing the packaging
+slow test}, and it therefore cannot ride inside a documentation-profile commit.
+Opened as \textbf{OP-32} with both the decision and the technical shape of the
+migration recorded, so the next attempt starts from the constraint rather than
+rediscovering it.
+
+\paragraph{Gate profile of this commit.}
+Documentation and instrument only; no path in the diff is read by any production
+gate, and \texttt{bstpp/}, \texttt{tests/}, \texttt{pyproject.toml},
+\texttt{setup.py}, \texttt{requirements*.txt} and both baselines are untouched,
+so \textbf{pins and both suite lanes are NOT RUN} with that enumeration as the
+reason. Hook self-test \textbf{18/18}; real-path demonstration
+\textbf{\texttt{EXIT:1}} rejecting and \textbf{\texttt{EXIT:0}} accepting.
+Register gates green, each status from the process.
 
 \end{document}

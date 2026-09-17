@@ -1,0 +1,105 @@
+#!/bin/sh
+#
+# commit-msg hook: every commit declares its change class.
+#
+# WHY THIS IS A HOOK AND NOT A CONVENTION. The change class has been required
+# since before Phase 3f and lived only in prose, so it was carried in the
+# subject line in whatever shape each series happened to use. The register's
+# amendments key off it. A requirement that is documented and unenforced is the
+# shape OP-30, OP-31 and D-45 each record once, and a third instance is a
+# pattern rather than an oversight -- so this one is enforced.
+#
+# WHAT IS HARD AND WHAT IS ADVISORY. Change-Class is REJECTED when missing or
+# misspelled. Gate-Lane and Pins are WARNED about, not rejected, because their
+# correct value depends on what the commit touched and a hook cannot see that
+# without becoming a second, worse copy of the gate profile rules. Warning
+# where we cannot check is honest; rejecting on a guess would train people to
+# pass --no-verify, which disables the part that does work.
+#
+# INSTALL (once per clone; git config is local and hooks are not cloned):
+#
+#     git config core.hooksPath tools/hooks
+#
+# This points git at the tracked directory rather than copying into
+# .git/hooks, so the hook is version-controlled and one command out of date is
+# visible in a diff instead of invisible in a clone.
+#
+# SELF-TEST:
+#
+#     tools/hooks/test_commit_msg.sh
+#
+set -eu
+
+MSG_FILE="$1"
+
+# Strip comment lines git adds to the template; they are not part of the
+# message and a Change-Class inside one must not count.
+BODY=$(grep -v '^#' "$MSG_FILE" || true)
+
+# The vocabulary is closed, and it has SIX members. A class is one token, or
+# several joined by "/" for a commit that genuinely does two things; both
+# IV/DOC and DOC/IV occur in the register, so order is not constrained.
+#
+#   BP   behaviour-preserving
+#   CF   contract fix
+#   SC   semantic change
+#   API  accepted-input-surface change
+#   IV   verification infrastructure
+#   DOC  documentation
+#
+# API IS IN THE LIST BECAUSE IT IS IN USE. This hook was first written against
+# the five classes the agent entrypoint summarised, which would have rejected
+# A-45 -- classified SC/API -- as an invalid class. Measured from the register
+# instead: the missing class is API. The summary was the wrong source.
+CLASS_RE='^Change-Class:[ ]*(BP|CF|SC|API|IV|DOC)(/(BP|CF|SC|API|IV|DOC))*[ ]*$'
+
+# Merge, revert, fixup and squash commits carry a generated message that the
+# author did not write and cannot usefully classify. Exempt by SHAPE of the
+# message, not by a flag, so the exemption cannot be borrowed by a hand-written
+# commit that simply does not want to declare a class.
+case "$BODY" in
+  "Merge "*|"Revert "*|"fixup!"*|"squash!"*)
+    exit 0
+    ;;
+esac
+
+# An empty message aborts the commit anyway; say nothing and let git do it.
+if [ -z "$(printf '%s' "$BODY" | tr -d '[:space:]')" ]; then
+  exit 0
+fi
+
+if ! printf '%s\n' "$BODY" | grep -Eq "$CLASS_RE"; then
+  FOUND=$(printf '%s\n' "$BODY" | grep -i '^Change-Class:' || true)
+  echo "commit-msg: REJECTED -- no valid Change-Class trailer." >&2
+  echo >&2
+  if [ -n "$FOUND" ]; then
+    echo "  found:    $FOUND" >&2
+    echo "  problem:  not one of the six classes, or wrongly spelled." >&2
+  else
+    echo "  found:    no Change-Class line at all." >&2
+  fi
+  echo >&2
+  echo "  Add a trailer line to the END of the message:" >&2
+  echo >&2
+  echo "      Change-Class: BP | CF | SC | API | IV | DOC   (or IV/DOC)" >&2
+  echo "      Gate-Lane:    fast | full | none" >&2
+  echo "      Pins:         <both populations, or 'not run' with the reason>" >&2
+  echo >&2
+  echo "      BP   behaviour-preserving" >&2
+  echo "      CF   contract fix" >&2
+  echo "      SC   semantic change" >&2
+  echo "      API  accepted-input-surface change" >&2
+  echo "      IV   verification infrastructure" >&2
+  echo "      DOC  documentation" >&2
+  echo >&2
+  echo "  See CONTRIBUTING.md. The register's amendments key off this class." >&2
+  exit 1
+fi
+
+# Advisory only -- see the note at the top on why these do not reject.
+printf '%s\n' "$BODY" | grep -q '^Gate-Lane:' \
+  || echo "commit-msg: note -- no Gate-Lane trailer (fast | full | none)." >&2
+printf '%s\n' "$BODY" | grep -q '^Pins:' \
+  || echo "commit-msg: note -- no Pins trailer. A production commit needs BOTH pin populations." >&2
+
+exit 0

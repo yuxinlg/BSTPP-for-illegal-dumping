@@ -1,0 +1,46 @@
+A-56 -- commit-msg hook on the real commit path
+
+$ git config core.hooksPath
+tools/hooks
+
+warning: in the working copy of 'results/_a56_probe_scratch.txt', LF will be replaced by CRLF the next time Git touches it
+--- REJECT: a real 'git commit' with no Change-Class trailer ---
+    commit-msg: REJECTED -- no valid Change-Class trailer.
+    
+      found:    no Change-Class line at all.
+    
+      Add a trailer line to the END of the message:
+    
+          Change-Class: BP | CF | SC | API | IV | DOC   (or IV/DOC)
+          Gate-Lane:    fast | full | none
+          Pins:         <both populations, or 'not run' with the reason>
+    
+          BP   behaviour-preserving
+          CF   contract fix
+          SC   semantic change
+          API  accepted-input-surface change
+          IV   verification infrastructure
+          DOC  documentation
+    
+      See CONTRIBUTING.md. The register's amendments key off this class.
+    GIT COMMIT EXIT:1      (the git process's own status)
+
+HEAD before : 3dbc808
+HEAD after  : 3dbc808
+UNCHANGED -- the commit did not land.
+
+--- ACCEPT: a real commit, in a scratch repository, hook installed ---
+warning: in the working copy of 'f.txt', LF will be replaced by CRLF the next time Git touches it
+    git commit EXIT:0      (the git process's own status)
+    commits in scratch repo: 1   (1 = the commit landed)
+
+    and the SAME repo rejects the same change without the trailer:
+warning: in the working copy of 'g.txt', LF will be replaced by CRLF the next time Git touches it
+    git commit EXIT:1      (nonzero = rejected)
+    commits in scratch repo: 1   (still 1 = the second did not land)
+
+scratch removed; tracked working tree:
+     M .github/workflows/gates.yml
+     M AGENTS.md
+     M docs/phase3f_completion_manifest.yaml
+     M phase3_record.tex

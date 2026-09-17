@@ -1,0 +1,26 @@
+commit-msg hook discrimination
+
+-- must REJECT (exit 1) --
+PASS  exit=1  no trailer at all
+PASS  exit=1  class not in the vocabulary
+PASS  exit=1  lowercase trailer name (git trailers are case-sensitive)
+PASS  exit=1  class only in the subject, the old convention
+PASS  exit=1  class present only inside a comment line
+PASS  exit=1  compound class with one invalid half
+
+-- must ACCEPT (exit 0) --
+PASS  exit=0  single class
+PASS  exit=0  compound class
+PASS  exit=0  each of the six classes: CF
+PASS  exit=0  each of the six classes: SC
+PASS  exit=0  each of the six classes: DOC
+PASS  exit=0  API, the class the entrypoint summary omitted (A-45 is SC/API)
+PASS  exit=0  compound with API, as A-45 is classified
+PASS  exit=0  DOC/IV, the reversed order the register also uses
+PASS  exit=0  missing Gate-Lane and Pins are advisory, not fatal
+PASS  exit=0  merge commit is exempt by message shape
+PASS  exit=0  revert is exempt by message shape
+PASS  exit=0  fixup is exempt by message shape
+
+TOTAL pass=18 fail=0
+ALL CASES BEHAVE -- the hook rejects what it must and accepts what it must.

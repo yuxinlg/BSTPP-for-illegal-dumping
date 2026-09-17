@@ -109,6 +109,14 @@ jobs:
           print('MANIFEST_OK', len(wps), len(data.get('responsibility_coverage', {}).get('items', {})))
           "
 
+      - name: commit-msg hook discriminates
+        # The hook is opt-in per clone (`git config core.hooksPath tools/hooks`),
+        # so CI cannot assert that any given author has it installed. What it
+        # can assert is that the hook still rejects what it must and accepts
+        # what it must -- including the API class, whose omission would have
+        # rejected a commit the register already classifies SC/API.
+        run: sh tools/hooks/test_commit_msg.sh
+
   lint:
     name: ruff population
     runs-on: ubuntu-latest
