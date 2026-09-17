@@ -29,12 +29,16 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _path_aliases import repo_root  # noqa: E402
+
+REPO = str(repo_root())
 PY = sys.executable
 _RUN = dict(capture_output=True, text=True, encoding="utf-8", errors="replace")
 
-CHECKS = os.path.join("results", "_a52_apparatus_checks.py")
+CHECKS = os.path.join("tools", "gates", "_a52_apparatus_checks.py")
 
 
 def run(tree):
@@ -44,12 +48,17 @@ def run(tree):
 
 def _fixture(dst):
     """A minimal tree: the checks, the manifest, and the pinned gates."""
-    os.makedirs(os.path.join(dst, "results"), exist_ok=True)
+    os.makedirs(os.path.join(dst, "tools", "gates"), exist_ok=True)
     os.makedirs(os.path.join(dst, "refactor-patches"), exist_ok=True)
-    sys.path.insert(0, os.path.join(REPO, "results"))
+    sys.path.insert(0, os.path.join(REPO, "tools", "gates"))
     import importlib
     mod = importlib.import_module("_a52_apparatus_checks")
-    for rel in mod.GATE_INSTRUMENTS + [CHECKS.replace("\\", "/")]:
+    extras = [
+        CHECKS.replace("\\", "/"),
+        "tools/gates/_path_aliases.py",
+        "tools/gates/_a52_gate_manifest.json",
+    ]
+    for rel in list(mod.GATE_INSTRUMENTS) + extras:
         src = os.path.join(REPO, rel)
         if os.path.isfile(src):
             tgt = os.path.join(dst, rel)
@@ -90,7 +99,7 @@ def main() -> int:
         with tempfile.TemporaryDirectory() as tmp:
             tree = os.path.join(tmp, "t")
             _fixture(tree)
-            target = os.path.join(tree, "results", "_a26_ascii_sweep.py")
+            target = os.path.join(tree, "tools", "gates", "_a26_ascii_sweep.py")
 
             if kind == "edit_gate":
                 with open(target, "a", encoding="utf-8") as fh:
@@ -101,12 +110,12 @@ def main() -> int:
                 cf = os.path.join(tree, CHECKS)
                 with open(cf, encoding="utf-8") as fh:
                     src = fh.read()
-                extra = os.path.join(tree, "results", "_zz_new_gate.py")
+                extra = os.path.join(tree, "tools", "gates", "_zz_new_gate.py")
                 with open(extra, "w", encoding="utf-8") as fh:
                     fh.write("# a new gate nobody pinned\n")
-                src = src.replace('    "results/_a25_citation_sweep.py",',
-                                  '    "results/_zz_new_gate.py",\n'
-                                  '    "results/_a25_citation_sweep.py",', 1)
+                src = src.replace('    "tools/gates/_a25_citation_sweep.py",',
+                                  '    "tools/gates/_zz_new_gate.py",\n'
+                                  '    "tools/gates/_a25_citation_sweep.py",', 1)
                 with open(cf, "w", encoding="utf-8", newline="") as fh:
                     fh.write(src)
             elif kind == "bare_open":

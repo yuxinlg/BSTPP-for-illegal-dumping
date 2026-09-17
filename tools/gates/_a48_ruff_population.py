@@ -49,7 +49,10 @@ import sys
 import tempfile
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _path_aliases import repo_root  # noqa: E402
+
+REPO = repo_root()
 PY = sys.executable
 
 #: ruff colours its output even into a pipe, so the counts arrive wrapped in

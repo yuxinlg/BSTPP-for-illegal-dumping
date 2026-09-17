@@ -2,9 +2,13 @@
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
-text = Path("phase3_record.tex").read_text(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _path_aliases import repo_root  # noqa: E402
+
+text = (repo_root() / "phase3_record.tex").read_text(encoding="utf-8")
 # Part II amendment subsections begin at a-1 hypertarget
 start = text.find(r"\hypertarget{a-1}{%")
 if start < 0:

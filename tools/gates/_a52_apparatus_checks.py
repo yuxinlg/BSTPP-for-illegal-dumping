@@ -42,8 +42,8 @@ targeted fix already landed. What remains general is:
   changed.
 
 Usage:
-    python results/_a52_apparatus_checks.py            # verify
-    python results/_a52_apparatus_checks.py --update   # rewrite the manifest
+    python tools/gates/_a52_apparatus_checks.py            # verify
+    python tools/gates/_a52_apparatus_checks.py --update   # rewrite the manifest
 
 Exit 0 if both checks pass, 1 otherwise.
 """
@@ -54,23 +54,27 @@ import hashlib
 import json
 import os
 import sys
+from pathlib import Path
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MANIFEST = os.path.join(REPO, "results", "_a52_gate_manifest.json")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _path_aliases import repo_root  # noqa: E402
+
+REPO = str(repo_root())
+MANIFEST = os.path.join(REPO, "tools", "gates", "_a52_gate_manifest.json")
 
 #: The declared gate population. Named explicitly rather than globbed: a glob
 #: would silently adopt every new file in `results/`, and a population that
 #: grows without a decision is the defect this file exists to stop.
 GATE_INSTRUMENTS = [
-    "results/_a25_citation_sweep.py",
-    "results/_a25_content_checks.py",
-    "results/_a26_ascii_sweep.py",
-    "results/_a30_label_check.py",
-    "results/_a46_capture_population.py",
-    "results/_a46_exclusion_discrimination.py",
-    "results/_a48_ruff_population.py",
-    "results/_a51_anchor_census.py",
-    "results/_c1_hypertarget_check.py",
+    "tools/gates/_a25_citation_sweep.py",
+    "tools/gates/_a25_content_checks.py",
+    "tools/gates/_a26_ascii_sweep.py",
+    "tools/gates/_a30_label_check.py",
+    "tools/gates/_a46_capture_population.py",
+    "tools/gates/_a46_exclusion_discrimination.py",
+    "tools/gates/_a48_ruff_population.py",
+    "tools/gates/_a51_anchor_census.py",
+    "tools/gates/_c1_hypertarget_check.py",
     "refactor-patches/pin_compare.py",
     "refactor-patches/pin_corpus_identity.py",
     "refactor-patches/pin_check_v2.py",
@@ -78,7 +82,7 @@ GATE_INSTRUMENTS = [
 
 #: Document instruments that must open files with an explicit encoding. Same
 #: population as above minus the pin harness, which reads no documents.
-ENCODING_SCOPE = [p for p in GATE_INSTRUMENTS if p.startswith("results/")]
+ENCODING_SCOPE = [p for p in GATE_INSTRUMENTS if p.startswith("tools/gates/")]
 
 
 def sha256(path):

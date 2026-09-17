@@ -26,6 +26,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from _path_aliases import MOVED, resolve_alias  # noqa: E402
 from _a46_capture_population import (  # noqa: E402
     CAPTURE_ROOT,
     CITATION_SOURCE_PATHS,
@@ -103,6 +104,7 @@ def main() -> int:
     print()
 
     unresolved: list[tuple[str, str]] = []
+    aliased = 0
     for name, text in sources.items():
         cited = sorted(set(PATH_RE.findall(text)))
         missing = [p for p in cited if p not in tracked]
@@ -110,7 +112,19 @@ def main() -> int:
         print(f"    {len(cited)} path citations, {len(cited) - len(missing)} tracked, "
               f"{len(missing)} not tracked")
         for p in missing:
-            if p in ALLOWED:
+            # An alias resolves a citation whose target MOVED. The register is
+            # append-only, so a closed amendment keeps naming the old path
+            # forever and rewriting it is not available; the alias is what
+            # makes the citation reachable without editing the record. It is
+            # only honoured when the NEW path is tracked -- an alias pointing
+            # at nothing must fail exactly as the bare citation would, or the
+            # table becomes a way to launder an unreachable citation.
+            alias = resolve_alias(p)
+            if alias is not None and alias in tracked:
+                print(f"    ALIASED   {p}")
+                print(f"              now at: {alias}")
+                aliased += 1
+            elif p in ALLOWED:
                 print(f"    ALLOWED   {p}")
                 print(f"              reason: {ALLOWED[p]}")
             else:
@@ -124,7 +138,10 @@ def main() -> int:
         for name, p in unresolved:
             print(f"  {p}   (cited in {name})")
         return 1
-    print("PASS — every path citation is either tracked or an explicitly recorded exemption.")
+    print(f"ALIASES {aliased} citation(s) resolved through the moved-path table "
+          f"({len(MOVED)} entries).")
+    print("PASS - every path citation is tracked, aliased to a tracked path, "
+          "or an explicitly recorded exemption.")
     return 0
 
 

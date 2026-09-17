@@ -16,7 +16,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _path_aliases import repo_root  # noqa: E402
+
+REPO = repo_root()
 LABEL = re.compile(r'(?<![A-Za-z-])I[1-6]\b')
 
 # Files whose every I1-I6 was the CONFIG sequence: none may survive.

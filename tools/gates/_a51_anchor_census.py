@@ -49,8 +49,12 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _path_aliases import repo_root  # noqa: E402
+
+REPO = str(repo_root())
 
 #: The anchor token. Deliberately matched on the OPENING delimiter alone:
 #: `[[FILL]]`, `[[FILL: x]]` and a malformed `[[FILL: x]` must all count, or a

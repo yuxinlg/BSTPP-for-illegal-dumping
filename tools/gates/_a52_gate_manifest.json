@@ -1,0 +1,16 @@
+{
+  "gates": {
+    "tools/gates/_a25_citation_sweep.py": "596372fa685d6d8847a5bccf64926b85d88c4b6667baf8f2161da6b1977fee3f",
+    "tools/gates/_a25_content_checks.py": "136a811c8c0cbdd336ad5af58241c70521bdec8ed58e7dbb300e2a42e884a4c1",
+    "tools/gates/_a26_ascii_sweep.py": "d36be15649469d4b67f334ac8be9302c0c8aa058ef220b37de21fecb4ffc9fe8",
+    "tools/gates/_a30_label_check.py": "6509fa6c03383d3a3b1c5117b1fe2be080fbc27e509bf2edf774efb132c0c012",
+    "tools/gates/_a46_capture_population.py": "0a021cc5f0da2689507ac48b99d461ab857356085e7f99e31890b557c90ac8aa",
+    "tools/gates/_a46_exclusion_discrimination.py": "ee6cb3d384baed911bf57812a93d64719bdd35e4e6c6e865822af49526845eee",
+    "tools/gates/_a48_ruff_population.py": "d2ecc7d41c53a9e37e885632a8250f470694a4d517452565734b8ae69cce35ea",
+    "tools/gates/_a51_anchor_census.py": "8da479c98ef5aff36294a606cd4029acb9b01423945d4d3b9cfb43ea9d352c8f",
+    "tools/gates/_c1_hypertarget_check.py": "87b27da977cc66f01cc76e5c9e9ea0c1b1c0ebc6057969029e84d8f0b9a439e4",
+    "refactor-patches/pin_compare.py": "67fc07d552ad426d7b9acaff8e8be85642f32d6febf02e7145c7022984d245a2",
+    "refactor-patches/pin_corpus_identity.py": "a4d4af262eb3cedc4609ff121a0930adefa26f5183063b40a2fd47ca7cb824d3",
+    "refactor-patches/pin_check_v2.py": "4df104cb24b2f4bbef163a23cfaa96ae8af94365970bd55ea4ba112acf41e9ee"
+  }
+}

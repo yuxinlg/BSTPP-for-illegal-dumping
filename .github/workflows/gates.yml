@@ -78,22 +78,22 @@ jobs:
           python-version: "3.12"
 
       - name: hypertarget structural check
-        run: python results/_c1_hypertarget_check.py
+        run: python tools/gates/_c1_hypertarget_check.py
 
       - name: content and decision-monotonicity checks
-        run: python results/_a25_content_checks.py
+        run: python tools/gates/_a25_content_checks.py
 
       - name: label sweep
-        run: python results/_a30_label_check.py
+        run: python tools/gates/_a30_label_check.py
 
       - name: ASCII sweep
-        run: python results/_a26_ascii_sweep.py
+        run: python tools/gates/_a26_ascii_sweep.py
 
       - name: unreachable-citation sweep
-        run: python results/_a25_citation_sweep.py
+        run: python tools/gates/_a25_citation_sweep.py
 
       - name: apparatus checks A and B
-        run: python results/_a52_apparatus_checks.py
+        run: python tools/gates/_a52_apparatus_checks.py
 
       - name: install PyYAML at the pinned version
         run: python -m pip install --no-deps PyYAML==6.0.3
@@ -152,7 +152,7 @@ jobs:
             exit 0
           fi
           echo "declared population: $files"
-          python results/_a48_ruff_population.py $files
+          python tools/gates/_a48_ruff_population.py $files
 
   suite:
     name: fast lane
@@ -209,7 +209,7 @@ jobs:
           mkdir -p ci-captures
           for g in _c1_hypertarget_check _a25_content_checks _a30_label_check \
                    _a26_ascii_sweep _a25_citation_sweep _a52_apparatus_checks; do
-            python "results/$g.py" > "ci-captures/$g.txt" 2>&1
+            python "tools/gates/$g.py" > "ci-captures/$g.txt" 2>&1
             echo "GATE $g EXIT:$?" >> ci-captures/summary.txt
           done
           git status --porcelain >> ci-captures/summary.txt

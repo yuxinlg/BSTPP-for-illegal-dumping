@@ -31,9 +31,13 @@ structural \\hypertarget check cannot see:
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
-text = Path("phase3_record.tex").read_text(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _path_aliases import repo_root  # noqa: E402
+
+text = (repo_root() / "phase3_record.tex").read_text(encoding="utf-8")
 failures: list[str] = []
 known: list[str] = []
 
@@ -223,7 +227,7 @@ print(f"  4c cited-with-no-row      : "
       f"{[f'D-{n}' for n in undefined_d] or 'none'}")
 
 # 4d (D-44): a destination naming a work package must name one that has an entry.
-wp_dir = Path("refactor-patches/phase3f")
+wp_dir = repo_root() / "refactor-patches" / "phase3f"
 entries = set()
 if wp_dir.is_dir():
     for p in wp_dir.glob("wp*_*entry.md"):

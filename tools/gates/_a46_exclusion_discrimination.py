@@ -61,7 +61,7 @@ FIXTURE_SOURCE = "refactor-patches/phase3f/wp2/a45_red_capture.txt"
 #: sweep are the two classes D-46 names.
 CONSUMERS = (
     "refactor-patches/phase3f/wp2/probe_a42_gate_capability_census.py",
-    "results/_a25_citation_sweep.py",
+    "tools/gates/_a25_citation_sweep.py",
 )
 
 

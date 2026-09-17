@@ -41,8 +41,12 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _path_aliases import repo_root  # noqa: E402
+
+REPO = str(repo_root())
 PY = sys.executable
 
 _RUN = dict(capture_output=True, text=True, encoding="utf-8", errors="replace")
@@ -70,7 +74,7 @@ MUTATIONS = [
 
 def run_check(tree):
     """Run the content checks inside `tree`; return (exit_code, stdout)."""
-    out = subprocess.run([PY, os.path.join("results", "_a25_content_checks.py")],
+    out = subprocess.run([PY, os.path.join("tools", "gates", "_a25_content_checks.py")],
                          cwd=tree, **_RUN)
     return out.returncode, (out.stdout or "") + (out.stderr or "")
 
@@ -148,10 +152,11 @@ def _copy(src, dst):
     shutil.copy2(os.path.join(src, "docs", "wp_dependency_graph.md"),
                  os.path.join(dst, "docs"))
     shutil.copy2(os.path.join(src, "AGENTS.md"), dst)
-    os.makedirs(os.path.join(dst, "results"), exist_ok=True)
-    for f in ("_a25_content_checks.py", "_a51_anchor_census.py"):
-        shutil.copy2(os.path.join(src, "results", f),
-                     os.path.join(dst, "results"))
+    os.makedirs(os.path.join(dst, "tools", "gates"), exist_ok=True)
+    for f in ("_a25_content_checks.py", "_a51_anchor_census.py",
+              "_path_aliases.py"):
+        shutil.copy2(os.path.join(src, "tools", "gates", f),
+                     os.path.join(dst, "tools", "gates"))
     # The census derives its population from `git ls-files`, so the mutated
     # tree needs to be a repository or the population comes back empty and
     # every mutation passes vacuously.

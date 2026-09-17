@@ -57,9 +57,13 @@ Usage (as a library):
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _path_aliases import repo_root  # noqa: E402
+
+REPO = repo_root()
 
 #: The single declared path for captures preserved under D-45. Anything under
 #: it is outside every document-census population by construction.
