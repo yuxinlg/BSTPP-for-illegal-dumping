@@ -11,6 +11,6 @@
     "tools/gates/_c1_hypertarget_check.py": "87b27da977cc66f01cc76e5c9e9ea0c1b1c0ebc6057969029e84d8f0b9a439e4",
     "refactor-patches/pin_compare.py": "67fc07d552ad426d7b9acaff8e8be85642f32d6febf02e7145c7022984d245a2",
     "refactor-patches/pin_corpus_identity.py": "a4d4af262eb3cedc4609ff121a0930adefa26f5183063b40a2fd47ca7cb824d3",
-    "refactor-patches/pin_check_v2.py": "4df104cb24b2f4bbef163a23cfaa96ae8af94365970bd55ea4ba112acf41e9ee"
+    "refactor-patches/pin_check_v2.py": "f009c3d0ba8b8c1ac4a5419c6774fbb84201ca8e09ff06e1d9f8bbbbdfabce84"
   }
 }

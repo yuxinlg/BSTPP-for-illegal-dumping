@@ -86,11 +86,16 @@ ENCODING_SCOPE = [p for p in GATE_INSTRUMENTS if p.startswith("tools/gates/")]
 
 
 def sha256(path):
-    h = hashlib.sha256()
-    with open(os.path.join(REPO, path), "rb") as fh:
-        for chunk in iter(lambda: fh.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
+    """Hash canonical newlines, not the checkout.
+
+    Under core.autocrlf=true the working tree is CRLF and git stores LF.
+    Hashing the working tree as-is is a line-ending detector: A-55 recorded
+    that as a known local red, and pin_check_v2.py's pin matched Windows
+    and failed the first Linux run (A-60).
+    """
+    raw = Path(os.path.join(REPO, path)).read_bytes()
+    canonical = raw.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(canonical).hexdigest()
 
 
 def check_a(update=False):

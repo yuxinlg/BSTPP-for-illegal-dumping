@@ -118,7 +118,7 @@
 \large \texttt{yuxinlg/\allowbreak{}BSTPP-for-illegal-dumping} --- \texttt{refactor}\\[2pt]
 \large Part I frozen at tip \texttt{476c2a0}; Part II append-only}
 \author{}
-\date{Part I: 2026-07-18. Part II: opened 2026-07-27, entries A-1--A-49\\ (corrections appended 2026-07-28 to A-5, A-12, A-15, A-17; pre-3f freeze A-21 on 2026-07-29; Phase 3f opened A-22/A-23 on 2026-08-04; through A-48 at tip \texttt{f40591e}; WP sequencing / gate coverage / termination adopted A-49 on 2026-08-06). \textbf{Current tip: through A-59 / D-63}, ASCII sweep on the conda job, 2026-09-16. \textbf{Next free: A-60, CI-11, OP-33}, the decision register standing at 63 rows, D-1 to D-63. The Phase~3f operational reset remains A-54, adopted 2026-08-07 against \texttt{c4e069f}. Current Phase 3f \emph{execution} state --- scope, status, dependencies, gate applicability, corrective-cycle counts and completion --- is held in \texttt{docs/phase3f\_completion\_manifest.yaml} under D-53; this register remains the append-only scientific and historical authority.}
+\date{Part I: 2026-07-18. Part II: opened 2026-07-27, entries A-1--A-49\\ (corrections appended 2026-07-28 to A-5, A-12, A-15, A-17; pre-3f freeze A-21 on 2026-07-29; Phase 3f opened A-22/A-23 on 2026-08-04; through A-48 at tip \texttt{f40591e}; WP sequencing / gate coverage / termination adopted A-49 on 2026-08-06). \textbf{Current tip: through A-60 / D-63}, Check A hashes canonical newlines, 2026-09-16. \textbf{Next free: A-61, CI-11, OP-33}, the decision register standing at 63 rows, D-1 to D-63. The Phase~3f operational reset remains A-54, adopted 2026-08-07 against \texttt{c4e069f}. Current Phase 3f \emph{execution} state --- scope, status, dependencies, gate applicability, corrective-cycle counts and completion --- is held in \texttt{docs/phase3f\_completion\_manifest.yaml} under D-53; this register remains the append-only scientific and historical authority.}
 
 \begin{document}
 \maketitle
@@ -4771,5 +4771,39 @@ Instruments, workflow and documentation only; no production or test path, so
 as the reason. The hosted run of this workflow is the verification that the
 sweep now executes on the declared environment. Register gates are run from
 the process and stated in the commit body.
+
+\hypertarget{a-60}{%
+\subsection{A-60 --- Check A hashes canonical newlines, not the
+checkout}\label{a-60}}
+
+\textbf{Opened} 2026-09-16. \textbf{Class} \textbf{IV} --- the substrate pin
+and the one hash that was a working-tree hash; \textbf{no file under
+\texttt{bstpp/} or \texttt{tests/} is touched}. \textbf{Establishes no
+decision} --- the count stays at \textbf{D-63}.
+
+\paragraph{The first Linux measurement of Check A.}
+A-55 recorded Check A as a known local red under \texttt{core.autocrlf=true}
+and named Linux CI as the verdict. Until A-59 the document-gates job died
+before this step, so that verdict was never taken. Hosted run
+\texttt{35173230093} on \texttt{ed0bfc2} was the first: 11 of 12 pins matched;
+\texttt{refactor-patches/pin\_check\_v2.py} read
+\texttt{4df104cb24b2} $\to$ \texttt{f009c3d0ba8b}. That declared pin is the
+Windows working-tree hash (CRLF). Git stores LF. Linux hashed the blob.
+
+\paragraph{Hashing the working tree as-is is a line-ending detector.}
+The other eleven pins were already blob hashes, so the local red on those
+files and the Linux red on this one are the same defect with the sign
+flipped. Check A now hashes CRLF as LF (and a lone CR the same way).
+Uncommitted edits still redden; checkout line endings do not.
+The \texttt{pin\_check\_v2.py} pin is updated to the blob hash Linux
+observed. The discrimination fixture grows a \texttt{.git} marker so
+\texttt{repo\_root()} resolves to the fixture rather than exiting; without
+it the mutations would be red for free. Discrimination \textbf{4/4}.
+
+\paragraph{Gate profile of this commit.}
+Instruments and documentation only; no production or test path, so
+\textbf{pins and both suite lanes are NOT RUN} locally, with that enumeration
+as the reason. Register gates are run from the process. The hosted re-run is
+the verification that Check A now matches on Linux.
 
 \end{document}

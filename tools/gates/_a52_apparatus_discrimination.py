@@ -50,6 +50,9 @@ def _fixture(dst):
     """A minimal tree: the checks, the manifest, and the pinned gates."""
     os.makedirs(os.path.join(dst, "tools", "gates"), exist_ok=True)
     os.makedirs(os.path.join(dst, "refactor-patches"), exist_ok=True)
+    # repo_root() walks to .git. Without a marker the fixture is not a
+    # repository and the checks exit before they can discriminate (A-60).
+    os.makedirs(os.path.join(dst, ".git"), exist_ok=True)
     sys.path.insert(0, os.path.join(REPO, "tools", "gates"))
     import importlib
     mod = importlib.import_module("_a52_apparatus_checks")
