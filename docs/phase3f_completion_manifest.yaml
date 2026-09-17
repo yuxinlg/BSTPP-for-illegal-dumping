@@ -15,7 +15,7 @@ as_of:
   branch: refactor
   commit: c4e069fca3018a7471c824d8bb26e25724943a29
   commit_short: c4e069f
-  register_tip: A-53 / D-52
+  register_tip: A-55 / D-63
   # Evidence baseline (`commit` above) and adoption commit are deliberately
   # distinct fields. `commit` is the tip every claim in this file was verified
   # against and is never rewritten. `adopted_at_commit` names the A-54
@@ -26,8 +26,8 @@ as_of:
   adopted_at_commit: 6072a194d67f1b45a4fbb4bd122b2badc1e8ca99
   adopted_at_commit_short: 6072a19
   next_free_ids:
-    amendment: A-55
-    decision: D-63
+    amendment: A-56
+    decision: D-64
     config_invariant: CI-11
     open_item: OP-32
   evidence_basis:

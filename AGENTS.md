@@ -8,9 +8,11 @@ Fork of [imanring/BSTPP](https://github.com/imanring/BSTPP.git) — Bayesian spa
 
 ## Environment and commands
 
-The system Python has none of the dependencies. Use the conda env `illegal-dumping`:
+The system Python has none of the dependencies. Use the conda env `illegal-dumping`, reproduced by `environment.yml`:
 
 ```bash
+conda env create -f environment.yml   # once
+conda activate illegal-dumping
 PY="C:/Users/Terhi/miniconda3/envs/illegal-dumping/python.exe"   # numpyro 0.15.0, jax/jaxlib 0.4.23 (CPU), geopandas 1.1.3, numpy 1.26.4, scipy 1.11.4, shapely 2.1.2, pytest
 JAX_PLATFORM_NAME=cpu "$PY" -m pytest tests/ -q -m "not slow"    # FAST LANE, per-commit gate (~3m45s, 567 tests)
 JAX_PLATFORM_NAME=cpu "$PY" -m pytest tests/ -q                  # FULL suite, series boundaries (~28 min, 579 tests)
@@ -93,7 +95,7 @@ Gotchas: `run_svi(num_steps, lr, ...)` — `lr` is a required positional; pass `
 - **Corrective cap: three corrective cycles per work package** (**D-59**, amending D-50), tracked in the manifest's `corrective_cycles_used` and **never inferred from `WPn.m` labels**. A corrective cycle is a landed production implementation repaired because *its own declared exit gate* failed; planned commits, documentation updates and RED-to-GREEN completion of the same declared change are not cycles. **WP2 is grandfathered**, its historical count unrecoverable and deliberately not reconstructed, counter reset to zero.
 - **`bstpp.cox_hawkes_shared` is unsupported and excluded** (**D-58**): absent from the tracked package, not used by `cbg-park-seasonal`, no migration work, blocks nothing.
 - **The public surface is TWO classes** — `Hawkes_Model` and `LGCP_Model` — **and three configurations**. Cox–Hawkes is `Hawkes_Model(cox_background=True)`, not a third class; WP10 thins *two* classes and the end-to-end smokes cover *three* configurations.
-- **Next free: A-55, D-63, CI-11, OP-32.**
+- **Next free: A-56, D-64, CI-11, OP-32.** Machine-independent gates run in CI under **D-63**; the pin battery stays manual. The completion manifest remains the sole execution authority (**D-53**).
 
 > ⚠ **`Hawkes_Model`'s `cox_background` default changed TYPE at A-50**, from the string `'cox'` to `True` — the same model (both truthy, no pinned value moves), but **`cox_background='cox'` is now rejected**, so any snippet copied out of a pre-A-50 signature breaks loudly rather than quietly. Archived call sites under `refactor-patches/phase0/`, `phase1/`, `phase2b/` and the A-36/A-41 probes still pass the retired string and are **knowingly stale historical artifacts, not live instruments** — they are not rewritten, because a rewritten archive stops being evidence of what was measured.
 

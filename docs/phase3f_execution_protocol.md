@@ -186,7 +186,11 @@ Run only gates that cover the changed surface:
 4. document structure/citation gates **only if a file in their declared
    population changed** — those populations are `phase3_record.tex`,
    `docs/*.md`, and `AGENTS.md`. The manifest is YAML and is outside them; a
-   manifest-only edit runs the manifest validator alone;
+   manifest-only edit runs the manifest validator alone. **On push, the same
+   machine-independent gates also run in CI** (D-63): hypertarget, content,
+   label, ASCII, citation, apparatus, ruff population, manifest parse, and the
+   fast lane. The pin battery does not. CI does not generate a work-package
+   status page.
 5. targeted pins only if the changed code is reached by those pins.
 
 Every capture records the checked process's own exit status. Preserve a RED
