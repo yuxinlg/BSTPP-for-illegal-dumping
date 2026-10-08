@@ -132,6 +132,20 @@ Each needs a RED row before its fix (D-41). Box tests worth porting as rows:
   sweep historical placeholders; the autocrlf apparatus failure was pinned to
   `results/_a52_gate_manifest.json` with `git status --porcelain` empty.
 
+## Reconciled (same day)
+
+Local S1.0, S1.1 and this record were rebased onto `origin/refactor`
+(`b44795b`); S1.0/S1.1 replay patch-identical, and the pre-rebase tip is kept
+at `backup/refactor-pre-rebase-2026-10-08`. The renumbering commit that follows
+moves S1's closing amendment from A-55 to A-61 (manifest
+`s1_closes_under_a61`, which also registers the four remediation commits that
+no published amendment registered and records the `_a55_` prefix exception),
+and repoints `AGENTS.md`'s gate commands to `tools/gates/` — the first merge
+note above. The other merge notes, and every item under "Deferred", are still
+open, and none can be registered before A-61. S1.1 needs no `CHANGELOG.md`
+entry: it adds an `args` key and removes, renames or redefines none, which is
+the `CONTRIBUTING.md` trigger.
+
 ## Rejected, with reason
 
 - Guidance/record split, AGENTS.md → CONTRIBUTING.md + `docs/reference/*`,

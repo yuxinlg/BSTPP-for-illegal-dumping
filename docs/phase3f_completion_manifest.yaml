@@ -340,7 +340,7 @@ vertical_slices:
   S1_configuration_spine:
     status: in_progress
     opened_at: S1.0
-    closes_under_amendment: A-55
+    closes_under_amendment: A-61
     work_packages: [WP2, WP1, WP3]
     scope_declared: true
 
@@ -522,20 +522,30 @@ vertical_slices:
           BP classification win: a slice declared behaviour-preserving does not
           change a public failure mode in passing.
         routed_to: WP9
-      s1_closes_under_a55:
+      s1_closes_under_a61:
         decision: >-
-          S1 closes under amendment A-55, which also registers the four
-          post-A-54 remediation commits (1da6a60, 1b42897, c04c989, a72f5f4)
-          whose _a55_ gate-output prefix S1 inherits.
+          S1 closes under amendment A-61, which also registers the four
+          post-A-54 remediation commits (1da6a60, 1b42897, c04c989, a72f5f4).
+          Their nine _a55_ gate outputs, and S1.0/S1.1's _a55_s1_* outputs and
+          captures, keep their names and belong to A-61. S1 outputs written
+          from here on use the _a61_ prefix.
         basis: >-
           Protocol section 6.1 makes the gate-output prefix the amendment
-          number. Those four commits already wrote nine _a55_ artifacts, so S1
-          cannot take a different number without either renaming committed
-          evidence or opening a second amendment for one slice. Their detail is
-          in refactor-patches/phase3f/rebaseline_record_a54.md sections 11-13
-          and is cited by A-55, not restated.
-        next_free_after_a55: {amendment: A-56, decision: D-63,
-          config_invariant: CI-11, open_item: OP-32}
+          number. This decision was first recorded at S1.0 as
+          s1_closes_under_a55, when A-55 was next free. A-55..A-60 and D-63 were
+          then published on origin/refactor (0327b41..b44795b) from a divergent
+          copy of the repository, and none of them registers the four
+          remediation commits or any _a55_ artifact. S1.0/S1.1 were rebased onto
+          them, so S1 takes the next free number. Renaming committed evidence
+          to match is rejected for the reason the original decision gave, so
+          the _a55_ prefix is an exception to section 6.1 stated here rather
+          than corrected in the files: _a55_ outputs written before 0327b41
+          belong to A-61, never to A-55. The remediation commits' detail is in
+          refactor-patches/phase3f/rebaseline_record_a54.md sections 11-13 and
+          is cited by A-61, not restated. Divergence record:
+          refactor-patches/box_salvage_2026-10-08.md.
+        next_free_after_a61: {amendment: A-62, decision: D-64,
+          config_invariant: CI-11, open_item: OP-33}
 
     pin_reachability:
       # Qualitative, per protocol section 4. No ratio is recorded.
