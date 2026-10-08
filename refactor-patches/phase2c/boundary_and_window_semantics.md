@@ -1,5 +1,15 @@
 # Boundary, bounding-box, and window semantics: an inventory
 
+**Superseded by `docs/boundary_and_window_semantics.md`, which is verified
+against the REVISED Phase 2c tip (the real-unit trigger contract). Retained as
+the pre-revision inventory; do not read it as current.** The two diverge by 48
+insertions and 17 deletions, and nothing pointed from here to there, so a reader
+who opened this copy had its date and no way to know a later one existed. The
+config-matrix archive copy has carried the equivalent label since Commit D; this
+is the same treatment for the pair that lacked it. (Label salvaged from the
+divergent Box copy, Box commit `507418a`; see
+`refactor-patches/box_salvage_2026-10-08.md`.)
+
 Status: verified against the code at the Phase 2c tip. Purpose: Terhi's
 request to have the between-case differences in bounding-box handling
 "clearly listed" ahead of Phase 3. Each row states what the code does NOW;
